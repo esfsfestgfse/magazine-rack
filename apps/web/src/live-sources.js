@@ -410,7 +410,13 @@ async function fetchLocPage(shelf, page, options, search = false) {
     const range = dateRange(options);
     if (range.start) safeParams.set('start_date', range.start);
     if (range.end) safeParams.set('end_date', range.end);
-    data = await fetchJson(`${LOC_BASE}/collections/chronicling-america/?${safeParams}`, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
+    try {
+      data = await fetchJson(`${LOC_BASE}/collections/chronicling-america/?${safeParams}`, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
+    } catch (secondError) {
+      // Last-resort LOC search endpoint: it returns public catalog records
+      // without collection/facet routing at the edge.
+      data = await fetchJson(`${LOC_BASE}/search/?${new URLSearchParams({ fo: 'json', c: String(size), sp: String(page), q: query })}`, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
+    }
   }
   const docs = (data?.results || []).map((item) => mapLocDoc(item, search ? 'locsearch' : 'loc'));
   const pagination = data?.pagination || {};

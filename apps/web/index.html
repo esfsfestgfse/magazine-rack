@@ -2292,6 +2292,7 @@
       var res;
       try {
         res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) throw new Error('LOC HTTP ' + res.status);
       } catch (firstErr) {
         // LOC occasionally drops the browser connection for a state facet.
         // Retry the collection without the optional facet so a regional
@@ -2303,7 +2304,14 @@
           if (safeParts[0]) safeParams += '&start_date=' + encodeURIComponent(safeParts[0].slice(0, 10));
           if (safeParts[1]) safeParams += '&end_date=' + encodeURIComponent(safeParts[1].slice(0, 10));
         }
-        res = await fetch('https://www.loc.gov/collections/chronicling-america/?' + safeParams, { headers: { 'Accept': 'application/json' } });
+        try {
+          res = await fetch('https://www.loc.gov/collections/chronicling-america/?' + safeParams, { headers: { 'Accept': 'application/json' } });
+          if (!res.ok) throw new Error('LOC HTTP ' + res.status);
+        } catch (secondErr) {
+          // Last-resort LOC search endpoint: it returns the same public
+          // catalog records without collection/facet routing at the edge.
+          res = await fetch('https://www.loc.gov/search/?fo=json&c=' + ROWS_PER_PAGE + '&sp=' + page + '&q=' + encodeURIComponent(qs), { headers: { 'Accept': 'application/json' } });
+        }
       }
       if (!res.ok) throw new Error('LOC HTTP ' + res.status);
       var data = await res.json();
