@@ -1,0 +1,98 @@
+name: Deploy web to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Pages artifact
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          check-latest: false
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Require the public API URL
+        env:
+          API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
+        run: |
+          if [ -z "$API_BASE_URL" ]; then
+            echo "PUBLIC_API_BASE_URL repository variable is required." >&2
+            exit 1
+          fi
+          node --input-type=module <<'NODE'
+          const value = process.env.API_BASE_URL;
+          let parsed;
+          try { parsed = new URL(value); } catch { throw new Error('PUBLIC_API_BASE_URL must be a valid URL'); }
+          if (parsed.protocol !== 'https:' || parsed.pathname !== '/' || parsed.search || parsed.hash) {
+            throw new Error('PUBLIC_API_BASE_URL must be an origin using https://');
+          }
+          NODE
+
+      - name: Write artifact-only runtime configuration
+        env:
+          API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { writeFile } from 'node:fs/promises';
+          const value = process.env.API_BASE_URL;
+          await writeFile('apps/web/config.js', `window.MR_CONFIG = ${JSON.stringify({ apiBaseUrl: value })};\n`, 'utf8');
+          NODE
+
+      - name: Verify static entrypoint
+        run: |
+          for file in \
+            apps/web/index.html \
+            apps/web/config.js \
+            apps/web/manifest.json \
+            apps/web/icon.svg \
+            apps/web/sw.js \
+            apps/web/src/main.js \
+            apps/web/src/styles.css; do
+            test -s "$file" || { echo "Missing or empty Pages asset: $file" >&2; exit 1; }
+          done
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web
+
+  deploy:
+    name: Publish Pages artifact
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

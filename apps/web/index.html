@@ -1,0 +1,4309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#070a12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="Magazine Rack" />
+  <meta name="apple-mobile-web-app-title" content="Magazine Rack" />
+  <title>Magazine Rack</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Magazine%20Rack%22%2C%22short_name%22%3A%22MagRack%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23070a12%22%2C%22theme_color%22%3A%22%23070a12%22%2C%22description%22%3A%22Free%20magazines%20%26%20comics%20from%20public%20archives%22%7D" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%23070a12'/%3E%3Crect x='22' y='30' width='28' height='68' rx='4' fill='%235eead4'/%3E%3Crect x='54' y='22' width='24' height='84' rx='4' fill='%2338bdf8'/%3E%3Crect x='82' y='36' width='24' height='62' rx='4' fill='%23fbbf24'/%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg: #070a12;
+      --bg2: #0c101c;
+      --surface: #121826;
+      --surface2: #182033;
+      --card: #1a2234;
+      --text: #f4f7fb;
+      --muted: #8b97ad;
+      --faint: #5c6b84;
+      --accent: #5eead4;
+      --accent2: #38bdf8;
+      --accent-glow: rgba(94, 234, 212, 0.25);
+      --danger: #fb7185;
+      --wood: #4a3426;
+      --wood2: #2f2118;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 12px 40px rgba(0,0,0,0.45);
+      --radius: 16px;
+      --nav-h: 68px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html {
+      height: 100%;
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: auto;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.4;
+      min-height: 100%;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: auto;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(56,189,248,0.08), transparent 50%),
+        radial-gradient(900px 500px at 100% 0%, rgba(94,234,212,0.07), transparent 45%),
+        var(--bg);
+    }
+
+    /* HEADER */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 80;
+      padding: 12px 16px 10px;
+      background: rgba(7, 10, 18, 0.72);
+      backdrop-filter: blur(18px) saturate(1.4);
+      -webkit-backdrop-filter: blur(18px) saturate(1.4);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .logo {
+      font-size: 1.28rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      background: linear-gradient(120deg, #5eead4 0%, #67e8f9 45%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    #debug-btn, #random-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--faint);
+      font-size: 0.68rem;
+      padding: 6px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    #random-btn, #wall-btn, #racks-btn {
+      color: var(--accent);
+      border-color: rgba(94,234,212,0.35);
+      background: rgba(94,234,212,0.08);
+    }
+    #wall-btn.active, #racks-btn.active {
+      background: rgba(94,234,212,0.2);
+      color: #fff;
+    }
+
+    /* Cover-wall mode: dense grid instead of horizontal shelves */
+    body.wall-mode .shelf-track {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+      overflow-x: visible;
+      overflow-y: visible;
+      scroll-snap-type: none;
+      gap: 12px 10px;
+      padding: 8px 16px 16px;
+      align-items: start;
+    }
+    body.wall-mode .shelf-base { display: none; }
+    body.wall-mode .cover-card,
+    body.wall-mode .cover-card {
+      flex: none;
+      width: 100%;
+      min-width: 0;
+    }
+    body.wall-mode .cover-img-wrap {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 3/4;
+    }
+    body.wall-mode .cover-title { max-width: none; }
+    body.wall-mode .load-more-card {
+      width: 100%;
+      min-width: 0;
+      height: auto;
+      aspect-ratio: 3/4;
+    }
+    body.wall-mode .shelf.is-hidden-rack { display: none !important; }
+
+    .shelf.is-hidden-rack { display: none !important; }
+    .shelf.is-filtered-rack { display: none !important; }
+
+    .shelf-pin {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .shelf-pin.pinned {
+      color: var(--accent);
+      border-color: rgba(94,234,212,0.4);
+      background: rgba(94,234,212,0.1);
+    }
+
+    .continue-meta {
+      display: block;
+      font-size: 0.65rem;
+      color: var(--faint);
+      margin-top: 2px;
+    }
+
+    .racks-panel {
+      display: none;
+      padding: 10px 16px 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.2);
+    }
+    .racks-panel.open { display: block; }
+    .racks-panel h3 {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .racks-panel-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .rack-toggle {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .rack-toggle.on {
+      color: var(--accent);
+      border-color: rgba(94,234,212,0.4);
+      background: rgba(94,234,212,0.1);
+    }
+    .rack-toggle.off {
+      opacity: 0.45;
+      text-decoration: line-through;
+    }
+
+    .lib-toolbar {
+      display: flex;
+      gap: 8px;
+      padding: 0 16px 10px;
+      flex-wrap: wrap;
+    }
+    .lib-toolbar button {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 8px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .header-stats {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(94,234,212,0.1);
+      border: 1px solid rgba(94,234,212,0.2);
+      padding: 6px 12px;
+      border-radius: 999px;
+    }
+
+    .search-wrap { display: flex; gap: 8px; }
+
+    .search-wrap input {
+      flex: 1;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .search-wrap input::placeholder { color: var(--faint); }
+    .search-wrap input:focus {
+      border-color: rgba(94,234,212,0.5);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .search-wrap button {
+      padding: 0 18px;
+      border: none;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #5eead4, #2dd4bf);
+      color: #042f2e;
+      font-weight: 800;
+      font-size: 0.88rem;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(45,212,191,0.25);
+    }
+
+    /* DECADE CHIPS */
+    .chip-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 8px 16px 4px;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .chip-row::-webkit-scrollbar { display: none; }
+
+    #jump-chips {
+      position: relative;
+      z-index: 10;
+      background: transparent;
+      padding-top: 6px;
+      padding-bottom: 8px;
+    }
+
+    .scroll-top-btn {
+      position: fixed;
+      right: 14px;
+      bottom: calc(var(--nav-h) + 18px);
+      z-index: 85;
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 1px solid rgba(94,234,212,0.35);
+      background: rgba(18, 24, 38, 0.92);
+      color: var(--accent);
+      font-size: 1.1rem;
+      font-weight: 800;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: .18s ease;
+    }
+    .scroll-top-btn.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .chip {
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    .chip.active {
+      background: rgba(94,234,212,0.15);
+      border-color: rgba(94,234,212,0.45);
+      color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(94,234,212,0.15);
+    }
+
+    /* VIEWS */
+    main {
+      display: block;
+      overflow: visible;
+    }
+
+    .view { display: none; padding-bottom: 28px; }
+    .view.active { display: block; }
+
+    /* CONTINUE ROW */
+    #continue-wrap { display: none; margin-top: 6px; }
+    #continue-wrap.show { display: block; }
+
+    /* SHELVES */
+    .shelf {
+      margin-top: 4px;
+      margin-bottom: 2px;
+      padding-bottom: 10px;
+      scroll-margin-top: 56px;
+    }
+
+    .shelf-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px 12px;
+      gap: 12px;
+    }
+
+    .shelf-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .shelf-title::before {
+      content: '';
+      width: 4px;
+      height: 16px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .shelf.adult-shelf .shelf-title::before {
+      background: linear-gradient(180deg, #fb7185, #e11d48);
+      box-shadow: 0 0 12px rgba(251,113,133,0.35);
+    }
+
+    .shelf-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .shelf-refresh {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--accent);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .shelf-refresh:active { transform: rotate(-90deg); }
+
+    .shelf-count {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--muted);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .shelf.adult-shelf .shelf-count {
+      color: #fda4af;
+      background: rgba(251,113,133,0.1);
+      border-color: rgba(251,113,133,0.25);
+    }
+
+    .shelf-track {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 12px;
+      overflow-x: auto;
+      overflow-y: visible;
+      padding: 8px 16px 4px;
+      -webkit-overflow-scrolling: touch;
+      /* Allow vertical page scroll even when finger starts on a shelf */
+      touch-action: pan-x pan-y;
+      overscroll-behavior-x: contain;
+      overscroll-behavior-y: auto;
+      scrollbar-width: none;
+      align-items: flex-end;
+      width: 100%;
+      scroll-snap-type: x proximity;
+    }
+    .shelf-track::-webkit-scrollbar { display: none; }
+
+    .shelf-base {
+      height: 10px;
+      margin: 0 12px;
+      border-radius: 0 0 6px 6px;
+      background:
+        linear-gradient(180deg, #6a4a33 0%, #3d2a1d 55%, #2a1c13 100%);
+      box-shadow:
+        0 8px 18px rgba(0,0,0,0.35),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+
+    /* COVER CARDS — Netflix-dense */
+    .cover-card {
+      flex: 0 0 124px;
+      width: 124px;
+      min-width: 124px;
+      flex-shrink: 0;
+      cursor: pointer;
+      scroll-snap-align: start;
+      transition: transform .18s ease, filter .18s ease;
+    }
+    .cover-card:active { transform: scale(0.96); }
+
+    .cover-img-wrap {
+      position: relative;
+      width: 124px;
+      height: 168px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--card);
+      box-shadow:
+        0 10px 24px rgba(0,0,0,0.45),
+        0 0 0 1px rgba(255,255,255,0.06);
+      transition: box-shadow .18s ease, transform .18s ease;
+    }
+    .cover-card:hover .cover-img-wrap,
+    .cover-card:active .cover-img-wrap {
+      box-shadow:
+        0 14px 32px rgba(0,0,0,0.55),
+        0 0 0 1px rgba(94,234,212,0.35);
+    }
+
+    .cover-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .cover-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      color: var(--faint);
+      font-size: 0.72rem;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .cover-badge {
+      position: absolute;
+      left: 6px;
+      bottom: 6px;
+      z-index: 2;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #e5e7eb;
+      background: rgba(7,10,18,0.78);
+      border: 1px solid rgba(94,234,212,0.25);
+      padding: 2px 6px;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+    .cover-img-wrap { position: relative; }
+    .cover-title {
+      margin-top: 8px;
+      font-size: 0.74rem;
+      font-weight: 650;
+      line-height: 1.25;
+      color: #dbe4f0;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      max-width: 124px;
+    }
+
+    .cover-meta { display: none; }
+
+    .shelf-loading, .shelf-empty {
+      padding: 28px 16px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      text-align: center;
+      min-width: 160px;
+    }
+
+    .shelf.is-empty {
+      display: none;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(255,255,255,0.08);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .load-more-card {
+      flex: 0 0 108px;
+      min-width: 108px;
+      height: 168px;
+      border-radius: 10px;
+      border: 1px dashed rgba(94,234,212,0.35);
+      background: rgba(94,234,212,0.06);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+
+    /* LIBRARY */
+    .filters {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 12px 16px;
+      scrollbar-width: none;
+    }
+    .filters::-webkit-scrollbar { display: none; }
+
+    .filter-pill {
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .filter-pill.active {
+      background: rgba(94,234,212,0.15);
+      border-color: rgba(94,234,212,0.4);
+      color: var(--accent);
+    }
+
+    .lib-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 16px;
+      padding: 4px 16px 20px;
+    }
+    .lib-card { cursor: pointer; }
+    .lib-card .cover-img-wrap {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 3/4;
+    }
+    .lib-card .cover-title { max-width: none; }
+    .lib-card .cover-meta {
+      display: block;
+      font-size: 0.68rem;
+      color: var(--accent);
+      margin-top: 4px;
+      font-weight: 700;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+    .empty-state h3 {
+      color: var(--text);
+      font-size: 1.15rem;
+      margin-bottom: 8px;
+      font-weight: 800;
+    }
+
+    /* FORMS */
+    .form-wrap { padding: 8px 16px 24px; max-width: 520px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+    }
+    .form-group textarea { min-height: 88px; resize: vertical; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: rgba(94,234,212,0.5);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .btn-block, .btn-primary, .btn-secondary, .btn-danger {
+      border: none;
+      border-radius: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      font-size: 0.92rem;
+    }
+    .btn-block {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #5eead4, #2dd4bf);
+      color: #042f2e;
+      margin-top: 6px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #5eead4, #2dd4bf);
+      color: #042f2e;
+      padding: 12px 16px;
+    }
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+    }
+    .btn-danger {
+      background: rgba(251,113,133,0.12);
+      color: var(--danger);
+      border: 1px solid rgba(251,113,133,0.3);
+      padding: 12px 16px;
+    }
+
+    /* BOTTOM NAV — Spotify-ish */
+    .bottom-nav {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      height: calc(var(--nav-h) + env(safe-area-inset-bottom));
+      padding: 8px 8px env(safe-area-inset-bottom);
+      display: flex;
+      background: rgba(7,10,18,0.86);
+      backdrop-filter: blur(20px) saturate(1.5);
+      -webkit-backdrop-filter: blur(20px) saturate(1.5);
+      border-top: 1px solid var(--border);
+      z-index: 90;
+    }
+    .bottom-nav button {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--faint);
+      font-size: 0.68rem;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+    .bottom-nav button span { font-size: 1.25rem; line-height: 1; }
+    .bottom-nav button.active { color: var(--accent); }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      width: 100%;
+      max-width: 440px;
+      max-height: 88vh;
+      overflow-y: auto;
+      background: linear-gradient(180deg, #151c2e, #0e1422);
+      border: 1px solid var(--border);
+      border-radius: 20px 20px 16px 16px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .modal-header h2 { font-size: 1rem; font-weight: 800; }
+    .close-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+    .detail-cover {
+      width: 140px;
+      height: 190px;
+      object-fit: cover;
+      border-radius: 12px;
+      display: block;
+      margin: 0 auto 14px;
+      box-shadow: var(--shadow);
+    }
+    .detail-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .detail-meta {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--accent2);
+      background: rgba(56,189,248,0.1);
+      border: 1px solid rgba(56,189,248,0.2);
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* READER */
+    .reader-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 120;
+      display: none;
+      flex-direction: column;
+      overscroll-behavior: none;
+    }
+    .reader-overlay.open { display: flex; }
+    .reader-overlay:fullscreen { background: #000; }
+    .reader-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #0a0a0a;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .reader-heading {
+      flex: 1;
+      min-width: 0;
+    }
+    .reader-kicker {
+      margin-bottom: 4px;
+      color: #8b949e;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .reader-header h2 {
+      min-width: 0;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #fff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .reader-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+    }
+    .reader-header button {
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.06);
+      color: #e5e7eb;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 7px 11px;
+      min-height: 34px;
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .reader-header button:focus-visible,
+    .reader-hint button:focus-visible,
+    .reader-loading button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .reader-action-icon { display: none; }
+    .reader-header button.primary {
+      border-color: rgba(94,234,212,0.4);
+      background: rgba(94,234,212,0.12);
+      color: var(--accent);
+    }
+    .reader-header .close-btn {
+      border: 0;
+      background: transparent;
+      color: #fff;
+      font-size: 1.4rem;
+      padding: 0 6px;
+      line-height: 1;
+    }
+    .reader-viewport {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      overflow: hidden;
+      background: #111;
+    }
+    .reader-iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #111;
+      opacity: 0;
+      transition: opacity .18s ease;
+    }
+    .reader-iframe.is-ready { opacity: 1; }
+    .reader-loading {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      padding: 24px;
+      color: #e5e7eb;
+      text-align: center;
+      background: radial-gradient(circle at 50% 35%, rgba(45,55,72,.55), rgba(8,8,10,.98) 68%);
+      transition: opacity .18s ease, visibility .18s ease;
+    }
+    .reader-loading.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .reader-loading strong {
+      font-size: .92rem;
+    }
+    .reader-loading span {
+      max-width: 34rem;
+      color: #9ca3af;
+      font-size: .76rem;
+      line-height: 1.45;
+    }
+    .reader-spinner {
+      width: 28px;
+      height: 28px;
+      margin-bottom: 4px;
+      border: 3px solid rgba(255,255,255,.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: reader-spin .75s linear infinite;
+    }
+    @keyframes reader-spin { to { transform: rotate(360deg); } }
+    .reader-loading.is-error .reader-spinner {
+      display: none;
+    }
+    .reader-loading button {
+      display: none;
+      margin-top: 6px;
+      border: 1px solid rgba(94,234,212,.4);
+      background: rgba(94,234,212,.12);
+      color: var(--accent);
+      font-size: .75rem;
+      font-weight: 800;
+      padding: 8px 13px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .reader-loading.is-error button { display: inline-flex; }
+    .reader-note {
+      flex: 0 0 auto;
+      text-align: center;
+      font-size: 0.68rem;
+      color: #777;
+      padding: 6px 10px;
+      background: #0a0a0a;
+    }
+    .reader-overlay.chrome-hidden .reader-header,
+    .reader-overlay.chrome-hidden .reader-note {
+      display: none;
+    }
+    /* A failed fullscreen request must never hide the only recovery controls. */
+    .reader-overlay.chrome-hidden .reader-header { display: flex; }
+    .reader-overlay.chrome-hidden .reader-note { display: block; }
+    .reader-hint {
+      position: absolute;
+      left: 50%;
+      bottom: 54px;
+      width: min(460px, calc(100% - 24px));
+      z-index: 5;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(12, 16, 28, 0.94);
+      border: 1px solid rgba(94,234,212,0.3);
+      color: #e5e7eb;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 8px);
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .reader-hint.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(-50%, 0);
+    }
+    .reader-hint strong,
+    .reader-hint span { display: block; }
+    .reader-hint strong { margin-bottom: 3px; }
+    .reader-hint span { color: #cbd5e1; }
+    .reader-hint button {
+      margin-top: 8px;
+      margin-right: 6px;
+      border: 1px solid rgba(94,234,212,0.4);
+      background: rgba(94,234,212,0.12);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 7px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .related-strip {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .related-strip h4 {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .related-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .related-row .mini {
+      flex: 0 0 64px;
+      width: 64px;
+      cursor: pointer;
+    }
+    .related-row .mini img {
+      width: 64px;
+      height: 86px;
+      object-fit: cover;
+      border-radius: 6px;
+      background: #111;
+    }
+    .related-row .mini span {
+      display: block;
+      font-size: 0.62rem;
+      color: var(--muted);
+      margin-top: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--nav-h) + 18px);
+      transform: translateX(-50%) translateY(20px);
+      background: #fff;
+      color: #0c1222;
+      font-weight: 800;
+      font-size: 0.85rem;
+      padding: 10px 18px;
+      border-radius: 999px;
+      opacity: 0;
+      pointer-events: none;
+      transition: .22s ease;
+      z-index: 200;
+      box-shadow: var(--shadow);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (min-width: 720px) {
+      .cover-card, .cover-card { flex-basis: 140px; width: 140px; min-width: 140px; }
+      .cover-img-wrap { width: 140px; height: 190px; }
+      .cover-title { max-width: 140px; }
+      .modal-overlay { align-items: center; }
+      .modal { border-radius: 20px; }
+    }
+  </style>
+  <style id="rack-redesign">
+    :root {
+      --bg: #100d0e;
+      --bg2: #181214;
+      --surface: #201719;
+      --surface2: #2b1e21;
+      --card: #efe1d1;
+      --text: #fff8f0;
+      --muted: #b6a5a0;
+      --faint: #76646a;
+      --accent: #ff6b35;
+      --accent2: #5eead4;
+      --accent3: #ffd166;
+      --hot: #f04f78;
+      --border: rgba(255,248,240,.13);
+      --border-strong: rgba(255,248,240,.27);
+      --shadow: 0 18px 45px rgba(0,0,0,.35);
+      --nav-h: 68px;
+      --display: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+    }
+
+    html { background: var(--bg); }
+    body {
+      color: var(--text);
+      background:
+        radial-gradient(900px 500px at 87% 3%, rgba(240,79,120,.16), transparent 60%),
+        radial-gradient(800px 520px at -5% 22%, rgba(94,234,212,.11), transparent 64%),
+        linear-gradient(145deg, #100d0e 0%, #171114 48%, #0f1017 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body::before { opacity: .025; background-image: repeating-linear-gradient(0deg, #fff 0 1px, transparent 1px 5px); }
+
+    header {
+      padding: 15px 30px 17px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(16,13,14,.88);
+      box-shadow: 0 14px 40px rgba(0,0,0,.2);
+    }
+    .header-row, .search-wrap { max-width: 1460px; margin-inline: auto; }
+    .header-row { margin-bottom: 14px; }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: var(--text);
+      background: none;
+      -webkit-text-fill-color: initial;
+      font: 23px/.82 var(--display);
+      letter-spacing: .035em;
+      text-transform: uppercase;
+    }
+    .logo::before {
+      content: "MR";
+      display: grid;
+      place-items: center;
+      width: 41px;
+      height: 41px;
+      color: var(--bg);
+      border: 2px solid var(--accent3);
+      border-radius: 7px;
+      background: var(--accent3);
+      box-shadow: 4px 4px 0 var(--accent);
+      font: 18px/1 var(--display);
+      transform: rotate(-5deg);
+    }
+    .logo::after { content: "PUBLIC EDITIONS / 01"; margin-left: 5px; align-self: end; color: var(--faint); font: 8px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .12em; }
+    .header-actions { gap: 7px; }
+    .header-actions button, .header-stats {
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--muted);
+      background: rgba(255,255,255,.045);
+      font: 10px/1 "SFMono-Regular", Consolas, monospace;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .header-actions button:hover { color: var(--text); border-color: var(--accent2); background: rgba(94,234,212,.1); }
+    #random-btn { color: var(--bg); border-color: var(--accent); background: var(--accent); }
+    #random-btn:hover { background: var(--accent3); }
+    .header-stats { display: grid; place-items: center; color: var(--accent2); border-color: rgba(94,234,212,.28); background: rgba(94,234,212,.08); }
+    .search-wrap { gap: 10px; }
+    .search-wrap input { height: 49px; padding: 0 18px; color: var(--text); border: 1px solid var(--border-strong); border-radius: 5px; background: rgba(255,255,255,.055); font-size: 14px; font-weight: 650; }
+    .search-wrap input:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(94,234,212,.12); }
+    .search-wrap input::placeholder { color: var(--faint); }
+    .search-wrap button { min-width: 82px; border-radius: 5px; background: var(--accent2); color: var(--bg); font-weight: 900; text-transform: uppercase; }
+    .search-wrap button:hover { background: var(--accent3); }
+
+    main { max-width: 1500px; margin: 0 auto; }
+    .view { padding-bottom: 75px; }
+    .rack-hero {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 30px;
+      min-height: 350px;
+      margin: 22px 18px 0;
+      padding: 45px 52px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: linear-gradient(115deg, rgba(43,30,33,.96), rgba(28,23,29,.88));
+      box-shadow: var(--shadow);
+    }
+    .rack-hero::before { content: ""; position: absolute; right: -90px; bottom: -120px; width: 470px; height: 470px; border: 2px solid rgba(255,209,102,.45); border-radius: 50%; box-shadow: 0 0 0 30px rgba(255,107,53,.07), 0 0 0 70px rgba(94,234,212,.045); }
+    .rack-hero::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5; background: linear-gradient(117deg, transparent 0 58%, rgba(255,107,53,.16) 58% 59%, transparent 59% 100%); }
+    .hero-kicker { position: relative; z-index: 1; color: var(--accent3); font: 10px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .18em; text-transform: uppercase; }
+    .hero-copy h1 { position: relative; z-index: 1; max-width: 800px; margin: 20px 0 13px; color: var(--text); font: clamp(55px, 7.2vw, 105px)/.78 var(--display); letter-spacing: .015em; text-transform: uppercase; }
+    .hero-copy h1 em { display: block; color: var(--accent); font-style: normal; text-shadow: 5px 5px 0 rgba(94,234,212,.23); }
+    .hero-copy p { position: relative; z-index: 1; max-width: 500px; margin: 0; color: #d4c5bd; font-size: 15px; }
+    .hero-meta { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 22px; margin-top: 30px; }
+    .hero-meta span { color: var(--faint); font: 10px/1 "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+    .hero-meta b { display: block; margin-bottom: 5px; color: var(--accent2); font: 26px/1 var(--display); }
+    .hero-ticket { position: relative; z-index: 1; align-self: center; justify-self: center; display: grid; place-items: center; width: 245px; height: 245px; padding: 25px; color: var(--bg); border: 7px solid var(--text); outline: 2px solid var(--accent); outline-offset: 7px; background: var(--accent3); transform: rotate(8deg); box-shadow: 14px 18px 0 rgba(0,0,0,.25); text-align: center; }
+    .hero-ticket span { font: 9px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; }
+    .hero-ticket strong { margin: 17px 0; font: 42px/.8 var(--display); text-transform: uppercase; }
+    .hero-ticket::after { content: "✦  ✦  ✦"; position: absolute; bottom: 22px; color: var(--accent); font-size: 15px; }
+
+    .racks-panel { margin: 14px 18px 0; padding: 20px 22px; border: 1px solid var(--border); border-radius: 8px; background: rgba(43,30,33,.9); }
+    .racks-panel h3 { color: var(--accent2); font: 10px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; }
+    .racks-panel-grid { gap: 7px; }
+    .rack-toggle { padding: 8px 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; background: rgba(255,255,255,.04); font: 10px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+    .rack-toggle.on { color: var(--accent2); border-color: rgba(94,234,212,.42); background: rgba(94,234,212,.09); }
+    .chip-row { gap: 8px; padding: 15px 18px 8px; }
+    .chip { padding: 8px 13px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; background: rgba(255,255,255,.035); font: 10px "SFMono-Regular", Consolas, monospace; letter-spacing: .03em; text-transform: uppercase; }
+    .chip:hover { color: var(--text); border-color: var(--accent); }
+    .chip.active { color: var(--bg); border-color: var(--accent); background: var(--accent); box-shadow: 3px 3px 0 var(--accent3); }
+    #jump-chips { padding-top: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    #jump-chips .chip { color: var(--faint); border: 0; background: transparent; }
+    #jump-chips .chip:hover { color: var(--accent3); }
+
+    #shelves { padding: 0 0 20px; }
+    .shelf { margin: 22px 18px 0; padding: 20px 0 16px; border: 1px solid var(--border); border-radius: 10px; background: linear-gradient(165deg, rgba(43,30,33,.94), rgba(29,22,26,.9)); box-shadow: 0 10px 30px rgba(0,0,0,.17); }
+    .shelf-header { padding: 0 22px 16px; }
+    .shelf-title { color: var(--text); font: 30px/.9 var(--display); letter-spacing: .02em; text-transform: uppercase; }
+    .shelf-title::before { content: "LIVE RACK"; width: auto; height: auto; margin-right: 10px; color: var(--accent2); background: none; box-shadow: none; font: 9px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .12em; vertical-align: middle; }
+    .adult-shelf .shelf-title::before { content: "18+ RACK"; color: var(--hot); }
+    .shelf-header-actions { gap: 7px; }
+    .shelf-count { padding: 6px 9px; color: var(--accent3); border: 1px solid rgba(255,209,102,.25); border-radius: 4px; background: rgba(255,209,102,.08); font: 9px "SFMono-Regular", Consolas, monospace; }
+    .shelf-pin, .shelf-refresh { width: 32px; height: 32px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; background: rgba(255,255,255,.04); }
+    .shelf-pin:hover, .shelf-refresh:hover, .shelf-pin.pinned { color: var(--accent3); border-color: var(--accent3); background: rgba(255,209,102,.1); }
+    .shelf-refresh:active { color: var(--accent); }
+    .shelf-track { gap: 14px; padding: 6px 22px 12px; align-items: flex-end; }
+    .shelf-base { height: 8px; margin: 0 20px; border-radius: 2px; background: linear-gradient(180deg, #bd7548, #6a3926 55%, #3c211d); box-shadow: 0 8px 16px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.24); }
+    .cover-card { flex: 0 0 158px; width: 158px; min-width: 158px; }
+    .cover-img-wrap { width: 158px; height: 216px; border: 4px solid var(--card); border-radius: 3px; background: #4b3031; box-shadow: 8px 12px 20px rgba(0,0,0,.34); transition: transform .18s ease, box-shadow .18s ease; }
+    .cover-card:hover { transform: translateY(-5px); }
+    .cover-card:hover .cover-img-wrap { box-shadow: 10px 18px 28px rgba(0,0,0,.48), 0 0 0 2px var(--accent); }
+    .cover-placeholder { padding: 13px; color: var(--card); background: repeating-linear-gradient(-24deg, #d24b3d 0 18px, #8b2d42 18px 36px, #2e5d67 36px 55px); font: 13px/.95 var(--display); letter-spacing: .04em; text-transform: uppercase; }
+    .cover-badge { left: 7px; bottom: 7px; padding: 4px 6px; color: var(--bg); border: 0; border-radius: 2px; background: var(--accent3); font: 8px "SFMono-Regular", Consolas, monospace; }
+    .cover-title { max-width: 158px; margin-top: 10px; color: #eee1d8; font-size: 12px; font-weight: 750; line-height: 1.2; }
+    .load-more-card { flex: 0 0 120px; min-width: 120px; height: 216px; border: 1px dashed rgba(94,234,212,.5); border-radius: 3px; background: rgba(94,234,212,.06); color: var(--accent2); font: 10px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+    .shelf-loading, .shelf-empty { min-width: 190px; padding: 35px 18px; color: var(--muted); font: 11px "SFMono-Regular", Consolas, monospace; }
+    .spinner { border-color: rgba(255,255,255,.1); border-top-color: var(--accent); }
+
+    body.wall-mode .shelf { margin-inline: 18px; }
+    body.wall-mode .shelf-track { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 24px 15px; padding: 12px 22px 22px; align-items: start; }
+    body.wall-mode .cover-card { width: auto; min-width: 0; }
+    body.wall-mode .cover-img-wrap { width: 100%; height: auto; aspect-ratio: 3/4; }
+    body.wall-mode .cover-title { max-width: none; }
+    body.wall-mode .shelf-base { display: none; }
+
+    .filters, .lib-toolbar { max-width: 1460px; margin-inline: auto; }
+    .filters { padding: 22px 30px 10px; }
+    .filter-pill, .lib-toolbar button { padding: 9px 13px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; background: rgba(255,255,255,.04); font: 10px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+    .filter-pill.active, .lib-toolbar button:hover { color: var(--bg); border-color: var(--accent); background: var(--accent); }
+    .lib-toolbar { padding: 10px 30px 20px; }
+    .lib-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 30px 17px; padding: 18px 30px 50px; }
+    .lib-card .cover-img-wrap { width: 100%; height: auto; aspect-ratio: 3/4; }
+    .lib-card .cover-title { max-width: none; }
+    .lib-card .cover-meta { color: var(--accent2); font: 9px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+    .empty-state { max-width: 550px; margin: 80px auto; padding: 40px 25px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .empty-state h3 { color: var(--text); font: 34px/.9 var(--display); text-transform: uppercase; }
+
+    .form-wrap { max-width: 700px; margin: 32px auto; padding: 30px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .form-group label { color: var(--accent2); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: .1em; text-transform: uppercase; }
+    .form-group input, .form-group select, .form-group textarea { padding: 12px 13px; color: var(--text); border: 1px solid var(--border); border-radius: 4px; background: var(--bg2); }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(94,234,212,.1); }
+    .btn-block { min-height: 44px; border-radius: 4px; background: var(--accent); color: var(--bg); font-weight: 900; text-transform: uppercase; }
+
+    .bottom-nav { right: 22px; bottom: 18px; left: auto; display: flex; width: auto; gap: 4px; padding: 6px; border: 1px solid var(--border-strong); border-radius: 7px; background: rgba(32,23,25,.94); box-shadow: var(--shadow); }
+    .bottom-nav button { min-width: 82px; padding: 8px 12px; color: var(--muted); border-radius: 4px; background: transparent; font: 10px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+    .bottom-nav button span { margin-right: 6px; color: var(--accent2); }
+    .bottom-nav button.active, .bottom-nav button:hover { color: var(--bg); background: var(--accent3); }
+    .bottom-nav button.active span, .bottom-nav button:hover span { color: var(--bg); }
+
+    .modal-overlay { padding: 20px; background: rgba(5,4,5,.82); backdrop-filter: blur(8px); }
+    .modal { width: min(700px, 100%); max-height: calc(100vh - 40px); border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); }
+    .modal-header { padding: 18px 21px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+    .modal-header h2 { color: var(--accent3); font: 28px/.9 var(--display); text-transform: uppercase; }
+    .close-btn { color: var(--text); border: 1px solid var(--border); border-radius: 4px; background: rgba(255,255,255,.05); }
+    .close-btn:hover { color: var(--bg); background: var(--accent); }
+    .modal-actions button { border-radius: 4px; font: 10px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+    .btn-primary { color: var(--bg); background: var(--accent2); }
+    .btn-danger { color: var(--text); background: var(--hot); }
+
+    .reader-overlay { background: #080708; }
+    .reader-header { min-height: 65px; padding: 11px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .reader-heading { min-width: 0; }
+    .reader-kicker { color: var(--accent2); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: .1em; text-transform: uppercase; }
+    .reader-header h2 { color: var(--accent3); font: 21px/.9 var(--display); text-transform: uppercase; }
+    .reader-actions { gap: 7px; }
+    .reader-header button { padding: 8px 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; background: rgba(255,255,255,.045); font: 9px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+    .reader-header button:hover, .reader-header .primary { color: var(--bg); background: var(--accent2); }
+    .reader-note { border-top: 1px solid var(--border); background: var(--surface); color: var(--muted); font: 9px "SFMono-Regular", Consolas, monospace; }
+    .reader-hint { border: 1px solid var(--accent3); border-radius: 5px; background: var(--surface2); color: var(--text); }
+    .toast { bottom: 24px; padding: 12px 17px; border: 1px solid var(--accent3); border-radius: 4px; color: var(--bg); background: var(--accent3); box-shadow: 5px 5px 0 var(--accent); font: 11px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+    .scroll-top-btn { right: 23px; bottom: 92px; width: 38px; height: 38px; color: var(--accent2); border: 1px solid rgba(94,234,212,.35); border-radius: 4px; background: var(--surface); }
+
+    @media (max-width: 800px) {
+      header { padding: 12px 16px 14px; }
+      .logo { font-size: 18px; }
+      .logo::before { width: 33px; height: 33px; font-size: 14px; }
+      .logo::after { display: none; }
+      .header-actions #debug-btn, .header-actions .header-stats { display: none; }
+      .header-actions button { min-height: 31px; padding-inline: 8px; font-size: 9px; }
+      .search-wrap input { height: 43px; font-size: 12px; }
+      .search-wrap button { min-width: 60px; }
+      .rack-hero { grid-template-columns: 1fr; min-height: 530px; margin: 14px 12px 0; padding: 30px 25px; }
+      .hero-copy h1 { font-size: clamp(54px, 15vw, 87px); }
+      .hero-ticket { position: absolute; right: 42px; bottom: 35px; width: 170px; height: 170px; border-width: 5px; }
+      .hero-ticket strong { margin: 10px 0; font-size: 30px; }
+      .hero-ticket::after { bottom: 14px; }
+      .racks-panel { margin-inline: 12px; }
+      .chip-row { padding-inline: 12px; }
+      .shelf { margin-inline: 12px; padding-top: 16px; }
+      .shelf-header { padding-inline: 16px; }
+      .shelf-title { font-size: 24px; }
+      .shelf-title::before { display: block; margin: 0 0 7px; }
+      .shelf-track { padding-inline: 16px; }
+      .shelf-base { margin-inline: 14px; }
+      .cover-card { flex-basis: 136px; width: 136px; min-width: 136px; }
+      .cover-img-wrap { width: 136px; height: 186px; }
+      .cover-title { max-width: 136px; font-size: 11px; }
+      body.wall-mode .shelf-track { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-inline: 16px; }
+      .filters, .lib-toolbar, .lib-grid { padding-inline: 16px; }
+      .lib-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .bottom-nav { right: 12px; bottom: 12px; left: 12px; justify-content: space-around; }
+      .bottom-nav button { flex: 1; }
+      .scroll-top-btn { right: 14px; bottom: 84px; }
+    }
+    @media (max-width: 500px) {
+      .header-actions #racks-btn { display: none; }
+      .header-actions button { padding-inline: 7px; }
+      .hero-meta { gap: 14px; }
+      .hero-meta b { font-size: 21px; }
+      .hero-ticket { right: 28px; bottom: 27px; }
+      .form-wrap { margin: 20px 12px; padding: 20px; }
+      .reader-header { align-items: flex-start; gap: 8px; padding: 10px; }
+      .reader-heading { padding-top: 4px; }
+      .reader-kicker { font-size: 8px; }
+      .reader-header h2 { max-width: 150px; font-size: 16px; line-height: 1; }
+      .reader-actions { gap: 4px; }
+      .reader-header button { width: 34px; height: 34px; padding: 0; font-size: 0; }
+      .reader-header button.primary { width: auto; padding-inline: 10px; font-size: 9px; }
+      .reader-header button .reader-action-icon { display: inline; font-size: 16px; line-height: 1; }
+      .reader-header button.primary .reader-action-icon { display: none; }
+      .reader-header button.primary .reader-action-label { display: inline; }
+      .reader-header .close-btn { width: 30px; padding: 0; font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-row">
+      <div class="logo">Magazine Rack</div>
+      <div class="header-actions">
+        <button id="wall-btn" type="button" title="Cover wall mode">Wall</button>
+        <button id="racks-btn" type="button" title="Show or hide racks">Racks</button>
+        <button id="random-btn" type="button" title="Random issue">Random</button>
+        <button id="debug-btn" type="button">Debug</button>
+        <div class="header-stats" id="stats">0 saved</div>
+      </div>
+    </div>
+    <div class="search-wrap" id="search-bar">
+      <input type="search" id="global-search" placeholder="Search magazines, comics, zines..." />
+      <button id="search-btn" type="button">Go</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="browse" class="view active">
+      <div class="rack-hero">
+        <div class="hero-copy">
+          <div class="hero-kicker">The open stacks · a living index for curious people</div>
+          <h1>Find your <em>next obsession.</em></h1>
+          <p>Magazines, comics, newspapers, zines, and beautifully strange things gathered from public collections.</p>
+          <div class="hero-meta"><span><b>60</b>live shelves</span><span><b>11</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
+        </div>
+        <div class="hero-ticket"><span>Magazine Rack</span><strong>Read<br>widely.</strong><span>Free / public / curious</span></div>
+      </div>
+      <div class="racks-panel" id="racks-panel">
+        <h3>Visible racks · tap to show/hide</h3>
+        <div class="racks-panel-grid" id="racks-panel-grid"></div>
+      </div>
+      <div class="chip-row" id="decade-chips">
+        <button type="button" class="chip active" data-decade="">All eras</button>
+        <button type="button" class="chip" data-decade="1890-01-01 TO 1899-12-31">1890s</button>
+        <button type="button" class="chip" data-decade="1900-01-01 TO 1909-12-31">1900s</button>
+        <button type="button" class="chip" data-decade="1910-01-01 TO 1919-12-31">1910s</button>
+        <button type="button" class="chip" data-decade="1918-01-01 TO 1918-12-31">1918</button>
+        <button type="button" class="chip" data-decade="1920-01-01 TO 1929-12-31">1920s</button>
+        <button type="button" class="chip" data-decade="1929-01-01 TO 1929-12-31">1929</button>
+        <button type="button" class="chip" data-decade="1930-01-01 TO 1939-12-31">1930s</button>
+        <button type="button" class="chip" data-decade="1940-01-01 TO 1949-12-31">1940s</button>
+        <button type="button" class="chip" data-decade="1941-01-01 TO 1945-12-31">WWII</button>
+        <button type="button" class="chip" data-decade="1950-01-01 TO 1959-12-31">1950s</button>
+        <button type="button" class="chip" data-decade="1960-01-01 TO 1969-12-31">1960s</button>
+        <button type="button" class="chip" data-decade="1970-01-01 TO 1979-12-31">1970s</button>
+        <button type="button" class="chip" data-decade="1980-01-01 TO 1989-12-31">1980s</button>
+        <button type="button" class="chip" data-decade="1990-01-01 TO 1999-12-31">1990s</button>
+        <button type="button" class="chip" data-decade="2000-01-01 TO 2009-12-31">2000s</button>
+        <button type="button" class="chip" data-decade="2010-01-01 TO 2029-12-31">2010s+</button>
+      </div>
+      <div class="chip-row" id="format-chips" aria-label="Filter by format">
+        <button type="button" class="chip active" data-format="">Everything</button>
+        <button type="button" class="chip" data-format="comic">Comics</button>
+        <button type="button" class="chip" data-format="magazine">Magazines</button>
+        <button type="button" class="chip" data-format="paper">Papers</button>
+        <button type="button" class="chip" data-format="zine">Zines</button>
+      </div>
+      <div class="chip-row" id="jump-chips" aria-label="Jump to shelf"></div>
+      <div id="continue-wrap">
+        <div class="shelf" id="shelf-continue">
+          <div class="shelf-header">
+            <div class="shelf-title">Continue Reading</div>
+            <div class="shelf-count" id="count-continue"></div>
+          </div>
+          <div class="shelf-track" id="track-continue"></div>
+          <div class="shelf-base"></div>
+        </div>
+      </div>
+      <div id="shelves"></div>
+    </section>
+
+    <section id="library" class="view">
+      <div class="filters" id="status-filters">
+        <button class="filter-pill active" data-status="all">All</button>
+        <button class="filter-pill" data-status="want">Want</button>
+        <button class="filter-pill" data-status="reading">Reading</button>
+        <button class="filter-pill" data-status="finished">Finished</button>
+        <button class="filter-pill" data-status="abandoned">Dropped</button>
+      </div>
+      <div class="lib-toolbar">
+        <button type="button" id="lib-export">Export library</button>
+        <button type="button" id="lib-import">Import library</button>
+        <input type="file" id="lib-import-file" accept="application/json,.json" style="display:none" />
+      </div>
+      <div id="library-grid" class="lib-grid"></div>
+      <div id="library-empty" class="empty-state" style="display:none;">
+        <h3>Your shelf is empty</h3>
+        <p>Browse the racks, tap a cover, and hit Save. Want · Reading · Finished tracks live here.</p>
+      </div>
+    </section>
+
+    <section id="add" class="view">
+      <div class="form-wrap">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="add-title" placeholder="Magazine or comic title" />
+        </div>
+        <div class="form-group">
+          <label>Publisher / Creator</label>
+          <input type="text" id="add-creator" placeholder="Publisher" />
+        </div>
+        <div class="form-group">
+          <label>Year</label>
+          <input type="number" id="add-year" placeholder="Year" />
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="add-type">
+            <option value="magazine">Magazine</option>
+            <option value="comic">Comic</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="add-status">
+            <option value="want">Want to Read</option>
+            <option value="reading">Reading</option>
+            <option value="finished">Finished</option>
+            <option value="abandoned">Dropped</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Internet Archive ID (optional)</label>
+          <input type="text" id="add-iaid" placeholder="identifier for reading" />
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea id="add-notes" placeholder="Issue #, notes..."></textarea>
+        </div>
+        <button class="btn-block" id="add-save">Save to Library</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="active" data-view="browse"><span>▦</span>Racks</button>
+    <button data-view="library"><span>▤</span>Library</button>
+    <button data-view="add"><span>＋</span>Add</button>
+  </nav>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Details</h2>
+        <button class="close-btn" id="modal-close">&times;</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div class="reader-overlay" id="reader" role="dialog" aria-modal="true" aria-labelledby="reader-title" aria-busy="true">
+    <div class="reader-header">
+      <div class="reader-heading">
+        <div class="reader-kicker" id="reader-source">IN-APP READER</div>
+        <h2 id="reader-title">Reading...</h2>
+      </div>
+      <div class="reader-actions">
+        <button type="button" class="primary" id="reader-open-ia" title="Open the original source"><span class="reader-action-icon">↗</span><span class="reader-action-label">Open source</span></button>
+        <button type="button" id="reader-related" title="Find related items"><span class="reader-action-icon">✦</span><span class="reader-action-label">Related</span></button>
+        <button type="button" id="reader-fs" title="Enter fullscreen"><span class="reader-action-icon">⛶</span><span class="reader-action-label">Fullscreen</span></button>
+        <button type="button" id="reader-reload" title="Reload this reader"><span class="reader-action-icon">↻</span><span class="reader-action-label">Reload</span></button>
+      </div>
+      <button type="button" class="close-btn" id="reader-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="reader-viewport" id="reader-viewport">
+      <div class="reader-loading" id="reader-loading" role="status" aria-live="polite">
+        <div class="reader-spinner"></div>
+        <strong id="reader-loading-title">Opening reader</strong>
+        <span id="reader-loading-detail">Connecting to the source...</span>
+        <button type="button" id="reader-loading-retry">Try again</button>
+      </div>
+      <iframe class="reader-iframe" id="reader-frame" title="Magazine reader" allowfullscreen allow="fullscreen"></iframe>
+    </div>
+    <div class="reader-hint" id="reader-hint">
+      <strong id="reader-hint-title">Taking a while?</strong>
+      <span id="reader-hint-copy">Some collections block embedded reading. Your item is still available at the original source.</span>
+      <div>
+        <button type="button" id="reader-hint-ia">Open source</button>
+        <button type="button" id="reader-hint-dismiss">Dismiss</button>
+      </div>
+    </div>
+    <div class="reader-note" id="reader-status" role="status" aria-live="polite">Preparing reader</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <button type="button" class="scroll-top-btn" id="scroll-top" title="Back to top">↑</button>
+
+  <script>
+    // Strict rule: primarily sexual content ONLY on the bottom adult shelf.
+    // Query-level exclude (kept moderate length so IA still returns results)
+    const ADULT_EXCLUDE =
+      ' AND NOT (title:(playboy OR penthouse OR hustler OR "barely legal" OR gallery OR oui OR swank OR nudist OR erotic OR erotica OR milf OR housewives OR "readers wives" OR nude OR nudes OR naked OR sexy OR cheri OR cherri OR breasts OR babes OR "color climax" OR bondage OR porn OR pornography OR "high society" OR knave OR mayfair OR rustler OR razzle OR juggs OR voluptuous OR "gay comix" OR "adult comic" OR "adult comix" OR "sex comic" OR smut OR hentai OR "tijuana bible" OR fetish OR bdsm OR yaoi OR yuri OR "sex magazine" OR "adult magazine"))' +
+      ' AND NOT (subject:(adult OR erotic OR erotica OR nudist OR pornography OR "men\'s magazine" OR "adult magazine" OR nude OR milf OR bondage OR "adult comics" OR "adult comix" OR sexual OR smut OR hentai))';
+
+    // Strong adult signals only — vague words like "sexual" were wiping Adventure/true crime
+    const SEXUAL_TITLE_WORDS = [
+      'playboy','penthouse','hustler','barely legal','swank','nudist','erotic',
+      'erotica','milf','housewives','readers wives','cheri','cherri','breasts',
+      'color climax','bondage','high society','knave','mayfair','rustler','razzle',
+      'juggs','voluptuous','gang bang','sex magazine','adult magazine','xxx',
+      'porn','pornography','gay comix','tijuana','adult comic','adult comix',
+      'sex comic','smut','hentai','yaoi','yuri','porn comic','erotic comic',
+      'fetish','bdsm','jiz comics','topless','striptease','softcore','hardcore',
+      'playgirl','fiesta magazine','escort magazine','nude magazine','adult only',
+      'orgy','orgies','monster girl','bara','ecchi'
+    ];
+    const SEXUAL_SUBJECT_WORDS = [
+      'adult magazine','adult magazines','adult comics','adult comix','erotica',
+      'erotic','nudist','pornography','porn','milf','bondage','hentai'
+    ];
+
+    const KIDS_BLOCK = [
+      'wimpy kid','diary of a wimpy','harry potter','dr seuss','seuss','berenstein',
+      'berenstain','magic tree house','goosebumps','captain underpants','dog man',
+      'children','kids book','juvenile','picture book'
+    ];
+
+    function isSexualContent(title, subjects) {
+      const t = (title || '').toLowerCase();
+      const s = Array.isArray(subjects)
+        ? subjects.join(' ').toLowerCase()
+        : String(subjects || '').toLowerCase();
+      if (SEXUAL_TITLE_WORDS.some(function(w) { return t.indexOf(w) !== -1; })) return true;
+      if (SEXUAL_SUBJECT_WORDS.some(function(w) { return s.indexOf(w) !== -1; })) return true;
+      if (/\bnudes?\b/.test(t) || /\bnaked\b/.test(t)) return true;
+      return false;
+    }
+
+    function isKidsTitle(title) {
+      if (!title) return false;
+      const t = title.toLowerCase();
+      return KIDS_BLOCK.some(function(w) { return t.indexOf(w) !== -1; });
+    }
+
+    // Category logic:
+    // - Mag shelves lean on collection:magazine_rack / subject:magazine
+    // - Comic shelves lean on subject:comics / "comic books"
+    // - Specialty shelves use strong positive title/subject anchors
+    // - Adult is isolated at the bottom; all others use ADULT_EXCLUDE
+    const SHELVES = [
+      {
+        id: 'magazine-rack',
+        title: 'Magazines',
+        // General magazines only — push pure comics elsewhere
+        query: 'mediatype:texts AND collection:magazine_rack AND NOT subject:("comic books" OR comics OR superhero)' + ADULT_EXCLUDE
+      },
+      {
+        id: 'comics',
+        title: 'Comics',
+        // General comics — not locked to superhero/golden/underground niches
+        query: 'mediatype:texts AND (subject:("comic books" OR comics) OR collection:(comics OR comicbooks)) AND NOT subject:(superhero OR "underground comics" OR "underground comix")' + ADULT_EXCLUDE
+      },
+      {
+        id: 'pulp',
+        title: 'Pulp',
+        // Classic pulp magazines only (avoid random novels tagged "pulp")
+        query: 'mediatype:texts AND (subject:("pulp magazine" OR "pulp magazines" OR pulp) OR title:("pulp magazine" OR "weird tales" OR "amazing stories" OR "black mask" OR "argosy")) AND (subject:magazine OR title:magazine OR collection:*magazine* OR collection:*pulp*) AND date:[1890-01-01 TO 1959-12-31] AND NOT subject:("comic books" OR comics)' + ADULT_EXCLUDE
+      },
+      {
+        id: 'gaming',
+        title: 'Gaming',
+        // Hardened on IA gamemagazines collection + known title anchors only
+        query: 'mediatype:texts AND (collection:gamemagazines OR title:("nintendo power" OR gamepro OR "electronic gaming monthly" OR "pc gamer" OR "computer gaming world" OR "game informer" OR "mean machines" OR "computer and video games" OR "retro gamer" OR "official xbox magazine" OR "playstation official"))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'scifi',
+        title: 'Sci-Fi',
+        // Magazines about SF/fantasy — not novels
+        query: 'mediatype:texts AND subject:("science fiction" OR "sci-fi" OR "science-fiction" OR fantasy) AND (subject:magazine OR title:magazine OR collection:magazine_rack) AND NOT subject:("comic books" OR comics)' + ADULT_EXCLUDE
+      },
+      {
+        id: 'horror',
+        title: 'Horror',
+        query: 'mediatype:texts AND (subject:("horror magazine" OR "weird tales" OR "horror fiction") OR (subject:horror AND (subject:magazine OR title:magazine OR collection:magazine_rack))) AND NOT subject:("comic books" OR comics)' + ADULT_EXCLUDE
+      },
+      {
+        id: 'vintage',
+        title: 'Vintage',
+        // Pre-1970 magazines from the rack / magazine subjects
+        query: 'mediatype:texts AND (collection:magazine_rack OR subject:magazine) AND date:[1900-01-01 TO 1969-12-31] AND NOT subject:("comic books" OR comics OR superhero)' + ADULT_EXCLUDE
+      },
+      {
+        id: 'computer',
+        title: 'Computing',
+        query: 'mediatype:texts AND (title:("byte magazine" OR "pc magazine" OR macworld OR "computer shopper" OR "popular computing" OR "creative computing" OR "pc world" OR "computer world" OR "personal computer world" OR "personal computer news") OR subject:("computer magazine" OR "personal computing" OR "computer magazines"))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'mens',
+        title: 'Adventure',
+        // Proven short query — true crime + classic adventure pulps
+        query: 'mediatype:texts AND (title:("true detective" OR argosy OR "saga magazine" OR "man\'s life" OR "true adventures") OR subject:("true detective" OR "true crime" OR "men\'s adventure"))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'superhero',
+        title: 'Superheroes',
+        // Strong character / superhero anchors
+        query: 'mediatype:texts AND (title:(batman OR superman OR "spider-man" OR spiderman OR "x-men" OR "x men" OR avengers OR "wonder woman" OR "captain america" OR "iron man" OR "green lantern" OR "justice league" OR "fantastic four" OR "amazing spider" OR daredevil OR "spider man" OR "green arrow" OR "flash gordon") OR subject:(superhero OR "super hero" OR "super-hero")) AND (subject:("comic books" OR comics) OR title:(comic OR comics))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'underground',
+        title: 'Indie',
+        // Indie/underground — sexual titles forced out by query + client filter
+        query: 'mediatype:texts AND (subject:("underground comics" OR "underground comix" OR "indie comics" OR "alternative comics" OR "independent comics") OR title:("zap comix" OR "freak brothers" OR "love and rockets" OR "raw magazine" OR eightball OR "optic nerve" OR "hate comic" OR "eightball")) AND NOT (title:(sex OR erotic OR adult OR smut OR porn OR nude OR fetish OR bondage OR hentai OR yaoi OR "gay comix" OR "tijuana") OR subject:(adult OR erotic OR erotica OR "adult comics" OR "adult comix" OR pornography))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'golden',
+        title: 'Classic',
+        // Comics published roughly 1935–1975
+        query: 'mediatype:texts AND subject:("comic books" OR comics) AND date:[1935-01-01 TO 1975-12-31]' + ADULT_EXCLUDE
+      },
+      {
+        id: 'ia-comics-col',
+        title: 'IA Comics',
+        query: 'mediatype:texts AND collection:(comics OR comicbooks OR comic_books) AND (subject:(comics OR "comic books" OR "comic book") OR title:(comic OR comics))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'ga-titles',
+        title: 'Golden Age PD',
+        query: 'mediatype:texts AND (title:("planet comics" OR "whiz comics" OR "smash comics" OR "feature comics" OR "wow comics" OR "pep comics" OR "blue ribbon comics" OR "zip comics" OR "mystery men comics" OR "fight comics" OR "jumbo comics" OR "jungle comics" OR "startling comics" OR "thrilling comics" OR "exciting comics" OR "military comics" OR "police comics" OR "national comics" OR "more fun comics" OR "action comics" OR "adventure comics" OR "all-american comics") OR subject:("golden age comics" OR "golden age comic"))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'western-comics',
+        title: 'Western Comics',
+        query: 'mediatype:texts AND (subject:("western comic" OR "western comics" OR "cowboy comic") OR title:("red ryder" OR " Hopalong" OR "tom mix" OR "cisco kid" OR "roy rogers comics" OR "gene autry comics" OR "western comics" OR "cowboy comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'romance-comics',
+        title: 'Romance Comics',
+        query: 'mediatype:texts AND (subject:("romance comic" OR "romance comics" OR "love comic") OR title:("young romance" OR "young love" OR "first love" OR "teen-age romance" OR "my date" OR "sweethearts")) AND (subject:(comics OR "comic books") OR title:(comic OR comics))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'horror-comics',
+        title: 'Horror Comics',
+        query: 'mediatype:texts AND (subject:("horror comic" OR "horror comics" OR "pre-code horror") OR title:("vault of horror" OR "crypt of terror" OR "haunt of fear" OR "weird fantasy" OR "weird science" OR "tales from the crypt" OR "horror comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR crypt OR vault OR haunt))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'war-comics',
+        title: 'War Comics',
+        query: 'mediatype:texts AND (subject:("war comic" OR "war comics" OR "military comic") OR title:("two-fisted tales" OR "frontline combat" OR "our army at war" OR "star spangled war" OR "g.i. combat" OR "war comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'funny-animal',
+        title: 'Funny Animal',
+        query: 'mediatype:texts AND (subject:("funny animal" OR "funny animals" OR "anthropomorphic") OR title:("funny animal" OR "funny stuff" OR "animal comics" OR "funny animals" OR "pogo" OR "uncle scraps")) AND (subject:(comics OR "comic books") OR title:(comic OR comics))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'crime-comics',
+        title: 'Crime Comics',
+        query: 'mediatype:texts AND (subject:("crime comic" OR "crime comics" OR "true crime comic") OR title:("crime does not pay" OR "crime must pay" OR "crime reporter" OR "justice tricks crime")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR crime))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'sf-comics',
+        title: 'SF Comics',
+        query: 'mediatype:texts AND (subject:("science fiction comic" OR "sci-fi comic" OR "science fiction comics") OR title:("planet comics" OR "weird science" OR "weird fantasy" OR "strange adventures" OR "mystery in space" OR "space adventures")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR planet))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'jungle-comics',
+        title: 'Jungle & Adventure',
+        query: 'mediatype:texts AND (title:("jungle comics" OR "jumbo comics" OR "sheena" OR "kaanga" OR "phantom" OR "jungle comics") OR subject:("jungle comic" OR "adventure comic")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR jungle OR jumbo))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'zines',
+        title: 'Zines',
+        query: 'mediatype:texts AND (subject:(zine OR zines OR fanzine OR fanzines) OR title:(zine OR fanzine) OR collection:(zines OR fanzines OR zinecity)) AND NOT subject:(textbook OR mathematics OR software)' + ADULT_EXCLUDE
+      },
+      {
+        id: 'rpg',
+        title: 'RPG',
+        // Dragon, Dungeon, and tabletop RPG magazines
+        query: 'mediatype:texts AND (title:("dragon magazine" OR "dungeon magazine" OR "white dwarf" OR "polyhedron" OR "dungeon adventures") OR subject:("dragon magazine" OR "role playing" OR "role-playing" OR "rpg magazine") OR collection:(dragonmagazine OR dungeonmagazine))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'tvguide',
+        title: 'TV Guide',
+        query: 'mediatype:texts AND (title:("tv guide" OR "television guide" OR "radio times" OR "tv times") OR subject:("tv guide" OR "television listings") OR collection:(tvguide OR tv_guide))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'popsci',
+        title: 'Pop Science',
+        query: 'mediatype:texts AND (title:("popular science") OR collection:(popularscience OR popular_science))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'popmech',
+        title: 'Pop Mechanics',
+        query: 'mediatype:texts AND (title:("popular mechanics") OR collection:(popularmechanics OR popular_mechanics))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'music',
+        title: 'Music Press',
+        query: 'mediatype:texts AND (title:("rolling stone" OR "billboard magazine" OR "spin magazine" OR creem OR "melody maker" OR "new musical express" OR "nme magazine" OR "hit parader" OR "circus magazine") OR (subject:("music magazine") AND (subject:magazine OR title:magazine)))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'hotrod',
+        title: 'Hot Rod',
+        query: 'mediatype:texts AND (title:("hot rod magazine" OR "hot rod " OR "motor trend" OR "car and driver" OR "road and track" OR "rod and custom") OR subject:("hot rod" OR "automobile magazine")) AND (subject:magazine OR title:magazine OR collection:*magazine*)' + ADULT_EXCLUDE
+      },
+      {
+        id: 'aviation',
+        title: 'Aviation',
+        query: 'mediatype:texts AND (title:("flying magazine" OR "aviation week" OR "air classics" OR "air progress" OR "aeroplane magazine" OR "flight international" OR "airforce magazine" OR "popular aviation") OR subject:("aviation magazine" OR "flying magazine" OR aviation)) AND (title:magazine OR subject:magazine OR collection:magazine_rack)' + ADULT_EXCLUDE
+      },
+      {
+        id: 'photo',
+        title: 'Photography',
+        query: 'mediatype:texts AND (title:("popular photography" OR "american photographer" OR "modern photography" OR "camera magazine" OR "popular photography") OR subject:("photography magazine")) AND (title:magazine OR subject:magazine OR collection:magazine_rack) AND NOT (title:(nude OR nudes OR glamour OR figure OR erotic))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'mad',
+        title: 'Humor',
+        query: 'mediatype:texts AND (title:("mad magazine" OR "mad #" OR "cracked magazine" OR "crazy magazine" OR "national lampoon") OR subject:("mad magazine" OR "humor magazine"))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'sffanzines',
+        title: 'SF Fanzines',
+        query: 'mediatype:texts AND ((subject:(fanzine OR fanzines) AND subject:("science fiction" OR "sci-fi" OR "science-fiction")) OR title:("sf fanzine" OR "science fiction fanzine" OR "locus magazine"))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'boardgames',
+        title: 'Board Games',
+        query: 'mediatype:texts AND (collection:gamemagazines OR subject:magazine) AND (title:("games magazine" OR "games workshop" OR "space gamer" OR "different worlds" OR "strategy and tactics") OR subject:("board games" OR "board game" OR "wargame"))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'newspapers',
+        title: 'Papers',
+        query: 'mediatype:texts AND (collection:(newspapers) OR subject:newspapers) AND language:English' + ADULT_EXCLUDE
+      },
+      {
+        id: 'funnies',
+        title: 'Funnies',
+        // Classic strips + Sunday funnies emphasis
+        query: 'mediatype:texts AND (title:("little nemo" OR "dick tracy" OR "flash gordon" OR "buck rogers" OR "little orphan annie" OR "katzenjammer" OR "bringing up father" OR "sunday funnies" OR "sunday comics" OR "terry and the pirates" OR "prince valiant" OR "krazy kat" OR "gasoline alley" OR "popeye" OR "thimble theatre" OR "blondie" OR "li\'l abner" OR "barnaby") OR subject:("comic strip" OR "comic strips" OR "sunday comics" OR "newspaper comics" OR funnies)) AND NOT subject:(manga OR anime OR hentai OR "graphic novel")' + ADULT_EXCLUDE
+      },
+      {
+        id: 'chronam',
+        title: 'ChronAm',
+        source: 'loc',
+        locQs: 'newspaper',
+        locExtra: 'dl=page'
+      },
+      {
+        id: 'chronam-funnies',
+        title: 'ChronAm Funnies',
+        source: 'loc',
+        locQs: 'comic strip',
+        locExtra: 'dl=page'
+      },
+      {
+        id: 'chronam-front',
+        title: 'ChronAm Front',
+        source: 'loc',
+        locQs: 'front page',
+        locExtra: 'dl=page'
+      },
+      {
+        id: 'chronam-texas',
+        title: 'ChronAm Texas',
+        source: 'loc',
+        locQs: 'texas',
+        locExtra: 'dl=page&location_state=texas'
+      },
+      {
+        id: 'chronam-ca',
+        title: 'ChronAm CA',
+        source: 'loc',
+        locQs: 'california',
+        locExtra: 'dl=page&location_state=california'
+      },
+      {
+        id: 'chronam-ny',
+        title: 'ChronAm NY',
+        source: 'loc',
+        locQs: 'new york',
+        locExtra: 'dl=page&location_state=new york'
+      },
+      {
+        id: 'xkcd',
+        title: 'XKCD',
+        source: 'xkcd'
+      },
+      {
+        id: 'openlib',
+        title: 'Open Library',
+        source: 'openlibrary',
+        olQuery: 'magazine OR periodical OR "comic book"'
+      },
+      {
+        id: 'ol-comics',
+        title: 'OL Comics',
+        source: 'openlibrary',
+        olQuery: 'subject:comics OR subject:"comic books" OR subject:"graphic novels" OR title:"comic book"'
+      },
+      {
+        id: 'europeana',
+        title: 'Europeana',
+        source: 'europeana',
+        euQuery: 'newspaper',
+        euTheme: 'newspaper'
+      },
+      {
+        id: 'eu-comics',
+        title: 'EU Comics',
+        source: 'europeana',
+        euQuery: 'comic OR comics OR "bande dessinee" OR "comic strip"',
+        euTheme: ''
+      },
+      {
+        id: 'wikimedia-comics',
+        title: 'Wikimedia PD',
+        source: 'wikimedia',
+        wmQuery: 'comic strip OR comic book OR bande dessinee'
+      },
+      {
+        id: 'ol-subjects',
+        title: 'OL Subjects',
+        source: 'olsubjects',
+        olSubject: 'comics'
+      },
+      {
+        id: 'gbooks-comics',
+        title: 'Google Books PD',
+        source: 'gbooks',
+        gbQuery: 'comics OR "comic book" OR "comic strip"'
+      },
+      {
+        id: 'gbooks-mags',
+        title: 'Google Books Mags',
+        source: 'gbooks',
+        gbQuery: 'magazine OR periodical'
+      },
+      {
+        id: 'loc-photos',
+        title: 'LOC Pictures',
+        source: 'locsearch',
+        locPath: 'photos',
+        locQs: 'cartoon OR comic OR caricature'
+      },
+      {
+        id: 'loc-search-comics',
+        title: 'LOC Search',
+        source: 'locsearch',
+        locPath: 'search',
+        locQs: 'comic strip OR comic book'
+      },
+      {
+        id: 'ia-folkscanomy',
+        title: 'Folkscanomy',
+        query: 'mediatype:texts AND collection:(folkscanomy OR folkscanomy_miscellaneous) AND (subject:(comics OR "comic books" OR zine) OR title:(comic OR comics OR comix OR zine))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'ia-strips',
+        title: 'IA Strips',
+        query: 'mediatype:texts AND collection:comics AND (subject:("comic strip" OR "comic strips" OR funnies) OR title:("comic strip" OR funnies OR "katzenjammer" OR "little nemo"))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'gcd-series',
+        title: 'Comic Series',
+        source: 'gcd',
+        gcdName: 'comic'
+      },
+      {
+        id: 'trove-papers',
+        title: 'Trove Papers',
+        source: 'trove',
+        format: 'paper',
+        troveQuery: 'newspaper OR magazine OR comic OR newsletter'
+      },
+      {
+        id: 'dpla-periodicals',
+        title: 'DPLA Periodicals',
+        source: 'dpla',
+        format: 'magazine',
+        dplaQuery: 'magazine OR periodical OR newspaper OR comic OR zine'
+      },
+      {
+        id: 'adult-mags',
+        title: 'Adult Mags',
+        // Magazines only — not comics
+        query: 'mediatype:texts AND (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR milf OR cheri OR "color climax" OR "adult magazine" OR "high society" OR knave OR mayfair OR gallery OR oui) OR subject:("adult magazine" OR "men\'s magazine" OR nudist OR milf OR erotica)) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana"))'
+      },
+      {
+        id: 'adult-comics',
+        title: 'Adult Comics',
+        // Adult / erotic comics only — not glossy mags
+        query: 'mediatype:texts AND (title:("gay comix" OR "adult comic" OR "adult comix" OR "sex comic" OR "erotic comic" OR hentai OR "tijuana bible" OR "tijuana bibles") OR subject:("adult comics" OR "adult comix" OR "erotic comics" OR hentai)) AND NOT (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank))'
+      }
+    ];
+
+    function isAdultShelfId(id) {
+      return id === 'adult-mags' || id === 'adult-comics' || id === 'adult';
+    }
+
+    const STORAGE_KEY = 'magazine-rack-v2';
+    const HISTORY_KEY = 'magazine-rack-history-v1';
+    const PREFS_KEY = 'magazine-rack-prefs-v1';
+    let library = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    let prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{"wall":false,"hidden":{},"pinned":{}}');
+    if (!prefs.hidden) prefs.hidden = {};
+    if (!prefs.pinned) prefs.pinned = {};
+    // User Europeana personal API key
+    try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) {}
+    let currentDecade = '';
+    let currentSearch = '';
+    let currentFormat = '';
+
+    function savePrefs() {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    }
+
+    function saveLibrary() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(library));
+      updateStats();
+    }
+
+    function saveHistory() {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 30)));
+    }
+
+    function pushHistory(entry) {
+      if (!entry || !entry.iaId) return;
+      history = history.filter(h => h.iaId !== entry.iaId);
+      history.unshift({
+        iaId: entry.iaId,
+        title: entry.title || 'Untitled',
+        cover: entry.cover || (isValidIaId(entry.iaId) ? ('https://archive.org/services/img/' + entry.iaId) : null),
+        at: new Date().toISOString()
+      });
+      history = history.slice(0, 30);
+      saveHistory();
+      renderContinueReading();
+    }
+
+    function timeAgo(iso) {
+      if (!iso) return '';
+      var t = new Date(iso).getTime();
+      if (!t) return '';
+      var s = Math.floor((Date.now() - t) / 1000);
+      if (s < 60) return 'just now';
+      if (s < 3600) return Math.floor(s / 60) + 'm ago';
+      if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+      if (s < 604800) return Math.floor(s / 86400) + 'd ago';
+      return Math.floor(s / 604800) + 'w ago';
+    }
+
+    function renderContinueReading() {
+      const wrap = document.getElementById('continue-wrap');
+      const track = document.getElementById('track-continue');
+      const count = document.getElementById('count-continue');
+      if (!wrap || !track) return;
+      if (!history.length) {
+        wrap.classList.remove('show');
+        track.innerHTML = '';
+        return;
+      }
+      wrap.classList.add('show');
+      count.textContent = history.length + ' recent';
+      track.innerHTML = '';
+      history.forEach(function(item) {
+        const doc = {
+          identifier: item.iaId,
+          title: item.title,
+          creator: '',
+          date: '',
+          subject: [],
+          cover: item.cover || null
+        };
+        const card = createCoverCard(doc);
+        var meta = document.createElement('div');
+        meta.className = 'continue-meta';
+        meta.textContent = timeAgo(item.at);
+        card.appendChild(meta);
+        track.appendChild(card);
+      });
+    }
+
+    function buildExtraQuery() {
+      var parts = [];
+      if (currentSearch && currentSearch.trim()) {
+        parts.push('(' + currentSearch.trim() + ')');
+      }
+      if (currentDecade) {
+        parts.push('date:[' + currentDecade + ']');
+      }
+      return parts.join(' AND ');
+    }
+
+    function updateStats() {
+      const n = library.length;
+      document.getElementById('stats').textContent = n === 0 ? '0 saved' : n + ' saved';
+    }
+
+    // Nav
+    document.querySelectorAll('.bottom-nav button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.view).classList.add('active');
+        document.getElementById('search-bar').style.display =
+          btn.dataset.view === 'browse' ? 'flex' : 'none';
+        if (btn.dataset.view === 'library') renderLibrary();
+      });
+    });
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    // ========== NETFLIX-STYLE INFINITE SCROLL ==========
+    // Scroll near the end of any shelf → automatically loads the next page.
+
+    const ROWS_PER_PAGE = 30;
+    const shelfState = {}; // id -> { page, extraQuery, total, loading, hasMore, scrapeCursor, useScrape, mode }
+
+    const shelvesEl = document.getElementById('shelves');
+
+    function formatKey(value) {
+      var text = Array.isArray(value) ? value.join(' ') : String(value || '');
+      text = text.toLowerCase();
+      if (text.indexOf('comic') !== -1 || text.indexOf('graphic novel') !== -1 || text.indexOf('webcomic') !== -1) return 'comic';
+      if (text.indexOf('newspaper') !== -1 || text.indexOf('paper') !== -1 || text.indexOf('gazette') !== -1) return 'paper';
+      if (text.indexOf('mag') !== -1 || text.indexOf('periodical') !== -1 || text.indexOf('journal') !== -1) return 'magazine';
+      if (text.indexOf('zine') !== -1 || text.indexOf('fanzine') !== -1 || text.indexOf('newsletter') !== -1) return 'zine';
+      return '';
+    }
+
+    function formatLabel(value) {
+      var key = formatKey(value) || String(value || '').toLowerCase();
+      return ({ comic: 'Comic', magazine: 'Magazine', paper: 'Paper', zine: 'Zine' })[key] || (key ? key.charAt(0).toUpperCase() + key.slice(1) : 'Issue');
+    }
+
+    function shelfFormat(shelf) {
+      if (shelf && shelf.format) return formatKey(shelf.format) || shelf.format;
+      var id = String((shelf && shelf.id) || '').toLowerCase();
+      if ((shelf && shelf.source === 'gcd') || /comic|funnies|superhero|golden|western|romance|horror|war-|funny|crime|jungle|sf-|xkcd|ol-comics|ia-strips/.test(id)) return 'comic';
+      if ((shelf && shelf.source === 'loc') || /newspaper|chronam|paper/.test(id)) return 'paper';
+      if (/zine|fanzine|folkscanomy/.test(id)) return 'zine';
+      return 'magazine';
+    }
+
+    function shelfMatchesFormat(shelf) {
+      return !currentFormat || shelfFormat(shelf) === currentFormat;
+    }
+
+    function normalizeIssue(doc, shelf) {
+      var item = Object.assign({}, doc || {});
+      item.format = formatKey(item.format || (shelf && shelf.format)) || shelfFormat(shelf || {});
+      item.publication = item.publication || item.partof_title || item.partof || '';
+      item.issueDate = item.issueDate || item.date || '';
+      item.volume = item.volume || item.vol || '';
+      item.issue = item.issue || item.number || '';
+      item.iiifManifest = item.iiifManifest || item.manifest || item.iiif || null;
+      return item;
+    }
+
+    function applyRackVisibility() {
+      SHELVES.forEach(function(s) {
+        var el = document.getElementById('shelf-' + s.id);
+        if (!el) return;
+        if (prefs.hidden[s.id]) el.classList.add('is-hidden-rack');
+        else el.classList.remove('is-hidden-rack');
+        if (!shelfMatchesFormat(s)) el.classList.add('is-filtered-rack');
+        else el.classList.remove('is-filtered-rack');
+      });
+    }
+
+    function buildShelfSkeleton(shelf) {
+      const div = document.createElement('div');
+      div.className = 'shelf' + (isAdultShelfId(shelf.id) ? ' adult-shelf' : '') + (shelfMatchesFormat(shelf) ? '' : ' is-filtered-rack');
+      div.id = 'shelf-' + shelf.id;
+      div.setAttribute('data-format', shelfFormat(shelf));
+      if (prefs.hidden[shelf.id]) div.classList.add('is-hidden-rack');
+      var pinned = !!prefs.pinned[shelf.id];
+      div.innerHTML =
+        '<div class="shelf-header">' +
+          '<div class="shelf-title">' + shelf.title + '</div>' +
+          '<div class="shelf-header-actions">' +
+            '<button type="button" class="shelf-pin' + (pinned ? ' pinned' : '') + '" data-shelf="' + shelf.id + '" title="Pin rack">' + (pinned ? '★' : '☆') + '</button>' +
+            '<button type="button" class="shelf-refresh" data-shelf="' + shelf.id + '" title="Shuffle this rack">↻</button>' +
+            '<div class="shelf-count" id="count-' + shelf.id + '"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="shelf-track" id="track-' + shelf.id + '">' +
+          '<div class="shelf-loading"><div class="spinner"></div>Loading...</div>' +
+        '</div>' +
+        '<div class="shelf-base"></div>';
+      div.querySelector('.shelf-refresh').addEventListener('click', function(e) {
+        e.stopPropagation();
+        var s = SHELVES.find(function(x) { return x.id === shelf.id; });
+        if (s) {
+          showToast('Shuffling · ' + s.title);
+          loadShelf(s, buildExtraQuery(), true);
+        }
+      });
+      div.querySelector('.shelf-pin').addEventListener('click', function(e) {
+        e.stopPropagation();
+        prefs.pinned[shelf.id] = !prefs.pinned[shelf.id];
+        savePrefs();
+        e.currentTarget.classList.toggle('pinned', !!prefs.pinned[shelf.id]);
+        e.currentTarget.textContent = prefs.pinned[shelf.id] ? '★' : '☆';
+        reorderShelvesByPin();
+        showToast(prefs.pinned[shelf.id] ? 'Pinned · ' + shelf.title : 'Unpinned · ' + shelf.title);
+      });
+      return div;
+    }
+
+    function reorderShelvesByPin() {
+      var pinned = [];
+      var rest = [];
+      SHELVES.forEach(function(s) {
+        var el = document.getElementById('shelf-' + s.id);
+        if (!el) return;
+        if (prefs.pinned[s.id]) pinned.push(el);
+        else rest.push(el);
+      });
+      pinned.concat(rest).forEach(function(el) { shelvesEl.appendChild(el); });
+    }
+
+    SHELVES.forEach(s => {
+      shelvesEl.appendChild(buildShelfSkeleton(s));
+      shelfState[s.id] = { page: 0, extraQuery: '', total: 0, loading: false, hasMore: true, scrapeCursor: null, useScrape: false, mode: 'search' };
+    });
+    reorderShelvesByPin();
+
+    // Jump-to-shelf chips (skip hidden + adult)
+    function buildJumpChips() {
+      var row = document.getElementById('jump-chips');
+      if (!row) return;
+      row.innerHTML = '';
+      SHELVES.forEach(function(s) {
+        if (isAdultShelfId(s.id)) return;
+        if (prefs.hidden[s.id] || !shelfMatchesFormat(s)) return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chip';
+        btn.textContent = s.title;
+        btn.addEventListener('click', function() {
+          var el = document.getElementById('shelf-' + s.id);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        row.appendChild(btn);
+      });
+    }
+    buildJumpChips();
+
+    function createCoverCard(doc) {
+      const card = document.createElement('div');
+      card.className = 'cover-card';
+
+      const id = doc.identifier;
+      const noArchiveCover = ['loc', 'locsearch', 'xkcd', 'europeana', 'gcd', 'trove', 'dpla'].indexOf(doc.source) !== -1;
+      const coverUrl = doc.cover || (!noArchiveCover && id ? 'https://archive.org/services/img/' + id : null);
+      const title = doc.title || 'Untitled';
+      const creator = Array.isArray(doc.creator) ? doc.creator[0] : (doc.creator || '');
+      const year = (doc.date || '').toString().slice(0, 4);
+
+      var pages = doc.imagecount || doc.pages || '';
+      var format = doc.format ? formatLabel(doc.format) : '';
+      var badge = format || year || pages
+        ? '<div class="cover-badge">' + escapeHtml([format, year, pages ? (pages + 'p') : ''].filter(Boolean).join(' · ')) + '</div>'
+        : '';
+      card.innerHTML =
+        '<div class="cover-img-wrap">' +
+          (coverUrl
+            ? '<img src="' + coverUrl + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+            : '') +
+          '<div class="cover-placeholder" style="' + (coverUrl ? 'display:none' : '') + '">No cover</div>' +
+          badge +
+        '</div>' +
+        '<div class="cover-title">' + escapeHtml(title) + '</div>';
+
+      card.addEventListener('click', () => openDetail(doc));
+      return card;
+    }
+
+    function locThumb(imageUrls) {
+      if (!imageUrls || !imageUrls.length) return null;
+      var mid = imageUrls.find(function(u) { return u.indexOf('pct:12.5') !== -1 || u.indexOf('pct:25') !== -1; });
+      var pick = (mid || imageUrls[0] || '').split('#')[0];
+      return pick || null;
+    }
+
+    function locFullImage(imageUrls) {
+      if (!imageUrls || !imageUrls.length) return null;
+      var base = (imageUrls[0] || '').split('#')[0];
+      // bump IIIF size for reading
+      return base.replace(/\/pct:[0-9.]+\/0\//, '/pct:50/0/').replace(/\/full\/[^/]+\/0\//, '/full/pct:50/0/');
+    }
+
+    function mapLocResults(results) {
+      return (results || []).map(function(it) {
+        var imgs = it.image_url || [];
+        var title = it.title || 'Newspaper page';
+        var date = (it.date || '').toString().slice(0, 10);
+        var paper = '';
+        if (Array.isArray(it.partof_title) && it.partof_title[0]) paper = it.partof_title[0];
+        else if (Array.isArray(it.partof) && it.partof[0]) paper = String(it.partof[0]);
+        return {
+          source: 'loc',
+          identifier: it.id || it.url || title,
+          title: title,
+          creator: paper || 'Chronicling America',
+          date: date,
+          subject: it.subject || [],
+          locUrl: it.url || null,
+          cover: locThumb(imgs),
+          fullImage: locFullImage(imgs),
+          iiifManifest: it.iiif_manifest || it.iiifManifest || it.manifest || null,
+          image_url: imgs
+        };
+      });
+    }
+
+    async function fetchLocPage(shelf, page, extraQuery) {
+      // loc.gov Chronicling America API (legacy chroniclingamerica.loc.gov search is gone)
+      var qs = shelf.locQs || 'newspaper';
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) {
+        // free-text search from the search box
+        qs = extraQuery.trim() + ' ' + qs;
+      }
+      var params = 'fo=json&c=' + ROWS_PER_PAGE + '&sp=' + page + '&qs=' + encodeURIComponent(qs);
+      if (shelf.locExtra) params += '&' + shelf.locExtra;
+      // decade filter → start_date / end_date when possible
+      if (currentDecade && currentDecade.indexOf('TO') !== -1) {
+        var parts = currentDecade.split('TO').map(function(s) { return s.trim(); });
+        if (parts[0]) params += '&start_date=' + encodeURIComponent(parts[0].slice(0, 10));
+        if (parts[1]) params += '&end_date=' + encodeURIComponent(parts[1].slice(0, 10));
+      }
+      var url = 'https://www.loc.gov/collections/chronicling-america/?' + params;
+      var res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('LOC HTTP ' + res.status);
+      var data = await res.json();
+      var docs = shuffleDocs(mapLocResults(data.results || []));
+      var numFound = (data.pagination && data.pagination.of) ? data.pagination.of : docs.length;
+      return { docs: docs, numFound: numFound };
+    }
+
+    const IA_SORTS = [
+      'downloads+desc',
+      'publicdate+desc',
+      'addeddate+desc',
+      'week+desc',
+      'titleSorter+asc'
+    ];
+
+    function pickIaSort() {
+      return IA_SORTS[Math.floor(Math.random() * IA_SORTS.length)];
+    }
+
+    function shuffleDocs(arr) {
+      var a = arr.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+
+    async function fetchXkcdPage(page) {
+      // Official XKCD has no CORS; use public mirror
+      var latestRes = await fetch('https://raw.githubusercontent.com/aghontpi/mirror-xkcd-api/main/api/info.0.json');
+      if (!latestRes.ok) throw new Error('XKCD HTTP ' + latestRes.status);
+      var latest = await latestRes.json();
+      var max = latest.num || 3000;
+      var start = max - ((page - 1) * ROWS_PER_PAGE);
+      var docs = [];
+      var ids = [];
+      for (var i = 0; i < ROWS_PER_PAGE; i++) {
+        var n = start - i;
+        if (n < 1) break;
+        ids.push(n);
+      }
+      // fetch a batch (limit concurrency lightly)
+      for (var j = 0; j < ids.length; j++) {
+        try {
+          var r = await fetch('https://raw.githubusercontent.com/aghontpi/mirror-xkcd-api/main/api/' + ids[j] + '/info.0.json');
+          if (!r.ok) continue;
+          var c = await r.json();
+          docs.push({
+            source: 'xkcd',
+            identifier: 'xkcd-' + c.num,
+            title: (c.safe_title || c.title || ('XKCD ' + c.num)),
+            creator: 'Randall Munroe',
+            date: (c.year || '') + '-' + (c.month || '01') + '-' + (c.day || '01'),
+            subject: ['xkcd', 'webcomic'],
+            cover: c.mirror_img || c.img,
+            fullImage: c.mirror_img || c.img,
+            alt: c.alt || '',
+            locUrl: 'https://xkcd.com/' + c.num
+          });
+        } catch (e) {}
+      }
+      return { docs: docs, numFound: max };
+    }
+
+    async function fetchOpenLibraryPage(shelf, page, extraQuery) {
+      var q = shelf.olQuery || 'magazine';
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) {
+        q = extraQuery.trim() + ' ' + q;
+      }
+      // Prefer items with IA identifiers so we can still read in-app
+      var url = 'https://openlibrary.org/search.json?q=' + encodeURIComponent(q) +
+        '&has_fulltext=true&fields=key,title,author_name,first_publish_year,cover_i,ia,public_scan_b,subject' +
+        '&limit=' + ROWS_PER_PAGE + '&page=' + page;
+      var res = await fetch(url);
+      if (!res.ok) throw new Error('Open Library HTTP ' + res.status);
+      var data = await res.json();
+      var docs = (data.docs || []).map(function(d) {
+        var iaId = (d.ia && d.ia[0]) ? d.ia[0] : null;
+        return {
+          source: iaId ? 'ia' : 'openlibrary',
+          identifier: iaId || d.key,
+          title: d.title || 'Untitled',
+          creator: (d.author_name && d.author_name[0]) || 'Open Library',
+          date: d.first_publish_year ? String(d.first_publish_year) : '',
+          subject: d.subject || [],
+          cover: d.cover_i ? ('https://covers.openlibrary.org/b/id/' + d.cover_i + '-M.jpg') : (iaId ? 'https://archive.org/services/img/' + iaId : null),
+          locUrl: d.key ? ('https://openlibrary.org' + d.key) : null
+        };
+      });
+      return { docs: shuffleDocs(docs), numFound: data.num_found || docs.length };
+    }
+
+    async function fetchEuropeanaPage(shelf, page, extraQuery) {
+      var key = (prefs.europeanaKey || '').trim();
+      if (!key) {
+        // No key yet — return a single instructional card
+        return {
+          docs: [{
+            source: 'europeana',
+            identifier: 'europeana-setup',
+            title: 'Add free Europeana API key',
+            creator: 'Europeana',
+            date: '',
+            subject: ['setup'],
+            cover: null,
+            locUrl: 'https://www.europeana.eu/en/apis',
+            setup: true
+          }],
+          numFound: 1
+        };
+      }
+      var q = shelf.euQuery || 'newspaper';
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) {
+        q = extraQuery.trim();
+      }
+      var start = 1 + ((page - 1) * ROWS_PER_PAGE);
+      var params = 'wskey=' + encodeURIComponent(key) +
+        '&query=' + encodeURIComponent(q) +
+        '&rows=' + ROWS_PER_PAGE +
+        '&start=' + start +
+        '&media=true&profile=rich';
+      if (shelf.euTheme) params += '&theme=' + encodeURIComponent(shelf.euTheme);
+      var url = 'https://api.europeana.eu/record/v2/search.json?' + params;
+      var res = await fetch(url);
+      if (!res.ok) throw new Error('Europeana HTTP ' + res.status);
+      var data = await res.json();
+      var items = data.items || [];
+      var docs = items.map(function(it) {
+        var title = (it.title && it.title[0]) || it.dcTitle || 'Europeana item';
+        var thumb = (it.edmPreview && it.edmPreview[0]) || null;
+        return {
+          source: 'europeana',
+          identifier: it.id || title,
+          title: title,
+          creator: (it.dcCreator && it.dcCreator[0]) || 'Europeana',
+          date: (it.year && it.year[0]) || '',
+          subject: it.dcSubject || [],
+          cover: thumb,
+          fullImage: thumb,
+          locUrl: it.guid || it.link || null
+        };
+      });
+      return { docs: shuffleDocs(docs), numFound: data.totalResults || docs.length };
+    }
+
+    async function fetchWikimediaPage(shelf, page, extraQuery) {
+      var q = (shelf.wmQuery || 'comic strip') + ' filetype:bitmap';
+      if (extraQuery && extraQuery.trim()) q += ' ' + extraQuery.trim();
+      var offset = Math.max(0, (page - 1) * ROWS_PER_PAGE);
+      var url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*' +
+        '&generator=search&gsrsearch=' + encodeURIComponent(q) +
+        '&gsrnamespace=6&gsrlimit=' + ROWS_PER_PAGE +
+        '&gsroffset=' + offset +
+        '&prop=imageinfo&iiprop=url|mime|size&iiurlwidth=240';
+      var res = await fetch(url);
+      if (!res.ok) throw new Error('Wikimedia HTTP ' + res.status);
+      var data = await res.json();
+      var pages = (data.query && data.query.pages) ? data.query.pages : {};
+      var docs = [];
+      Object.keys(pages).forEach(function(k) {
+        var pg = pages[k];
+        var info = (pg.imageinfo && pg.imageinfo[0]) ? pg.imageinfo[0] : null;
+        if (!info) return;
+        var title = (pg.title || '').replace(/^File:/, '');
+        docs.push({
+          identifier: 'wm-' + (pg.pageid || title),
+          title: title,
+          source: 'wikimedia',
+          cover: info.thumburl || info.url,
+          fullImage: info.url,
+          locUrl: 'https://commons.wikimedia.org/wiki/' + encodeURIComponent(pg.title || '')
+        });
+      });
+      var total = (data.query && data.query.searchinfo && data.query.searchinfo.totalhits) || docs.length;
+      return { docs: docs, numFound: total };
+    }
+
+    async function fetchGbooksPage(shelf, page, extraQuery) {
+      var q = shelf.gbQuery || 'comics';
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) q = extraQuery.trim() + ' ' + q;
+      var start = Math.max(0, (page - 1) * ROWS_PER_PAGE);
+      var url = 'https://www.googleapis.com/books/v1/volumes?q=' + encodeURIComponent(q) +
+        '&filter=free-ebooks&printType=all&maxResults=' + Math.min(40, ROWS_PER_PAGE) +
+        '&startIndex=' + start;
+      var res = await fetch(url);
+      if (!res.ok) throw new Error('Google Books HTTP ' + res.status);
+      var data = await res.json();
+      var items = data.items || [];
+      var docs = items.map(function(it) {
+        var info = it.volumeInfo || {};
+        var access = it.accessInfo || {};
+        var id = it.id;
+        var cover = (info.imageLinks && (info.imageLinks.thumbnail || info.imageLinks.smallThumbnail)) || null;
+        if (cover) cover = cover.replace('http://', 'https://');
+        return {
+          source: 'gbooks',
+          identifier: 'gb-' + id,
+          title: info.title || 'Untitled',
+          creator: (info.authors && info.authors[0]) || 'Google Books',
+          date: (info.publishedDate || '').slice(0, 4),
+          subject: info.categories || ['ebook'],
+          cover: cover,
+          locUrl: access.webReaderLink || info.previewLink || info.infoLink,
+          publicDomain: !!access.publicDomain
+        };
+      }).filter(function(d) { return d.locUrl; });
+      return { docs: shuffleDocs(docs), numFound: data.totalItems || docs.length };
+    }
+
+    async function fetchLocSearchPage(shelf, page, extraQuery) {
+      var path = shelf.locPath || 'search';
+      var qs = shelf.locQs || 'comic';
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) qs = extraQuery.trim() + ' ' + qs;
+      var url = 'https://www.loc.gov/' + path + '/?fo=json&c=' + ROWS_PER_PAGE + '&sp=' + page +
+        '&q=' + encodeURIComponent(qs);
+      var res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('LOC search HTTP ' + res.status);
+      var data = await res.json();
+      var docs = mapLocResults(data.results || []).map(function(d) {
+        d.source = 'locsearch';
+        return d;
+      });
+      var total = (data.pagination && data.pagination.total) || docs.length;
+      return { docs: shuffleDocs(docs), numFound: total };
+    }
+
+    async function fetchGutendexPage(shelf, page, extraQuery) {
+      var q = shelf.gutQuery || 'comics';
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) q = extraQuery.trim();
+      var url = 'https://gutendex.com/books/?search=' + encodeURIComponent(q) + '&page=' + page;
+      var res = await fetch(url);
+      if (!res.ok) throw new Error('Gutendex HTTP ' + res.status);
+      var data = await res.json();
+      var docs = (data.results || []).map(function(b) {
+        var author = (b.authors && b.authors[0] && b.authors[0].name) || 'Project Gutenberg';
+        var cover = (b.formats && (b.formats['image/jpeg'] || b.formats['image/png'])) || null;
+        var read = (b.formats && (b.formats['text/html'] || b.formats['text/html; charset=utf-8'] || b.formats['application/epub+zip'])) || ('https://www.gutenberg.org/ebooks/' + b.id);
+        return {
+          source: 'gutendex',
+          identifier: 'pg-' + b.id,
+          title: b.title || 'Untitled',
+          creator: author,
+          date: '',
+          subject: b.subjects || ['gutenberg'],
+          cover: cover,
+          locUrl: read
+        };
+      });
+      return { docs: docs, numFound: data.count || docs.length };
+    }
+
+    async function fetchMetPage(shelf, page, extraQuery) {
+      var q = shelf.metQuery || 'cartoon';
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) q = extraQuery.trim();
+      var searchUrl = 'https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=' + encodeURIComponent(q);
+      var res = await fetch(searchUrl);
+      if (!res.ok) throw new Error('Met HTTP ' + res.status);
+      var data = await res.json();
+      var ids = data.objectIDs || [];
+      var start = (page - 1) * 8;
+      var slice = ids.slice(start, start + 8);
+      var docs = [];
+      for (var i = 0; i < slice.length; i++) {
+        try {
+          var r2 = await fetch('https://collectionapi.metmuseum.org/public/collection/v1/objects/' + slice[i]);
+          if (!r2.ok) continue;
+          var o = await r2.json();
+          docs.push({
+            source: 'met',
+            identifier: 'met-' + o.objectID,
+            title: o.title || o.objectName || 'Met object',
+            creator: o.artistDisplayName || 'Met Museum',
+            date: (o.objectDate || '').toString().slice(0, 4),
+            subject: [o.classification, o.medium].filter(Boolean),
+            cover: o.primaryImageSmall || o.primaryImage || null,
+            fullImage: o.primaryImage || o.primaryImageSmall || null,
+            locUrl: o.objectURL || null
+          });
+        } catch (e) {}
+      }
+      return { docs: docs, numFound: data.total || ids.length };
+    }
+
+        async function fetchOlSubjectsPage(shelf, page, extraQuery) {
+      var sub = shelf.olSubject || 'comics';
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) {
+        sub = extraQuery.trim().replace(/\s+/g, '_').toLowerCase();
+      }
+      var offset = Math.max(0, (page - 1) * ROWS_PER_PAGE);
+      var url = 'https://openlibrary.org/subjects/' + encodeURIComponent(sub) +
+        '.json?limit=' + ROWS_PER_PAGE + '&offset=' + offset;
+      var res = await fetch(url);
+      if (!res.ok) throw new Error('OL subjects HTTP ' + res.status);
+      var data = await res.json();
+      var works = data.works || [];
+      var docs = works.map(function(d) {
+        var iaId = (d.ia && d.ia[0]) ? d.ia[0] : null;
+        return {
+          source: iaId ? 'ia' : 'openlibrary',
+          identifier: iaId || d.key,
+          title: d.title || 'Untitled',
+          creator: (d.authors && d.authors[0] && d.authors[0].name) || 'Open Library',
+          date: d.first_publish_year ? String(d.first_publish_year) : '',
+          subject: d.subject || [sub],
+          cover: d.cover_id ? ('https://covers.openlibrary.org/b/id/' + d.cover_id + '-M.jpg') : null,
+          locUrl: d.key ? ('https://openlibrary.org' + d.key) : null
+        };
+      });
+      return { docs: shuffleDocs(docs), numFound: data.work_count || docs.length };
+    }
+
+    async function fetchWikidataPage(shelf, page, extraQuery) {
+      var offset = Math.max(0, (page - 1) * ROWS_PER_PAGE);
+      var extra = '';
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) {
+        extra = ' FILTER(CONTAINS(LCASE(?itemLabel), "' + extraQuery.trim().replace(/"/g, '') + '")). ';
+      }
+      var sparql =
+        'SELECT ?item ?itemLabel ?year ?img WHERE {' +
+        ' ?item wdt:P31/wdt:P279* wd:Q1004.' +
+        ' OPTIONAL { ?item wdt:P6216 wd:Q19652. }' +
+        ' OPTIONAL { ?item wdt:P577 ?year. }' +
+        ' OPTIONAL { ?item wdt:P18 ?img. }' +
+        extra +
+        ' SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }' +
+        ' } LIMIT ' + ROWS_PER_PAGE + ' OFFSET ' + offset;
+      var url = 'https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(sparql);
+      var res = await fetch(url, { headers: { 'Accept': 'application/sparql-results+json' } });
+      if (!res.ok) throw new Error('Wikidata HTTP ' + res.status);
+      var data = await res.json();
+      var bindings = (data.results && data.results.bindings) ? data.results.bindings : [];
+      var docs = bindings.map(function(b) {
+        var uri = (b.item && b.item.value) || '';
+        var qid = uri.split('/').pop();
+        var img = b.img && b.img.value;
+        var year = b.year && b.year.value ? String(b.year.value).slice(0, 4) : '';
+        return {
+          source: 'wikidata',
+          identifier: qid,
+          title: (b.itemLabel && b.itemLabel.value) || qid,
+          creator: 'Wikidata',
+          date: year,
+          subject: ['comic book'],
+          cover: img || null,
+          fullImage: img || null,
+          locUrl: uri
+        };
+      });
+      return { docs: docs, numFound: docs.length + offset + (docs.length === ROWS_PER_PAGE ? ROWS_PER_PAGE : 0) };
+    }
+
+    async function fetchGcdPage(shelf, page, extraQuery) {
+      var name = extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1
+        ? extraQuery.trim()
+        : (shelf.gcdName || 'Planet Comics');
+      var url = 'https://www.comics.org/api/series/name/' + encodeURIComponent(name) + '/?format=json&page=' + page;
+      try {
+        var res = await fetch(url);
+        if (!res.ok) throw new Error('GCD HTTP ' + res.status);
+        var data = await res.json();
+        var rows = data.results || data || [];
+        if (!Array.isArray(rows)) rows = [];
+        var docs = rows.map(function(s) {
+          var id = String(s.id || s.api_url || s.name || Math.random());
+          var years = [s.year_began, s.year_ended].filter(Boolean).join('–');
+          return {
+            source: 'gcd',
+            identifier: 'gcd-' + id,
+            title: (s.name || name) + (years ? ' (' + years + ')' : ''),
+            creator: s.publisher || 'Grand Comics Database',
+            date: s.year_began ? String(s.year_began) : '',
+            subject: ['comics', 'catalog'],
+            format: 'comic',
+            publication: s.publisher || s.name || '',
+            cover: s.cover || null,
+            locUrl: s.api_url || ('https://www.comics.org/series/' + (s.id || '') + '/'),
+            pages: (s.active_issues && s.active_issues.length) ? s.active_issues.length : ''
+          };
+        });
+        return { docs: docs, numFound: data.count || docs.length };
+      } catch (err) {
+        return {
+          docs: [{
+            source: 'gcd',
+            identifier: 'gcd-info',
+            title: 'GCD catalog (open on comics.org)',
+            creator: 'Grand Comics Database',
+            date: '',
+            subject: ['catalog'],
+            format: 'comic',
+            cover: null,
+            locUrl: 'https://www.comics.org/search/advanced/'
+          }],
+          numFound: 1
+        };
+      }
+    }
+
+    function sourceTextQuery(base, extra) {
+      return [base, extra].filter(function(value) { return value && String(value).trim(); }).join(' ')
+        .replace(/\bdate\s*:\s*\[[^\]]+\]/gi, ' ')
+        .replace(/[()]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 220);
+    }
+
+    function sourceValue(value) {
+      if (Array.isArray(value)) return sourceValue(value[0]);
+      if (value && typeof value === 'object') {
+        return sourceValue(value.name || value.label || value.value || value.text || value.display || value.id || '');
+      }
+      return value == null ? '' : String(value);
+    }
+
+    function sourceUrl(value) {
+      var url = sourceValue(value).replace(/^http:\/\//i, 'https://');
+      return /^https:\/\//i.test(url) ? url : null;
+    }
+
+    function troveSetupDoc() {
+      return {
+        source: 'trove',
+        identifier: 'trove-setup',
+        title: 'Add a Trove API key',
+        creator: 'National Library of Australia · Trove',
+        subject: ['newspapers', 'magazines', 'setup'],
+        format: 'paper',
+        setup: true,
+        locUrl: 'https://trove.nla.gov.au/about/create-something/using-api'
+      };
+    }
+
+    function dplaSetupDoc() {
+      return {
+        source: 'dpla',
+        identifier: 'dpla-setup',
+        title: 'Add a DPLA API key',
+        creator: 'Digital Public Library of America',
+        subject: ['periodicals', 'ephemera', 'setup'],
+        format: 'magazine',
+        setup: true,
+        locUrl: 'https://pro.dp.la/developers/api-codex'
+      };
+    }
+
+    function troveRecordArray(data) {
+      var root = data && data.response ? data.response : data;
+      var candidates = [];
+      function add(value) { if (Array.isArray(value) && value.length) candidates.push(value); }
+      function addRecords(value) {
+        if (!value || typeof value !== 'object') return;
+        add(value.article);
+        add(value.newspaper);
+        add(value.magazine);
+        add(value.journal);
+        add(value.record);
+        add(value.item);
+      }
+      addRecords(root && root.records);
+      addRecords(root);
+      var zones = root && (root.zone || root.category);
+      if (!Array.isArray(zones)) zones = zones ? [zones] : [];
+      zones.forEach(function(zone) {
+        addRecords(zone);
+        addRecords(zone && zone.records);
+      });
+      add(root && root.results);
+      add(root && root.items);
+      return candidates[0] || [];
+    }
+
+    function sourceTotal(data, docs) {
+      var root = data && data.response ? data.response : data;
+      var candidates = [
+        root && root.total,
+        root && root.totalResults,
+        root && root.records && root.records.total,
+        root && root.zone && root.zone[0] && root.zone[0].records && root.zone[0].records.total,
+        data && data.total,
+        data && data.totalResults
+      ];
+      for (var i = 0; i < candidates.length; i++) {
+        var n = parseInt(sourceValue(candidates[i]), 10);
+        if (!isNaN(n) && n >= 0) return n;
+      }
+      return docs.length;
+    }
+
+    async function fetchTrovePage(shelf, page, extraQuery) {
+      if (!prefs.troveKey) return { docs: [troveSetupDoc()], numFound: 1, mode: 'search' };
+      var params = new URLSearchParams();
+      params.set('category', shelf.troveCategory || 'newspaper');
+      params.set('include', 'article');
+      params.set('encoding', 'json');
+      params.set('n', String(ROWS_PER_PAGE));
+      params.set('s', String(Math.max(0, (page - 1) * ROWS_PER_PAGE)));
+      params.set('q', sourceTextQuery(shelf.troveQuery || 'newspaper OR magazine OR comic', extraQuery));
+      var res = await fetch('https://api.trove.nla.gov.au/v3/result?' + params.toString(), {
+        headers: { 'Accept': 'application/json', 'X-API-KEY': prefs.troveKey }
+      });
+      if (!res.ok) throw new Error('Trove HTTP ' + res.status);
+      var data = await res.json();
+      var records = troveRecordArray(data);
+      var docs = records.map(function(item) {
+        var id = sourceValue(item.id || item.identifier || item.url || item.troveUrl);
+        var heading = sourceValue(item.heading || item.articleTitle || item.title || 'Trove article');
+        var publication = sourceValue(item.publicationTitle || item.newspaperTitle || item.journalTitle || item.title || 'Trove');
+        var date = sourceValue(item.date || item.dateOfIssue || item.issueDate || item.troveDate || '');
+        var link = sourceUrl(item.troveUrl || item.url || item.link);
+        if (!link && id && !/^https?:/i.test(id)) link = 'https://trove.nla.gov.au/newspaper/article/' + encodeURIComponent(id);
+        var image = sourceUrl(item.image || item.imageUrl || item.thumbnail || item.thumbnailUrl || (item.links && (item.links.image || item.links.thumbnail)));
+        return {
+          source: 'trove',
+          identifier: 'trove-' + (id || heading),
+          title: heading,
+          creator: publication,
+          publication: publication,
+          date: date,
+          issueDate: date,
+          subject: ['newspaper', 'periodical'],
+          format: 'paper',
+          cover: image,
+          fullImage: image,
+          locUrl: link || 'https://trove.nla.gov.au/'
+        };
+      });
+      return { docs: docs, numFound: sourceTotal(data, docs), mode: 'search' };
+    }
+
+    async function fetchDplaPage(shelf, page, extraQuery) {
+      if (!prefs.dplaKey) return { docs: [dplaSetupDoc()], numFound: 1, mode: 'search' };
+      var params = new URLSearchParams();
+      params.set('q', sourceTextQuery(shelf.dplaQuery || 'magazine OR periodical OR newspaper OR comic', extraQuery));
+      params.set('page_size', String(ROWS_PER_PAGE));
+      params.set('page', String(page));
+      params.set('api_key', prefs.dplaKey);
+      var res = await fetch('https://api.dp.la/v2/items?' + params.toString(), { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('DPLA HTTP ' + res.status);
+      var data = await res.json();
+      var docs = (data.docs || data.items || []).map(function(item) {
+        var sr = item.sourceResource || {};
+        var title = sourceValue(sr.title || item.title || item.name || 'DPLA item');
+        var creator = sourceValue(sr.creator || sr.contributor || sr.publisher || 'DPLA');
+        var dateValue = sr.date && typeof sr.date === 'object'
+          ? (sr.date.displayDate || sr.date.begin || sr.date.end || sr.date)
+          : sr.date;
+        var date = sourceValue(dateValue || item.date || '');
+        var subject = sr.subject || sr.type || sr.format || [];
+        var cover = sourceUrl(item.object || item.thumbnail || item.objectUrl || item.isShownBy);
+        var fullImage = sourceUrl(item.isShownBy || item.object || item.objectUrl || cover);
+        var manifest = sourceValue(item.iiifManifest || item.manifest || item.hasView);
+        var link = sourceUrl(item.isShownAt || item.source || item.provider);
+        var id = sourceValue(item.id || item.identifier || title);
+        if (!link && id && !/^https?:/i.test(id)) link = 'https://dp.la/item/' + encodeURIComponent(id);
+        return {
+          source: 'dpla',
+          identifier: 'dpla-' + id,
+          title: title,
+          creator: creator,
+          publication: sourceValue(sr.publisher || sr.source || ''),
+          date: date,
+          issueDate: date,
+          subject: Array.isArray(subject) ? subject : [subject],
+          format: formatKey(shelf.format || sr.type || sr.format || sr.subject) || 'magazine',
+          cover: cover,
+          fullImage: fullImage,
+          iiifManifest: sourceUrl(manifest),
+          locUrl: link || 'https://dp.la/'
+        };
+      });
+      return { docs: docs, numFound: sourceTotal(data, docs), mode: 'search' };
+    }
+
+    // ===== Phase 1: IA request queue, cache, 429 backoff =====
+    var IA_MAX_CONCURRENT = 5;
+    var IA_CACHE_TTL_MS = 12 * 60 * 1000;
+    var iaInFlight = 0;
+    var iaQueue = [];
+    var iaCache = {}; // key -> { exp, data }
+
+    function iaCacheKey(kind, parts) {
+      return kind + '|' + parts.join('|');
+    }
+
+    function iaCacheGet(key) {
+      var hit = iaCache[key];
+      if (!hit) return null;
+      if (Date.now() > hit.exp) { delete iaCache[key]; return null; }
+      return hit.data;
+    }
+
+    function iaCacheSet(key, data) {
+      iaCache[key] = { exp: Date.now() + IA_CACHE_TTL_MS, data: data };
+      // soft cap
+      var keys = Object.keys(iaCache);
+      if (keys.length > 120) {
+        keys.slice(0, 40).forEach(function(k) { delete iaCache[k]; });
+      }
+    }
+
+    function pumpIaQueue() {
+      while (iaInFlight < IA_MAX_CONCURRENT && iaQueue.length) {
+        var job = iaQueue.shift();
+        iaInFlight++;
+        job.run().then(function(v) {
+          iaInFlight--;
+          job.resolve(v);
+          pumpIaQueue();
+        }, function(err) {
+          iaInFlight--;
+          job.reject(err);
+          pumpIaQueue();
+        });
+      }
+    }
+
+    function enqueueIa(run) {
+      return new Promise(function(resolve, reject) {
+        iaQueue.push({ run: run, resolve: resolve, reject: reject });
+        pumpIaQueue();
+      });
+    }
+
+    async function iaFetchJson(url, opts) {
+      opts = opts || {};
+      var retries = opts.retries != null ? opts.retries : 3;
+      var attempt = 0;
+      while (true) {
+        attempt++;
+        var res = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+            // Browsers restrict User-Agent; still set Accept clearly
+          }
+        });
+        if (res.status === 429) {
+          var ra = parseInt(res.headers.get('Retry-After') || '2', 10);
+          if (isNaN(ra) || ra < 1) ra = 2;
+          if (attempt > retries) throw new Error('IA HTTP 429');
+          await new Promise(function(r) { setTimeout(r, ra * 1000); });
+          continue;
+        }
+        if (!res.ok) throw new Error('IA HTTP ' + res.status);
+        return res.json();
+      }
+    }
+
+    function sortToScrape(sortMode) {
+      // scrape wants comma sorts like "downloads desc"
+      if (!sortMode) return 'downloads desc';
+      return String(sortMode).replace(/\+/g, ' ');
+    }
+
+    async function fetchIaAdvanced(q, page, sortMode) {
+      var key = iaCacheKey('adv', [q, String(page), sortMode || '']);
+      var cached = iaCacheGet(key);
+      if (cached) return cached;
+      return enqueueIa(async function() {
+        var cached2 = iaCacheGet(key);
+        if (cached2) return cached2;
+        var url = 'https://archive.org/advancedsearch.php?q=' + encodeURIComponent(q) +
+          '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=date&fl[]=subject&fl[]=imagecount&fl[]=collection&fl[]=publicdate' +
+          '&rows=' + ROWS_PER_PAGE +
+          '&page=' + page +
+          '&output=json&sort[]=' + (sortMode || 'downloads+desc');
+        var data = await iaFetchJson(url);
+        var docs = (data.response && data.response.docs) ? data.response.docs : [];
+        var numFound = (data.response && data.response.numFound) ? data.response.numFound : docs.length;
+        var out = { docs: docs, numFound: numFound, mode: 'search' };
+        iaCacheSet(key, out);
+        return out;
+      });
+    }
+
+    async function fetchIaScrape(q, cursor, sortMode) {
+      var key = iaCacheKey('scrape', [q, cursor || 'START', sortMode || '']);
+      var cached = iaCacheGet(key);
+      if (cached) return cached;
+      return enqueueIa(async function() {
+        var cached2 = iaCacheGet(key);
+        if (cached2) return cached2;
+        var params = new URLSearchParams();
+        params.set('q', q);
+        params.set('fields', 'identifier,title,creator,date,subject,imagecount,collection,publicdate');
+        params.set('count', String(Math.max(100, ROWS_PER_PAGE)));
+        params.set('sorts', sortToScrape(sortMode));
+        if (cursor) params.set('cursor', cursor);
+        var url = 'https://archive.org/services/search/v1/scrape?' + params.toString();
+        var data = await iaFetchJson(url);
+        var items = data.items || [];
+        // normalize to advancedsearch-like docs
+        var docs = items.map(function(it) {
+          return {
+            identifier: it.identifier,
+            title: it.title,
+            creator: it.creator,
+            date: it.date,
+            subject: it.subject
+          };
+        });
+        var out = {
+          docs: docs,
+          numFound: data.total != null ? data.total : docs.length,
+          cursor: data.cursor || null,
+          mode: 'scrape'
+        };
+        iaCacheSet(key, out);
+        return out;
+      });
+    }
+
+    async function fetchShelfPage(shelf, page, extraQuery, sortMode) {
+
+      if (shelf.source === 'loc') {
+        return fetchLocPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'xkcd') {
+        return fetchXkcdPage(page);
+      }
+      if (shelf.source === 'openlibrary') {
+        return fetchOpenLibraryPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'europeana') {
+        return fetchEuropeanaPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'wikimedia') {
+        return fetchWikimediaPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'wikidata') {
+        return fetchWikidataPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'gcd') {
+        return fetchGcdPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'trove') {
+        return fetchTrovePage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'dpla') {
+        return fetchDplaPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'olsubjects') {
+        return fetchOlSubjectsPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'gbooks') {
+        return fetchGbooksPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'locsearch') {
+        return fetchLocSearchPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'gutendex') {
+        return fetchGutendexPage(shelf, page, extraQuery);
+      }
+      if (shelf.source === 'met') {
+        return fetchMetPage(shelf, page, extraQuery);
+      }
+
+      let q = shelf.query;
+      if (extraQuery && extraQuery.trim()) {
+        q = '(' + q + ') AND (' + extraQuery.trim() + ')';
+      }
+
+      var sort = sortMode || 'downloads+desc';
+      var state = shelfState[shelf.id] || {};
+
+      // Phase 2: hybrid — advancedsearch first; switch to scrape cursor for deep browse
+      if (state.useScrape || state.mode === 'scrape') {
+        var scraped = await fetchIaScrape(q, state.scrapeCursor, sort);
+        return scraped;
+      }
+
+      var adv = await fetchIaAdvanced(q, page, sort);
+      // If we're deep into results or collection is huge, next loads use scrape
+      var loadedApprox = page * ROWS_PER_PAGE;
+      if (adv.numFound > 8000 && loadedApprox >= 90) {
+        // prepare scrape mode for subsequent pages
+        if (state) {
+          state.useScrape = true;
+          state.mode = 'scrape';
+          state.scrapeCursor = null; // start scrape from beginning of remaining space is imperfect;
+          // Better: first scrape page without cursor when flipping modes
+        }
+      }
+      return adv;
+    }
+
+    function createLoadMoreCard(shelfId) {
+      const card = document.createElement('div');
+      card.className = 'load-more-card';
+      card.setAttribute('data-loadmore', shelfId);
+      card.innerHTML = '<div>Load more</div>';
+      card.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const shelf = SHELVES.find(s => s.id === shelfId);
+        if (shelf) loadShelf(shelf, buildExtraQuery(), false);
+      });
+      return card;
+    }
+
+    async function loadShelf(shelf, extraQuery, reset) {
+      const state = shelfState[shelf.id];
+      if (!state) return;
+      if (state.loading) return;
+      if (!reset && !state.hasMore) return;
+
+      const track = document.getElementById('track-' + shelf.id);
+      const countEl = document.getElementById('count-' + shelf.id);
+      if (!track || !countEl) return;
+
+      if (reset) {
+        // Variety: different sort + start a few pages in so the front of the
+        // shelf isn't always the same mega-popular titles
+        state.sort = (shelf.source === 'loc' || shelf.source === 'xkcd' || shelf.source === 'openlibrary' || shelf.source === 'europeana' || shelf.source === 'wikimedia' || shelf.source === 'wikidata' || shelf.source === 'gcd' || shelf.source === 'trove' || shelf.source === 'dpla' || shelf.source === 'olsubjects' || shelf.source === 'gbooks' || shelf.source === 'locsearch' || shelf.source === 'gutendex' || shelf.source === 'met') ? null : pickIaSort();
+        state.page = Math.floor(Math.random() * 3); // next fetch uses 1..3
+        state.extraQuery = (extraQuery == null ? buildExtraQuery() : extraQuery) || '';
+        state.total = 0;
+        state.hasMore = true;
+        state.emptySkips = 0;
+        state.scrapeCursor = null;
+        state.useScrape = false;
+        state.mode = 'search';
+        track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Loading...</div>';
+      }
+
+      state.loading = true;
+      const nextPage = state.page + 1;
+
+      const oldMore = track.querySelector('[data-loadmore]');
+      if (oldMore) oldMore.remove();
+
+      let tailSpinner = null;
+      if (!reset) {
+        tailSpinner = document.createElement('div');
+        tailSpinner.className = 'cover-card';
+        tailSpinner.innerHTML = '<div class="shelf-loading" style="min-width:70px;"><div class="spinner"></div></div>';
+        track.appendChild(tailSpinner);
+      }
+
+      try {
+        const result = await fetchShelfPage(shelf, nextPage, state.extraQuery, state.sort);
+        const docs = (result.docs || []).map(function(doc) { return normalizeIssue(doc, shelf); });
+        const numFound = result.numFound || 0;
+
+        if (tailSpinner) tailSpinner.remove();
+        const loadingEl = track.querySelector('.shelf-loading');
+        if (loadingEl) loadingEl.remove();
+
+        state.page = nextPage;
+        state.total = numFound;
+        if (result.mode === 'scrape') {
+          state.mode = 'scrape';
+          state.useScrape = true;
+          state.scrapeCursor = result.cursor || null;
+          state.hasMore = !!result.cursor;
+          countEl.textContent = numFound
+            ? (numFound.toLocaleString() + ' available · deep browse')
+            : 'deep browse';
+        } else {
+          state.mode = 'search';
+          countEl.textContent = numFound ? (numFound.toLocaleString() + ' available') : '';
+          const loaded = state.page * ROWS_PER_PAGE;
+          state.hasMore = loaded < numFound && docs.length > 0;
+          // Switch to scrape for subsequent loads on huge shelves
+          if (numFound > 8000 && loaded >= 90) {
+            state.useScrape = true;
+            state.mode = 'scrape';
+            state.scrapeCursor = null;
+            state.hasMore = true;
+          }
+        }
+
+        if (docs.length === 0) {
+          if (reset && nextPage > 1 && state.mode !== 'scrape') {
+            state.page = 0;
+            state.loading = false;
+            loadShelf(shelf, state.extraQuery, false);
+            return;
+          }
+          state.hasMore = false;
+          if (reset || track.querySelectorAll('.cover-card').length === 0) {
+            track.innerHTML = '<div class="shelf-empty">No items found</div>';
+            setShelfEmpty(shelf.id, true);
+          }
+          state.loading = false;
+          return;
+        }
+
+        const isAdultShelf = isAdultShelfId(shelf.id);
+        let kept = [];
+        docs.forEach(function(doc) {
+          const title = doc.title || '';
+          const subjects = doc.subject;
+          const sexual = isSexualContent(title, subjects);
+
+          if (!isAdultShelf && sexual) return;
+          if (isAdultShelf && isKidsTitle(title)) return;
+          if (isAdultShelf && !sexual) return;
+          kept.push(doc);
+        });
+
+        kept = shuffleDocs(kept);
+
+        let added = 0;
+        kept.forEach(function(doc) {
+          track.appendChild(createCoverCard(doc));
+          added++;
+        });
+
+        if (added === 0 && state.hasMore) {
+          state.emptySkips = (state.emptySkips || 0) + 1;
+          if (state.emptySkips <= 6) {
+            state.loading = false;
+            loadShelf(shelf, state.extraQuery, false);
+            return;
+          }
+        } else {
+          state.emptySkips = 0;
+        }
+
+        if (added === 0 && !state.hasMore && track.querySelectorAll('.cover-card').length === 0) {
+          track.innerHTML = '<div class="shelf-empty">No items found</div>';
+          setShelfEmpty(shelf.id, true);
+          state.loading = false;
+          return;
+        }
+
+        if (track.querySelectorAll('.cover-card').length > 0) {
+          setShelfEmpty(shelf.id, false);
+        }
+
+        if (state.hasMore) {
+          track.appendChild(createLoadMoreCard(shelf.id));
+        }
+      } catch (err) {
+        if (tailSpinner) tailSpinner.remove();
+        var msg = (err && String(err.message || err).indexOf('429') !== -1)
+          ? 'Rate limited · will ease up · pull again'
+          : 'Failed to load · check connection';
+        if (reset || track.querySelectorAll('.cover-card').length === 0) {
+          track.innerHTML = '<div class="shelf-empty">' + msg + '</div>';
+          setShelfEmpty(shelf.id, true);
+        }
+        console.error(err);
+      }
+
+      state.loading = false;
+    }
+
+    function setShelfEmpty(shelfId, empty) {
+      var el = document.getElementById('shelf-' + shelfId);
+      if (!el) return;
+      // Never fully hide Adult lanes
+      if (isAdultShelfId(shelfId)) {
+        el.classList.remove('is-empty');
+        return;
+      }
+      if (empty) el.classList.add('is-empty');
+      else el.classList.remove('is-empty');
+    }
+
+    // Also auto-load when scrolled near the end
+    function attachInfiniteScroll(shelfId) {
+      const track = document.getElementById('track-' + shelfId);
+      if (!track || track._scrollBound) return;
+      track._scrollBound = true;
+
+      track.addEventListener('scroll', function() {
+        const state = shelfState[shelfId];
+        if (!state || state.loading || !state.hasMore) return;
+
+        const remaining = track.scrollWidth - track.scrollLeft - track.clientWidth;
+        if (remaining < 280) {
+          const shelf = SHELVES.find(s => s.id === shelfId);
+          if (shelf) loadShelf(shelf, buildExtraQuery(), false);
+        }
+      }, { passive: true });
+    }
+
+    function shelfPriorityList() {
+      var pinned = [];
+      var rest = [];
+      SHELVES.forEach(function(s) {
+        if (prefs.hidden && prefs.hidden[s.id]) return;
+        if (!shelfMatchesFormat(s)) return;
+        if (prefs.pinned && prefs.pinned[s.id]) pinned.push(s);
+        else rest.push(s);
+      });
+      return pinned.concat(rest);
+    }
+
+    var shelfObserver = null;
+    function ensureShelfObserver() {
+      if (shelfObserver || !('IntersectionObserver' in window)) return shelfObserver;
+      shelfObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(en) {
+          if (!en.isIntersecting) return;
+          var id = en.target.getAttribute('data-shelf-id');
+          var shelf = SHELVES.find(function(s) { return s.id === id; });
+          var st = shelfState[id];
+          if (!shelf || !st || st._kicked) return;
+          st._kicked = true;
+          loadShelf(shelf, buildExtraQuery(), true);
+          attachInfiniteScroll(shelf.id);
+        });
+      }, { rootMargin: '280px 0px', threshold: 0.01 });
+      return shelfObserver;
+    }
+
+    function loadAllShelves() {
+      const extra = buildExtraQuery();
+      var order = shelfPriorityList();
+      // Also include hidden ones last so they exist if un-hidden mid-session
+      SHELVES.forEach(function(s) {
+        if (!shelfMatchesFormat(s)) return;
+        if (order.indexOf(s) === -1) order.push(s);
+      });
+
+      // Reset kick flags so a decade/search refresh reloads
+      order.forEach(function(s) {
+        if (shelfState[s.id]) shelfState[s.id]._kicked = false;
+        var el = document.getElementById('shelf-' + s.id);
+        if (el) el.setAttribute('data-shelf-id', s.id);
+      });
+
+      var eager = order.filter(function(s) {
+        return !(prefs.hidden && prefs.hidden[s.id]);
+      }).slice(0, 6);
+
+      var delay = 0;
+      eager.forEach(function(s) {
+        if (shelfState[s.id]) shelfState[s.id]._kicked = true;
+        setTimeout(function() {
+          loadShelf(s, extra, true);
+          attachInfiniteScroll(s.id);
+        }, delay);
+        delay += 110;
+      });
+
+      // Defer the rest until they scroll near the viewport
+      var obs = ensureShelfObserver();
+      order.forEach(function(s) {
+        if (eager.indexOf(s) !== -1) return;
+        var el = document.getElementById('shelf-' + s.id);
+        if (!el) return;
+        var track = document.getElementById('track-' + s.id);
+        if (track && !track.querySelector('.cover-card')) {
+          track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Waiting…</div>';
+        }
+        if (obs) obs.observe(el);
+        else {
+          setTimeout(function() {
+            if (shelfState[s.id]) shelfState[s.id]._kicked = true;
+            loadShelf(s, extra, true);
+            attachInfiniteScroll(s.id);
+          }, delay);
+          delay += 220;
+        }
+      });
+    }
+
+    // Decade chips
+    document.querySelectorAll('#decade-chips .chip').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        document.querySelectorAll('#decade-chips .chip').forEach(function(c) { c.classList.remove('active'); });
+        chip.classList.add('active');
+        currentDecade = chip.getAttribute('data-decade') || '';
+        loadAllShelves();
+      });
+    });
+
+    document.querySelectorAll('#format-chips .chip').forEach(function(chip) {
+      chip.addEventListener('click', function() {
+        document.querySelectorAll('#format-chips .chip').forEach(function(c) { c.classList.remove('active'); });
+        chip.classList.add('active');
+        currentFormat = chip.getAttribute('data-format') || '';
+        applyRackVisibility();
+        buildJumpChips();
+        loadAllShelves();
+        showToast(currentFormat ? formatLabel(currentFormat) + ' racks' : 'All formats');
+      });
+    });
+
+    // Random readable issue from a non-adult shelf
+    document.getElementById('random-btn').addEventListener('click', async function() {
+      var pool = SHELVES.filter(function(s) { return !isAdultShelfId(s.id); });
+      var shelf = pool[Math.floor(Math.random() * pool.length)];
+      showToast('Rolling · ' + shelf.title);
+      try {
+        var page = 1 + Math.floor(Math.random() * 8);
+        var { docs } = await fetchShelfPage(shelf, page, buildExtraQuery());
+        docs = (docs || []).filter(function(d) {
+          return !isSexualContent(d.title || '', d.subject);
+        });
+        if (!docs.length) {
+          var retry = await fetchShelfPage(shelf, 1, buildExtraQuery());
+          docs = (retry.docs || []).filter(function(d) {
+            return !isSexualContent(d.title || '', d.subject);
+          });
+        }
+        if (!docs.length) {
+          showToast('Nothing readable there — try again');
+          return;
+        }
+        var doc = docs[Math.floor(Math.random() * docs.length)];
+        openDetail(doc);
+      } catch (e) {
+        console.error(e);
+        showToast('Random failed · check connection');
+      }
+    });
+
+    // Cover-wall mode
+    if (prefs.wall) {
+      document.body.classList.add('wall-mode');
+      document.getElementById('wall-btn').classList.add('active');
+    }
+    document.getElementById('wall-btn').addEventListener('click', function() {
+      prefs.wall = !prefs.wall;
+      savePrefs();
+      document.body.classList.toggle('wall-mode', prefs.wall);
+      this.classList.toggle('active', prefs.wall);
+      showToast(prefs.wall ? 'Cover wall on' : 'Shelf rows on');
+    });
+
+    // Racks show/hide panel
+    function buildRacksPanel() {
+      var grid = document.getElementById('racks-panel-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      SHELVES.forEach(function(s) {
+        if (isAdultShelfId(s.id)) return;
+        var on = !prefs.hidden[s.id];
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'rack-toggle ' + (on ? 'on' : 'off');
+        btn.textContent = s.title;
+        btn.addEventListener('click', function() {
+          if (prefs.hidden[s.id]) delete prefs.hidden[s.id];
+          else prefs.hidden[s.id] = true;
+          savePrefs();
+          applyRackVisibility();
+          buildRacksPanel();
+          // rebuild jump chips
+          var row = document.getElementById('jump-chips');
+          if (row) {
+            row.innerHTML = '';
+            SHELVES.forEach(function(ss) {
+              if (isAdultShelfId(ss.id) || prefs.hidden[ss.id]) return;
+              var c = document.createElement('button');
+              c.type = 'button';
+              c.className = 'chip';
+              c.textContent = ss.title;
+              c.addEventListener('click', function() {
+                var el = document.getElementById('shelf-' + ss.id);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              });
+              row.appendChild(c);
+            });
+          }
+        });
+        grid.appendChild(btn);
+      });
+    }
+    buildRacksPanel();
+    applyRackVisibility();
+    document.getElementById('racks-btn').addEventListener('click', function() {
+      var panel = document.getElementById('racks-panel');
+      panel.classList.toggle('open');
+      this.classList.toggle('active', panel.classList.contains('open'));
+    });
+
+    // Library export / import
+    document.getElementById('lib-export').addEventListener('click', function() {
+      var blob = new Blob([JSON.stringify({ library: library, history: history, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'magazine-rack-library.json';
+      a.click();
+      showToast('Library exported');
+    });
+    document.getElementById('lib-import').addEventListener('click', function() {
+      document.getElementById('lib-import-file').click();
+    });
+    document.getElementById('lib-import-file').addEventListener('change', function(e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function() {
+        try {
+          var data = JSON.parse(reader.result);
+          if (Array.isArray(data)) library = data;
+          else if (data && Array.isArray(data.library)) {
+            library = data.library;
+            if (Array.isArray(data.history)) history = data.history;
+          } else {
+            showToast('Invalid library file');
+            return;
+          }
+          saveLibrary();
+          saveHistory();
+          renderLibrary();
+          renderContinueReading();
+          showToast('Library imported · ' + library.length + ' items');
+        } catch (err) {
+          showToast('Import failed');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    // Scroll UX: show top button + subtle sticky jump bar
+    var scrollTopBtn = document.getElementById('scroll-top');
+    window.addEventListener('scroll', function() {
+      var y = window.scrollY || document.documentElement.scrollTop;
+      document.body.classList.toggle('scrolled', y > 40);
+      if (scrollTopBtn) scrollTopBtn.classList.toggle('show', y > 500);
+    }, { passive: true });
+    if (scrollTopBtn) {
+      scrollTopBtn.addEventListener('click', function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+
+    // Europeana key prompt from setup card / racks menu long-press alternative
+    window.__setEuropeanaKey = function() {
+      var k = prompt('Paste free Europeana API key (from europeana.eu/en/apis):', prefs.europeanaKey || '');
+      if (k != null) {
+        prefs.europeanaKey = k.trim();
+        savePrefs();
+        showToast(prefs.europeanaKey ? 'Europeana key saved' : 'Europeana key cleared');
+        var eu = SHELVES.find(function(s) { return s.id === 'europeana'; });
+        if (eu) loadShelf(eu, buildExtraQuery(), true);
+      }
+    };
+
+    window.__setTroveKey = function() {
+      var k = prompt('Paste your Trove API key (from trove.nla.gov.au/about/create-something/using-api):', prefs.troveKey || '');
+      if (k != null) {
+        prefs.troveKey = k.trim();
+        savePrefs();
+        showToast(prefs.troveKey ? 'Trove key saved' : 'Trove key cleared');
+        SHELVES.filter(function(s) { return s.source === 'trove'; }).forEach(function(s) {
+          loadShelf(s, buildExtraQuery(), true);
+        });
+      }
+    };
+
+    window.__setDplaKey = function() {
+      var k = prompt('Paste your DPLA API key (from pro.dp.la/developers):', prefs.dplaKey || '');
+      if (k != null) {
+        prefs.dplaKey = k.trim();
+        savePrefs();
+        showToast(prefs.dplaKey ? 'DPLA key saved' : 'DPLA key cleared');
+        SHELVES.filter(function(s) { return s.source === 'dpla'; }).forEach(function(s) {
+          loadShelf(s, buildExtraQuery(), true);
+        });
+      }
+    };
+
+    // Initial load
+    renderContinueReading();
+    loadAllShelves();
+
+    document.getElementById('search-btn').addEventListener('click', () => {
+      currentSearch = document.getElementById('global-search').value || '';
+      loadAllShelves();
+    });
+    document.getElementById('global-search').addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        currentSearch = e.target.value || '';
+        loadAllShelves();
+      }
+    });
+
+    // Detail
+    function openDetail(doc) {
+      if (doc && doc.setup) {
+        if (doc.source === 'europeana') window.__setEuropeanaKey();
+        if (doc.source === 'trove') window.__setTroveKey();
+        if (doc.source === 'dpla') window.__setDplaKey();
+        return;
+      }
+      const isLoc = doc.source === 'loc' || doc.source === 'locsearch';
+      const srcLabel = doc.source === 'loc' ? 'Chronicling America · LOC'
+        : doc.source === 'locsearch' ? 'Library of Congress'
+        : doc.source === 'xkcd' ? 'XKCD'
+        : doc.source === 'europeana' ? 'Europeana'
+        : doc.source === 'openlibrary' ? 'Open Library'
+        : doc.source === 'gcd' ? 'Grand Comics Database'
+        : doc.source === 'trove' ? 'Trove · National Library of Australia'
+        : doc.source === 'dpla' ? 'DPLA'
+        : 'Internet Archive';
+      const id = doc.identifier;
+      const title = doc.title || 'Untitled';
+      const creator = Array.isArray(doc.creator) ? doc.creator.join(', ') : (doc.creator || 'Unknown');
+      const year = (doc.date || '').toString().slice(0, 4);
+      const subjects = Array.isArray(doc.subject) ? doc.subject.slice(0, 6) : [];
+      const noArchiveCover = ['loc', 'locsearch', 'xkcd', 'europeana', 'gcd', 'trove', 'dpla'].indexOf(doc.source) !== -1;
+      const coverUrl = doc.cover || (!noArchiveCover && id ? 'https://archive.org/services/img/' + id : null);
+      const already = library.find(b => b.iaId === id);
+      const issueMeta = [doc.publication, doc.issueDate || year, doc.volume ? 'Vol. ' + doc.volume : '', doc.issue ? 'No. ' + doc.issue : '']
+        .filter(Boolean).join(' · ');
+
+      document.getElementById('modal-title').textContent = srcLabel;
+      document.getElementById('modal-body').innerHTML =
+        (coverUrl ? '<img class="detail-cover" src="' + coverUrl + '" alt="">' : '') +
+        '<div class="detail-title">' + escapeHtml(title) + '</div>' +
+        '<div class="detail-meta">' +
+          (creator && creator !== 'Unknown' ? escapeHtml(creator) : srcLabel) +
+          (issueMeta ? ' · ' + escapeHtml(issueMeta) : '') +
+        '</div>' +
+        (doc.alt ? '<div class="detail-meta">' + escapeHtml(doc.alt) + '</div>' : '') +
+        (subjects.length
+          ? '<div class="tag-row">' + subjects.map(s => '<span class="tag">' + escapeHtml(String(s)) + '</span>').join('') + '</div>'
+          : '') +
+        '<div class="modal-actions">' +
+          '<button class="btn-primary" id="detail-read">Read in App</button>' +
+          (already
+            ? '<button class="btn-secondary" id="detail-open-lib">In Library · Edit</button>'
+            : '<button class="btn-secondary" id="detail-add">Save</button>') +
+        '</div>';
+
+      document.getElementById('modal').classList.add('open');
+
+      document.getElementById('detail-read').addEventListener('click', () => {
+        const existing = library.find(b => b.iaId === id);
+        if (existing && existing.status === 'want') {
+          existing.status = 'reading';
+          saveLibrary();
+        }
+        openReader(title, id, coverUrl, doc);
+      });
+
+      const addBtn = document.getElementById('detail-add');
+      if (addBtn) {
+        addBtn.addEventListener('click', () => {
+          library.unshift({
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            title, creator, year: year || null, cover: coverUrl,
+            status: 'want', notes: '', type: formatKey(doc.format) || (isLoc ? 'paper' : 'magazine'), subjects, iaId: id,
+            source: doc.source || (isLoc ? 'loc' : 'ia'),
+            format: formatKey(doc.format) || (isLoc ? 'paper' : 'magazine'),
+            publication: doc.publication || '',
+            issueDate: doc.issueDate || doc.date || '',
+            locUrl: doc.locUrl || null,
+            fullImage: doc.fullImage || null,
+            iiifManifest: doc.iiifManifest || null,
+            addedAt: new Date().toISOString()
+          });
+          saveLibrary();
+          showToast('Saved to Library');
+          closeModal();
+        });
+      }
+      const openLibBtn = document.getElementById('detail-open-lib');
+      if (openLibBtn && already) {
+        openLibBtn.addEventListener('click', () => {
+          closeModal();
+          openLibraryDetail(already);
+        });
+      }
+    }
+
+    // Library
+    let currentFilter = 'all';
+
+    document.querySelectorAll('#status-filters .filter-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('#status-filters .filter-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentFilter = pill.dataset.status;
+        renderLibrary();
+      });
+    });
+
+    function renderLibrary() {
+      const grid = document.getElementById('library-grid');
+      const empty = document.getElementById('library-empty');
+      let items = library.slice();
+      if (currentFilter !== 'all') items = items.filter(b => b.status === currentFilter);
+
+      grid.innerHTML = '';
+      if (items.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'lib-card';
+        card.innerHTML =
+          '<div class="cover-img-wrap">' +
+            (item.cover
+              ? '<img src="' + item.cover + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+              : '') +
+            '<div class="cover-placeholder" style="' + (item.cover ? 'display:none' : '') + '">No cover</div>' +
+          '</div>' +
+          '<div class="cover-title">' + escapeHtml(item.title) + '</div>' +
+          '<div class="cover-meta">' + statusLabel(item.status) + '</div>';
+        card.addEventListener('click', () => openLibraryDetail(item));
+        grid.appendChild(card);
+      });
+    }
+
+    function statusLabel(s) {
+      return { want: 'Want', reading: 'Reading', finished: 'Finished', abandoned: 'Dropped' }[s] || s;
+    }
+
+    function openLibraryDetail(item) {
+      document.getElementById('modal-title').textContent = 'Edit';
+      document.getElementById('modal-body').innerHTML =
+        (item.cover ? '<img class="detail-cover" src="' + item.cover + '" alt="">' : '') +
+        '<div class="detail-title">' + escapeHtml(item.title) + '</div>' +
+        '<div class="detail-meta">' + escapeHtml(item.creator || '') + '</div>' +
+        '<div class="form-group"><label>Status</label>' +
+          '<select id="edit-status">' +
+            '<option value="want"' + (item.status==='want'?' selected':'') + '>Want</option>' +
+            '<option value="reading"' + (item.status==='reading'?' selected':'') + '>Reading</option>' +
+            '<option value="finished"' + (item.status==='finished'?' selected':'') + '>Finished</option>' +
+            '<option value="abandoned"' + (item.status==='abandoned'?' selected':'') + '>Dropped</option>' +
+          '</select></div>' +
+        '<div class="form-group"><label>Notes</label><textarea id="edit-notes">' + escapeHtml(item.notes || '') + '</textarea></div>' +
+        '<div class="modal-actions">' +
+          (item.iaId ? '<button class="btn-primary" id="edit-read">Read in App</button>' : '') +
+          '<button class="btn-primary" id="edit-save">Save</button>' +
+          '<button class="btn-danger" id="edit-delete">Delete</button>' +
+        '</div>';
+
+      document.getElementById('modal').classList.add('open');
+
+      document.getElementById('edit-save').addEventListener('click', () => {
+        item.status = document.getElementById('edit-status').value;
+        item.notes = document.getElementById('edit-notes').value.trim();
+        saveLibrary();
+        renderLibrary();
+        showToast('Updated');
+        closeModal();
+      });
+
+      document.getElementById('edit-delete').addEventListener('click', () => {
+        if (confirm('Remove this item?')) {
+          library = library.filter(b => b.id !== item.id);
+          saveLibrary();
+          renderLibrary();
+          showToast('Removed');
+          closeModal();
+        }
+      });
+
+      const rb = document.getElementById('edit-read');
+      if (rb && item.iaId) rb.addEventListener('click', () => openReader(item.title, item.iaId, item.cover, item));
+    }
+
+    // Add
+    document.getElementById('add-save').addEventListener('click', () => {
+      const title = document.getElementById('add-title').value.trim();
+      if (!title) { showToast('Title required'); return; }
+      library.unshift({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        title,
+        creator: document.getElementById('add-creator').value.trim(),
+        year: document.getElementById('add-year').value || null,
+        cover: null,
+        status: document.getElementById('add-status').value,
+        notes: document.getElementById('add-notes').value.trim(),
+        type: document.getElementById('add-type').value,
+        subjects: [],
+        iaId: document.getElementById('add-iaid').value.trim() || null,
+        addedAt: new Date().toISOString()
+      });
+      saveLibrary();
+      showToast('Saved');
+      ['add-title','add-creator','add-year','add-notes','add-iaid'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+    });
+
+    // Reader — source-aware loading, predictable controls, fullscreen, related
+    var readerState = {
+      title: '', iaId: null, cover: null, doc: null,
+      hintTimer: null, loadTimer: null, loadToken: 0,
+      lastFocus: null, manualChromeHidden: false
+    };
+
+    function isValidIaId(id) {
+      if (!id) return false;
+      id = String(id).trim();
+      if (!id || /^https?:/i.test(id)) return false;
+      if (id.indexOf('/') !== -1) return false;
+      if (id.indexOf('OL') === 0) return false;
+      if (id.indexOf('xkcd-') === 0) return false;
+      if (id.indexOf('europeana') === 0) return false;
+      return true;
+    }
+
+    function setReaderStatus(msg) {
+      var el = document.getElementById('reader-status');
+      if (el) el.textContent = msg || 'In-app reader';
+    }
+
+    function readerSourceLabel(doc) {
+      var source = doc && doc.source ? String(doc.source).toLowerCase() : '';
+      var labels = {
+        loc: 'Library of Congress',
+        locsearch: 'Library of Congress',
+        xkcd: 'xkcd',
+        europeana: 'Europeana',
+        openlibrary: 'Open Library',
+        wikimedia: 'Wikimedia Commons',
+        wikidata: 'Wikidata',
+        met: 'The Met',
+        gcd: 'Grand Comics Database',
+        trove: 'Trove · National Library of Australia',
+        dpla: 'Digital Public Library of America',
+        ia: 'Internet Archive'
+      };
+      if (labels[source]) return labels[source];
+      if (readerState.iaId) return 'Internet Archive';
+      return source ? source.replace(/[-_]+/g, ' ') : 'In-app reader';
+    }
+
+    function clearReaderLoadTimer() {
+      if (readerState.loadTimer) {
+        clearTimeout(readerState.loadTimer);
+        readerState.loadTimer = null;
+      }
+    }
+
+    function setReaderLoading(visible, title, detail, error) {
+      var ov = document.getElementById('reader');
+      var loading = document.getElementById('reader-loading');
+      var frame = document.getElementById('reader-frame');
+      if (!loading) return;
+      loading.classList.toggle('is-hidden', !visible);
+      loading.classList.toggle('is-error', !!error);
+      var titleEl = document.getElementById('reader-loading-title');
+      var detailEl = document.getElementById('reader-loading-detail');
+      if (titleEl) titleEl.textContent = title || 'Opening reader';
+      if (detailEl) detailEl.textContent = detail || 'Connecting to the source...';
+      if (frame) frame.classList.toggle('is-ready', !visible && !error);
+      if (ov) ov.setAttribute('aria-busy', visible ? 'true' : 'false');
+    }
+
+    function hideReaderHint() {
+      var h = document.getElementById('reader-hint');
+      if (h) h.classList.remove('show');
+      if (readerState.hintTimer) {
+        clearTimeout(readerState.hintTimer);
+        readerState.hintTimer = null;
+      }
+    }
+
+    function scheduleReaderHint(token, delay) {
+      hideReaderHint();
+      var doc = readerState.doc;
+      if (!readerState.iaId && !(doc && (doc.locUrl || doc.fullImage || doc.cover || doc.iiifManifest))) return;
+      readerState.hintTimer = setTimeout(function() {
+        if (token !== readerState.loadToken) return;
+        if (!document.getElementById('reader').classList.contains('open')) return;
+        var frame = document.getElementById('reader-frame');
+        if (frame && frame.classList.contains('is-ready')) return;
+        var h = document.getElementById('reader-hint');
+        if (h) h.classList.add('show');
+      }, delay || 10000);
+    }
+
+    function buildIiifReaderHtml(manifestUrl, title) {
+      var manifestJson = JSON.stringify(String(manifestUrl || ''));
+      var titleJson = JSON.stringify(String(title || 'Reader'));
+      var script = [
+        'var manifestUrl = ' + manifestJson + ';',
+        'var readerTitle = ' + titleJson + ';',
+        'var pages = []; var index = 0; var zoom = 1;',
+        'var image = document.getElementById("page-image");',
+        'var status = document.getElementById("page-status");',
+        'var message = document.getElementById("page-message");',
+        'var previous = document.getElementById("page-prev");',
+        'var next = document.getElementById("page-next");',
+        'function idOf(value) { if (Array.isArray(value)) value = value[0]; return value && (value.id || value["@id"] || value.href) || ""; }',
+        'function imageFromCanvas(canvas) {',
+        '  var annotation = canvas && canvas.items && canvas.items[0] && canvas.items[0].items && canvas.items[0].items[0];',
+        '  var body = annotation && annotation.body;',
+        '  if (!body && canvas && canvas.images && canvas.images[0]) body = canvas.images[0].resource;',
+        '  if (Array.isArray(body)) body = body[0];',
+        '  body = body || {};',
+        '  var service = idOf(body.service || body.services);',
+        '  var direct = idOf(body);',
+        '  if (service) return service.replace(/\\/$/, "") + "/full/max/0/default.jpg";',
+        '  return direct || "";',
+        '}',
+        'function canvasImages(manifest) {',
+        '  var canvases = manifest && manifest.items;',
+        '  if (Array.isArray(canvases) && canvases.length) return canvases.map(imageFromCanvas).filter(Boolean);',
+        '  var sequence = manifest && manifest.sequences && manifest.sequences[0];',
+        '  return sequence && sequence.canvases ? sequence.canvases.map(imageFromCanvas).filter(Boolean) : [];',
+        '}',
+        'function render() {',
+        '  if (!pages.length) return;',
+        '  image.src = pages[index]; image.style.transform = "scale(" + zoom + ")";',
+        '  image.style.maxWidth = zoom > 1 ? "none" : "100%";',
+        '  status.textContent = (index + 1) + " / " + pages.length;',
+        '  previous.disabled = index === 0; next.disabled = index >= pages.length - 1;',
+        '}',
+        'function fail() { message.textContent = "Could not load this page manifest. Open the source from the reader header."; message.classList.add("show"); }',
+        'document.getElementById("page-title").textContent = readerTitle;',
+        'previous.addEventListener("click", function() { if (index > 0) { index -= 1; zoom = 1; render(); } });',
+        'next.addEventListener("click", function() { if (index < pages.length - 1) { index += 1; zoom = 1; render(); } });',
+        'document.getElementById("page-zoom-out").addEventListener("click", function() { zoom = Math.max(0.6, zoom - 0.2); render(); });',
+        'document.getElementById("page-zoom-in").addEventListener("click", function() { zoom = Math.min(3, zoom + 0.2); render(); });',
+        'document.getElementById("page-fit").addEventListener("click", function() { zoom = 1; render(); });',
+        'fetch(manifestUrl).then(function(response) { if (!response.ok) throw new Error("manifest"); return response.json(); }).then(function(manifest) { pages = canvasImages(manifest); if (!pages.length) throw new Error("pages"); render(); }).catch(fail);'
+      ].join('\n');
+      return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
+        'html,body{margin:0;background:#101114;color:#f5f2ea;min-height:100%;font-family:system-ui,sans-serif;}' +
+        'body{min-height:100vh;display:flex;flex-direction:column;overflow:hidden;}' +
+        '.toolbar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#1b1d22;border-bottom:1px solid #343740;}' +
+        '.title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d3d0c7;}' +
+        'button{border:1px solid #484c58;background:#272a32;color:#fff;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:600;}button:disabled{opacity:.35;cursor:default;}button:hover:not(:disabled){background:#353946;}' +
+        '#page-status{font-size:12px;color:#aaa;min-width:48px;text-align:center;}' +
+        '.viewport{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:18px;}' +
+        '#page-image{display:block;max-width:100%;max-height:calc(100vh - 76px);height:auto;object-fit:contain;transform-origin:center center;transition:transform .16s ease;}' +
+        '#page-message{display:none;max-width:420px;color:#bbb;text-align:center;line-height:1.5;padding:24px;}#page-message.show{display:block;}' +
+        '</style></head><body><div class="toolbar"><div class="title" id="page-title">Reader</div><button id="page-prev" type="button" title="Previous page">‹</button><span id="page-status">—</span><button id="page-next" type="button" title="Next page">›</button><button id="page-zoom-out" type="button" title="Zoom out">−</button><button id="page-zoom-in" type="button" title="Zoom in">+</button><button id="page-fit" type="button" title="Fit page">Fit</button></div><div class="viewport"><img id="page-image" alt=""><div id="page-message"></div></div><script>' + script + '<' + '/script></body></html>';
+    }
+
+    function loadReaderContent() {
+      var frame = document.getElementById('reader-frame');
+      var doc = readerState.doc;
+      var iaId = readerState.iaId;
+      var token = readerState.loadToken + 1;
+      var sourceLabel = readerSourceLabel(doc);
+      readerState.loadToken = token;
+      clearReaderLoadTimer();
+      hideReaderHint();
+
+      frame.onload = null;
+      frame.onerror = null;
+      try { frame.removeAttribute('srcdoc'); } catch (e) {}
+      frame.src = 'about:blank';
+      setReaderLoading(true, 'Opening reader', 'Connecting to ' + sourceLabel + '...');
+
+      function bindFrame(readyStatus) {
+        frame.onload = function() {
+          if (token !== readerState.loadToken) return;
+          markReaderReady(token, readyStatus);
+        };
+        frame.onerror = function() {
+          if (token !== readerState.loadToken) return;
+          markReaderError(token, sourceLabel + ' unavailable', 'This source did not load inside the in-app reader.');
+        };
+      }
+
+      if (doc && doc.iiifManifest) {
+        setReaderLoading(true, 'Opening scan', 'Loading the page manifest from ' + sourceLabel + '...');
+        bindFrame(sourceLabel + ' · page viewer');
+        frame.srcdoc = buildIiifReaderHtml(doc.iiifManifest, readerState.title);
+        scheduleReaderHint(token, 10000);
+        return;
+      }
+
+      if (doc && (doc.source === 'loc' || doc.source === 'locsearch' || doc.source === 'xkcd' || doc.source === 'europeana' || doc.source === 'wikimedia' || doc.source === 'wikidata' || doc.source === 'met' || doc.source === 'gcd' || doc.source === 'trove' || doc.source === 'dpla')) {
+        if (doc.fullImage || doc.cover) {
+          var img = doc.fullImage || doc.cover;
+          var alt = doc.alt
+            ? '<p style="color:#aaa;padding:12px;font-family:sans-serif;text-align:center">' +
+              String(doc.alt).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>'
+            : '';
+          setReaderLoading(true, 'Opening image', 'Preparing the scan for reading...');
+          bindFrame(sourceLabel + ' · image viewer');
+          frame.srcdoc =
+            '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">' +
+            '<style>html,body{margin:0;background:#111;min-height:100%;}body{min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:auto;padding:12px;}img{max-width:100%;max-height:calc(100vh - 24px);height:auto;display:block;object-fit:contain;}</style></head>' +
+            '<body><img src="' + String(img).replace(/"/g, '&quot;') + '" alt=""/>' + alt + '</body></html>';
+          scheduleReaderHint(token, 8000);
+          return;
+        }
+        if (doc.locUrl) {
+          setReaderLoading(true, 'Opening page', 'Loading the ' + sourceLabel + ' record...');
+          bindFrame(sourceLabel + ' · page');
+          frame.src = doc.locUrl;
+          scheduleReaderHint(token);
+          return;
+        }
+      }
+
+      if (doc && doc.source === 'openlibrary' && !isValidIaId(iaId) && doc.locUrl) {
+        setReaderLoading(true, 'Opening page', 'Loading the Open Library record...');
+        bindFrame('Open Library · page');
+        frame.src = doc.locUrl;
+        scheduleReaderHint(token);
+        return;
+      }
+
+      if (isValidIaId(iaId)) {
+        setReaderLoading(true, 'Opening scan', 'Connecting to the Internet Archive viewer...');
+        bindFrame('Internet Archive · embed');
+        frame.src = 'https://archive.org/embed/' + encodeURIComponent(iaId);
+        scheduleReaderHint(token);
+        return;
+      }
+
+      markReaderError(token, 'Nothing to display', 'This item does not expose a readable source.');
+      showToast('No readable version');
+    }
+
+    function markReaderReady(token, status) {
+      if (token !== readerState.loadToken) return;
+      clearReaderLoadTimer();
+      hideReaderHint();
+      setReaderLoading(false);
+      setReaderStatus(status || 'Ready to read');
+    }
+
+    function markReaderError(token, status, detail) {
+      if (token !== readerState.loadToken) return;
+      clearReaderLoadTimer();
+      hideReaderHint();
+      setReaderLoading(true, 'Reader unavailable', detail || 'The source could not be loaded here.', true);
+      setReaderStatus(status || 'Reader unavailable');
+      var h = document.getElementById('reader-hint');
+      if (h) h.classList.add('show');
+    }
+
+    function openReader(title, iaId, cover, doc) {
+      closeModal();
+
+      var canUseIa = !doc || doc.source === 'ia' || doc.source === 'openlibrary';
+      var resolvedId = canUseIa && isValidIaId(iaId) ? iaId : null;
+      if (canUseIa && doc && isValidIaId(doc.identifier)) resolvedId = doc.identifier;
+      if (!isValidIaId(resolvedId)) resolvedId = null;
+
+      var canRead = isValidIaId(resolvedId) ||
+        (doc && (doc.fullImage || doc.cover || doc.locUrl || doc.iiifManifest));
+      if (!canRead) {
+        showToast('No readable version');
+        return;
+      }
+
+      var active = document.activeElement;
+      var priorToken = readerState.loadToken || 0;
+      readerState = {
+        title: title || 'Reading',
+        iaId: isValidIaId(resolvedId) ? String(resolvedId).trim() : null,
+        cover: cover || null,
+        doc: doc || null,
+        hintTimer: null,
+        loadTimer: null,
+        loadToken: priorToken + 1,
+        lastFocus: active && active !== document.body && active.focus ? active : null,
+        manualChromeHidden: false
+      };
+
+      pushHistory({
+        iaId: readerState.iaId || (doc && doc.locUrl) || title,
+        title: title,
+        cover: cover || null
+      });
+
+      var short = (title || 'Reading').length > 42
+        ? (title || '').slice(0, 40) + '…'
+        : (title || 'Reading');
+      var reader = document.getElementById('reader');
+      var sourceLabel = readerSourceLabel(readerState.doc);
+      document.getElementById('reader-title').textContent = short;
+      document.getElementById('reader-source').textContent = sourceLabel;
+      var openLabel = document.querySelector('#reader-open-ia .reader-action-label');
+      var hintLabel = document.querySelector('#reader-hint-ia');
+      var externalLabel = readerState.iaId ? 'Open on IA' : 'Open source';
+      if (openLabel) openLabel.textContent = externalLabel;
+      if (hintLabel) hintLabel.textContent = externalLabel;
+      document.getElementById('reader-open-ia').title = externalLabel;
+      document.getElementById('reader-hint-title').textContent = 'Taking a while?';
+      document.getElementById('reader-hint-copy').textContent =
+        'Some ' + sourceLabel + ' items block embedded reading. The original source is still available.';
+      reader.classList.remove('chrome-hidden');
+      reader.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      setReaderStatus('Preparing ' + sourceLabel + '...');
+      loadReaderContent();
+      setTimeout(function() {
+        var close = document.getElementById('reader-close');
+        if (reader.classList.contains('open') && close) close.focus();
+      }, 0);
+    }
+
+    function closeReader() {
+      var reader = document.getElementById('reader');
+      var priorFocus = readerState.lastFocus;
+      var nextToken = (readerState.loadToken || 0) + 1;
+      clearReaderLoadTimer();
+      hideReaderHint();
+      if (document.fullscreenElement === reader && document.exitFullscreen) {
+        try { document.exitFullscreen(); } catch (e) {}
+      }
+      reader.classList.remove('open');
+      reader.classList.remove('chrome-hidden');
+      reader.removeAttribute('aria-busy');
+      var frame = document.getElementById('reader-frame');
+      frame.onload = null;
+      frame.onerror = null;
+      try { frame.removeAttribute('srcdoc'); } catch (e) {}
+      frame.src = 'about:blank';
+      document.body.style.overflow = '';
+      readerState = {
+        title: '', iaId: null, cover: null, doc: null,
+        hintTimer: null, loadTimer: null, loadToken: nextToken,
+        lastFocus: null, manualChromeHidden: false
+      };
+      if (priorFocus && priorFocus.isConnected) {
+        try { priorFocus.focus(); } catch (e) {}
+      }
+    }
+
+    function openExternalIa() {
+      if (readerState.iaId) {
+        window.open('https://archive.org/details/' + encodeURIComponent(readerState.iaId), '_blank');
+      } else if (readerState.doc && readerState.doc.locUrl) {
+        window.open(readerState.doc.locUrl, '_blank');
+      } else {
+        showToast('No external link');
+      }
+    }
+
+    document.getElementById('reader-close').addEventListener('click', closeReader);
+    document.getElementById('reader-open-ia').addEventListener('click', openExternalIa);
+    document.getElementById('reader-hint-ia').addEventListener('click', openExternalIa);
+    document.getElementById('reader-hint-dismiss').addEventListener('click', hideReaderHint);
+    document.getElementById('reader-loading-retry').addEventListener('click', function() {
+      loadReaderContent();
+    });
+
+    document.getElementById('reader-reload').addEventListener('click', function() {
+      loadReaderContent();
+      showToast('Reloading reader');
+    });
+
+    function updateReaderFullscreenLabel() {
+      var ov = document.getElementById('reader');
+      var button = document.getElementById('reader-fs');
+      var label = button ? button.querySelector('.reader-action-label') : null;
+      var nativeFullscreen = document.fullscreenElement === ov;
+      readerState.manualChromeHidden = false;
+      ov.classList.remove('chrome-hidden');
+      if (label) label.textContent = nativeFullscreen ? 'Exit fullscreen' : 'Fullscreen';
+      if (button) button.title = nativeFullscreen ? 'Exit fullscreen' : 'Enter fullscreen';
+    }
+
+    document.getElementById('reader-fs').addEventListener('click', function() {
+      var ov = document.getElementById('reader');
+      try {
+        if (document.fullscreenElement === ov && document.exitFullscreen) {
+          var exitPromise = document.exitFullscreen();
+          if (exitPromise && exitPromise.catch) exitPromise.catch(function() {});
+          setTimeout(updateReaderFullscreenLabel, 250);
+          return;
+        }
+        if (document.fullscreenEnabled && typeof ov.requestFullscreen === 'function') {
+          var requestPromise = ov.requestFullscreen();
+          if (requestPromise && requestPromise.catch) {
+            requestPromise.catch(function() {
+              readerState.manualChromeHidden = false;
+              updateReaderFullscreenLabel();
+              showToast('Fullscreen is not available in this browser');
+            });
+          }
+          setTimeout(updateReaderFullscreenLabel, 250);
+          return;
+        }
+        readerState.manualChromeHidden = false;
+        updateReaderFullscreenLabel();
+        setTimeout(updateReaderFullscreenLabel, 400);
+        showToast('Fullscreen is not available in this browser');
+      } catch (e) {
+        readerState.manualChromeHidden = false;
+        updateReaderFullscreenLabel();
+        setTimeout(updateReaderFullscreenLabel, 400);
+        showToast('Fullscreen is not available in this browser');
+      }
+    });
+    document.addEventListener('fullscreenchange', updateReaderFullscreenLabel);
+
+    document.getElementById('reader-status').addEventListener('click', function() {
+      readerState.manualChromeHidden = false;
+      document.getElementById('reader').classList.remove('chrome-hidden');
+      updateReaderFullscreenLabel();
+    });
+    document.getElementById('reader').addEventListener('dblclick', function() {
+      if (!document.fullscreenElement && readerState.manualChromeHidden) {
+        readerState.manualChromeHidden = false;
+        updateReaderFullscreenLabel();
+      }
+    });
+    document.addEventListener('keydown', function(e) {
+      var reader = document.getElementById('reader');
+      if (!reader.classList.contains('open')) return;
+      if (e.key === 'Escape' && !document.fullscreenElement) {
+        e.preventDefault();
+        closeReader();
+        return;
+      }
+      var tag = e.target && e.target.tagName;
+      if (e.key && e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey &&
+          tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+        e.preventDefault();
+        document.getElementById('reader-fs').click();
+      }
+    });
+
+    // More like this — search IA by simplified title tokens
+    document.getElementById('reader-related').addEventListener('click', async function() {
+      if (!readerState.iaId && !readerState.title) {
+        showToast('Nothing to match');
+        return;
+      }
+      var raw = (readerState.title || '').replace(/\[[^\]]*\]/g, ' ');
+      raw = raw.replace(/\([^)]*\)/g, ' ');
+      raw = raw.replace(/vol\.?\s*\d+/ig, ' ').replace(/#\s*\d+/g, ' ');
+      var words = raw.split(/[^a-zA-Z0-9]+/).filter(function(w) {
+        return w.length > 2 && !/^(the|and|for|mag|magazine|issue|vol|volume)$/i.test(w);
+      }).slice(0, 4);
+      if (!words.length) {
+        showToast('Could not build related query');
+        return;
+      }
+      var q = 'mediatype:texts AND (' + words.map(function(w) { return 'title:' + w; }).join(' AND ') + ')' + ADULT_EXCLUDE;
+      showToast('Finding related…');
+      try {
+        var data = await fetchIaAdvanced(q, 1, 'downloads+desc');
+        var docs = (data.docs || []).filter(function(d) {
+          return d.identifier !== readerState.iaId && !isSexualContent(d.title || '', d.subject);
+        }).slice(0, 12);
+        if (!docs.length) {
+          showToast('No related items');
+          return;
+        }
+        // Show in modal
+        document.getElementById('modal-title').textContent = 'More like this';
+        var html = '<div class="related-strip"><div class="related-row">';
+        docs.forEach(function(d) {
+          var cov = d.identifier ? ('https://archive.org/services/img/' + d.identifier) : '';
+          html += '<div class="mini" data-id="' + escapeHtml(d.identifier || '') + '" data-title="' + escapeHtml(d.title || '') + '">' +
+            (cov ? '<img src="' + cov + '" alt=""/>' : '<div style="height:86px;background:#222;border-radius:6px"></div>') +
+            '<span>' + escapeHtml(d.title || d.identifier) + '</span></div>';
+        });
+        html += '</div></div>';
+        document.getElementById('modal-body').innerHTML = html;
+        document.getElementById('modal').classList.add('open');
+        document.querySelectorAll('#modal-body .mini').forEach(function(el) {
+          el.addEventListener('click', function() {
+            var id = el.getAttribute('data-id');
+            var title = el.getAttribute('data-title') || id;
+            openReader(title, id, null, { identifier: id, title: title, source: 'ia' });
+          });
+        });
+      } catch (e) {
+        showToast('Related search failed');
+        console.error(e);
+      }
+    });
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('open');
+    }
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    document.getElementById('modal').addEventListener('click', e => {
+      if (e.target.id === 'modal') closeModal();
+    });
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Debug: shows each shelf query + loaded count for error reports
+    document.getElementById('debug-btn').addEventListener('click', function() {
+      var lines = ['MAGAZINE RACK DEBUG REPORT', '-------------------------'];
+      SHELVES.forEach(function(s) {
+        var st = shelfState[s.id] || {};
+        lines.push(s.title);
+        lines.push('  id: ' + s.id);
+        lines.push('  page: ' + (st.page || 0) + '  total: ' + (st.total || 0) + '  hasMore: ' + st.hasMore);
+        lines.push('  query: ' + s.query);
+        lines.push('');
+      });
+      var report = lines.join('\n');
+      console.log(report);
+      // Copy-friendly prompt
+      prompt('Copy this debug report (Ctrl/Cmd+C):', report);
+    });
+
+    updateStats();
+
+    // PWA: prefer hosted sw.js; fall back to inline blob SW
+    if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+      navigator.serviceWorker.register('./sw.js').catch(function() {
+        try {
+          var swCode = [
+            "const CACHE='magrack-v2';",
+            "self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./']).catch(()=>{})).then(()=>self.skipWaiting()));});",
+            "self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim());});",
+            "self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=e.request.url;if(u.indexOf('archive.org')!==-1||u.indexOf('openlibrary.org')!==-1||u.indexOf('loc.gov')!==-1||u.indexOf('europeana')!==-1)return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{if(res&&res.ok){const copy=res.clone();caches.open(CACHE).then(c=>{try{c.put(e.request,copy);}catch(err){}});}return res;}).catch(()=>r)));});"
+          ].join('');
+          var blob = new Blob([swCode], { type: 'text/javascript' });
+          navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(function(){});
+        } catch (err) {}
+      });
+    }
+  </script>
+</body>
+</html>

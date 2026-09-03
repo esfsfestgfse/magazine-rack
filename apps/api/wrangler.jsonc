@@ -1,0 +1,37 @@
+{
+  "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
+  "name": "margin-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-03",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "vars": {
+    "ALLOWED_ORIGIN": "http://localhost:4173",
+    "ENVIRONMENT": "development"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "margin-catalog",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "env": {
+    "production": {
+      "name": "margin-api-production",
+      "vars": {
+        "ENVIRONMENT": "production",
+        "ALLOWED_ORIGIN": "https://REPLACE_WITH_GITHUB_OWNER.github.io"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "margin-catalog",
+          "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  }
+}
