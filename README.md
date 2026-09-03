@@ -36,4 +36,6 @@ Catalog adapters are limited to sources that expose public or host-authorized ac
 
 ## Status
 
-Ground-up MVP reconstruction is implemented locally. Production deployment remains an operator step because the GitHub repository, Pages variable, Cloudflare account, and D1 ID are not available in this workspace.
+The ground-up MVP reconstruction is live on GitHub Pages in self-contained
+demo mode. Production API deployment remains an operator step because the
+Cloudflare account and D1 ID are not available in this workspace.

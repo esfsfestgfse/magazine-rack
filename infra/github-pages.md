@@ -8,9 +8,11 @@ an install step or execute untrusted scripts from the repository.
 ## One-time GitHub setup
 
 1. In repository Settings → Pages, select **GitHub Actions** as the source.
-2. Create repository variable `PUBLIC_API_BASE_URL` with the final HTTPS Worker
-   URL, for example `https://margin-api-production.<account-subdomain>.workers.dev`.
-   This is public configuration, not a secret.
+2. After the Worker is deployed, create repository variable
+   `PUBLIC_API_BASE_URL` with its final HTTPS URL, for example
+   `https://margin-api-production.<account-subdomain>.workers.dev`. This is
+   public configuration, not a secret. If it is absent, Pages publishes the
+   frontend in its self-contained demo mode.
 3. If a custom domain is used later, set the Pages domain and change the
    Worker `ALLOWED_ORIGIN` to the exact HTTPS origin. Do not use `*` for the
    production API.
@@ -23,7 +25,8 @@ an install step or execute untrusted scripts from the repository.
 - Pushes to `main` and manual dispatch publish Pages.
 - A clean `config.js` is generated inside the runner workspace from
   `PUBLIC_API_BASE_URL`. The tracked application file is not changed.
-- The workflow fails when the variable is missing, malformed, or not HTTPS.
+- When present, the variable must be a valid HTTPS origin; when absent, the
+  workflow publishes the frontend in demo mode.
 - `contents: read`, `pages: write`, and `id-token: write` are granted only at
   the workflow/job that needs them.
 - A concurrency group cancels superseded deployments so an older artifact does
