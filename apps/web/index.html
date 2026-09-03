@@ -2106,6 +2106,13 @@
 
     function normalizeIssue(doc, shelf) {
       var item = Object.assign({}, doc || {});
+      // IA's search endpoints return bare records, while the other adapters
+      // include an explicit source. Keep the shelf contract consistent so a
+      // cover click can always resolve an Internet Archive reader.
+      item.source = item.source || (shelf && shelf.source) || 'ia';
+      if (item.source === 'ia' && item.identifier && !item.locUrl) {
+        item.locUrl = 'https://archive.org/details/' + encodeURIComponent(item.identifier);
+      }
       item.format = formatKey(item.format || (shelf && shelf.format)) || shelfFormat(shelf || {});
       item.publication = item.publication || item.partof_title || item.partof || '';
       item.issueDate = item.issueDate || item.date || '';
@@ -4055,7 +4062,8 @@
     function openReader(title, iaId, cover, doc) {
       closeModal();
 
-      var canUseIa = !doc || doc.source === 'ia' || doc.source === 'openlibrary';
+      var docSource = doc && doc.source ? String(doc.source).toLowerCase() : 'ia';
+      var canUseIa = !doc || docSource === 'ia' || docSource === 'openlibrary';
       var resolvedId = canUseIa && isValidIaId(iaId) ? iaId : null;
       if (canUseIa && doc && isValidIaId(doc.identifier)) resolvedId = doc.identifier;
       if (!isValidIaId(resolvedId)) resolvedId = null;
