@@ -2289,7 +2289,22 @@
         if (parts[1]) params += '&end_date=' + encodeURIComponent(parts[1].slice(0, 10));
       }
       var url = 'https://www.loc.gov/collections/chronicling-america/?' + params;
-      var res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      var res;
+      try {
+        res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      } catch (firstErr) {
+        // LOC occasionally drops the browser connection for a state facet.
+        // Retry the collection without the optional facet so a regional
+        // shelf still shows newspaper pages instead of going blank.
+        if (!shelf.locExtra) throw firstErr;
+        var safeParams = 'fo=json&c=' + ROWS_PER_PAGE + '&sp=' + page + '&qs=' + encodeURIComponent(qs);
+        if (currentDecade && currentDecade.indexOf('TO') !== -1) {
+          var safeParts = currentDecade.split('TO').map(function(s) { return s.trim(); });
+          if (safeParts[0]) safeParams += '&start_date=' + encodeURIComponent(safeParts[0].slice(0, 10));
+          if (safeParts[1]) safeParams += '&end_date=' + encodeURIComponent(safeParts[1].slice(0, 10));
+        }
+        res = await fetch('https://www.loc.gov/collections/chronicling-america/?' + safeParams, { headers: { 'Accept': 'application/json' } });
+      }
       if (!res.ok) throw new Error('LOC HTTP ' + res.status);
       var data = await res.json();
       var docs = shuffleDocs(mapLocResults(data.results || []));
@@ -2319,8 +2334,9 @@
     }
 
     async function fetchXkcdPage(page) {
-      // Official XKCD has no CORS; use public mirror
-      var latestRes = await fetch('https://raw.githubusercontent.com/aghontpi/mirror-xkcd-api/main/api/info.0.json');
+      // Official XKCD has no CORS. Use the current CORS-enabled proxy; the
+      // old GitHub mirror was removed and now returns 404 for every request.
+      var latestRes = await fetch('https://xkcd.now.sh/?comic=latest');
       if (!latestRes.ok) throw new Error('XKCD HTTP ' + latestRes.status);
       var latest = await latestRes.json();
       var max = latest.num || 3000;
@@ -2335,7 +2351,7 @@
       // fetch a batch (limit concurrency lightly)
       for (var j = 0; j < ids.length; j++) {
         try {
-          var r = await fetch('https://raw.githubusercontent.com/aghontpi/mirror-xkcd-api/main/api/' + ids[j] + '/info.0.json');
+          var r = await fetch('https://xkcd.now.sh/?comic=' + ids[j]);
           if (!r.ok) continue;
           var c = await r.json();
           docs.push({
@@ -2476,7 +2492,19 @@
         '&filter=free-ebooks&printType=all&maxResults=' + Math.min(40, ROWS_PER_PAGE) +
         '&startIndex=' + start;
       var res = await fetch(url);
-      if (!res.ok) throw new Error('Google Books HTTP ' + res.status);
+      if (!res.ok) {
+        if (res.status === 429) {
+          // Google Books' anonymous quota is tiny. Keep these shelves useful
+          // by falling back to the same public-domain/full-text lane in Open
+          // Library instead of rendering an empty shelf.
+          var fallbackShelf = Object.assign({}, shelf, {
+            source: 'openlibrary',
+            olQuery: shelf.gbQuery || 'magazine'
+          });
+          return fetchOpenLibraryPage(fallbackShelf, page, extraQuery);
+        }
+        throw new Error('Google Books HTTP ' + res.status);
+      }
       var data = await res.json();
       var items = data.items || [];
       var docs = items.map(function(it) {

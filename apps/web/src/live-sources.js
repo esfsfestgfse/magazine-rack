@@ -20,7 +20,9 @@ const MAX_CONCURRENT_DETAIL_REQUESTS = 4;
 
 const IA_BASE = 'https://archive.org';
 const LOC_BASE = 'https://www.loc.gov';
-const XKCD_BASE = 'https://raw.githubusercontent.com/aghontpi/mirror-xkcd-api/main/api';
+// xkcd.now.sh mirrors the official JSON API and adds browser CORS support.
+// The former GitHub mirror was removed and now returns 404.
+const XKCD_BASE = 'https://xkcd.now.sh';
 
 const IA_SORTS = new Set([
   'downloads+desc',
@@ -396,7 +398,20 @@ async function fetchLocPage(shelf, page, options, search = false) {
   if (range.end) params.set('end_date', range.end);
 
   const path = search ? cleanLocPath(shelf.locPath || 'search') : 'collections/chronicling-america';
-  const data = await fetchJson(`${LOC_BASE}/${path}/?${params}`, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
+  let data;
+  try {
+    data = await fetchJson(`${LOC_BASE}/${path}/?${params}`, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
+  } catch (error) {
+    // State facets can intermittently fail at the LOC edge. Retry the base
+    // collection without the optional facet so a regional shelf still has
+    // newspaper results instead of becoming empty.
+    if (search || !shelf.locExtra) throw error;
+    const safeParams = new URLSearchParams({ fo: 'json', c: String(size), sp: String(page), qs: query });
+    const range = dateRange(options);
+    if (range.start) safeParams.set('start_date', range.start);
+    if (range.end) safeParams.set('end_date', range.end);
+    data = await fetchJson(`${LOC_BASE}/collections/chronicling-america/?${safeParams}`, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
+  }
   const docs = (data?.results || []).map((item) => mapLocDoc(item, search ? 'locsearch' : 'loc'));
   const pagination = data?.pagination || {};
   return result(docs, {
@@ -429,12 +444,12 @@ async function mapLimit(values, limit, mapper) {
 
 async function fetchXkcdPage(shelf, page, options) {
   const base = String(options.xkcdBaseUrl || shelf.xkcdBaseUrl || XKCD_BASE).replace(/\/$/, '');
-  const latest = await fetchJson(`${base}/info.0.json`, options);
+  const latest = await fetchJson(base === 'https://xkcd.now.sh' ? `${base}/?comic=latest` : `${base}/info.0.json`, options);
   const max = Math.max(1, Math.min(100_000, numberValue(latest?.num) || 3_000));
   const size = pageSize(options.pageSize);
   const start = max - ((page - 1) * size);
   const ids = Array.from({ length: size }, (_, index) => start - index).filter((id) => id > 0);
-  const responses = await mapLimit(ids, MAX_CONCURRENT_DETAIL_REQUESTS, (id) => fetchJson(`${base}/${id}/info.0.json`, options));
+  const responses = await mapLimit(ids, MAX_CONCURRENT_DETAIL_REQUESTS, (id) => fetchJson(base === 'https://xkcd.now.sh' ? `${base}/?comic=${id}` : `${base}/${id}/info.0.json`, options));
   const errors = responses.filter((entry) => entry?.error).map((entry) => errorInfo(entry.error));
   const docs = responses.filter((entry) => entry && !entry.error).map((comic) => ({
     source: 'xkcd',
@@ -647,7 +662,15 @@ async function fetchGoogleBooksPage(shelf, page, options) {
   const size = Math.min(40, pageSize(options.pageSize));
   const query = queryFor(shelf, options, ['gbQuery', 'query']) || 'comics';
   const params = new URLSearchParams({ q: query, filter: 'free-ebooks', printType: 'all', maxResults: String(size), startIndex: String(Math.max(0, (page - 1) * size)) });
-  const data = await fetchJson(`https://www.googleapis.com/books/v1/volumes?${params}`, options);
+  let data;
+  try {
+    data = await fetchJson(`https://www.googleapis.com/books/v1/volumes?${params}`, options);
+  } catch (error) {
+    if (error?.status !== 429) throw error;
+    // Google Books' anonymous quota is tiny. Keep the shelf useful by using
+    // the matching public-domain/full-text Open Library lane when throttled.
+    return fetchOpenLibraryPage({ ...shelf, source: 'openlibrary', olQuery: shelf.gbQuery || 'magazine' }, page, options);
+  }
   const docs = (data?.items || []).map((item) => {
     const info = item.volumeInfo || {};
     const access = item.accessInfo || {};
