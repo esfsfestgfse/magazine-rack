@@ -4723,7 +4723,7 @@
         'body{display:grid;place-items:center;padding:28px;box-sizing:border-box;text-align:center;}' +
         'main{width:min(560px,100%);border:1px solid #3b3f48;border-radius:14px;padding:28px;background:linear-gradient(155deg,#242830,#191b20);box-shadow:0 18px 60px #0008;box-sizing:border-box;}' +
         'p{color:#b9bdc7;line-height:1.55;margin:10px 0 0;}a{display:inline-block;margin:16px 6px 0;padding:11px 15px;border-radius:7px;background:#ff9f43;color:#17181c;text-decoration:none;font-weight:800;}a.secondary{background:#30343d;color:#f5f2ea;border:1px solid #545a68;}small{display:block;margin-top:18px;color:#858b98;line-height:1.5;}' +
-        '</style></head><body><main>' + coverHtml + '<div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#ffd166">OPEN LIBRARY ACCESS</div><h1 style="font-size:24px;line-height:1.15;margin:9px 0 0">' + escapeHtml(title || 'This edition') + '</h1><p>This edition needs Open Library access. Sign in in a separate secure tab, then return here and use Retry in the reader header.</p><a href="https://openlibrary.org/account/login" target="_blank" rel="noopener">Sign in at Open Library</a>' + itemLink + '<small>Your password stays on Open Library. Magazine Rack never receives or stores it.</small></main></body></html>';
+        '</style></head><body><main>' + coverHtml + '<div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#ffd166">OPEN LIBRARY ACCESS</div><h1 style="font-size:24px;line-height:1.15;margin:9px 0 0">' + escapeHtml(title || 'This edition') + '</h1><p>Sign in in a separate secure tab, then return here and use Retry in the reader header. If the edition is borrow-restricted, choose Borrow on the edition page first.</p><a href="https://openlibrary.org/account/login" target="_blank" rel="noopener">Sign in at Open Library</a>' + itemLink + '<small>Your password stays on Open Library. Magazine Rack never receives or stores it.</small></main></body></html>';
     }
 
     function buildSourceNoticeHtml(doc, sourceLabel) {
@@ -4961,13 +4961,23 @@
       }
     }
 
+    function readerArchiveUrl() {
+      return isValidIaId(readerState.iaId)
+        ? 'https://archive.org/details/' + encodeURIComponent(readerState.iaId)
+        : '';
+    }
+
+    function readerEditionUrl() {
+      return sourceUrl(readerState.doc && (readerState.doc.openLibraryUrl || readerState.doc.locUrl || readerState.doc.readerUrl)) || '';
+    }
+
     function openExternalIa() {
-      if (readerState.doc && readerState.doc.accountSource === 'openlibrary' && readerState.doc.openLibraryUrl) {
-        window.open(readerState.doc.openLibraryUrl, '_blank');
-      } else if (readerState.iaId) {
-        window.open('https://archive.org/details/' + encodeURIComponent(readerState.iaId), '_blank');
-      } else if (readerState.doc && readerState.doc.locUrl) {
-        window.open(readerState.doc.locUrl, '_blank');
+      var archiveUrl = readerArchiveUrl();
+      var editionUrl = readerEditionUrl();
+      if (archiveUrl) {
+        window.open(archiveUrl, '_blank', 'noopener,noreferrer');
+      } else if (editionUrl) {
+        window.open(editionUrl, '_blank', 'noopener,noreferrer');
       } else {
         showToast('No external link');
       }
@@ -4987,13 +4997,28 @@
     }
 
     function renderOpenLibraryPanel() {
+      var archiveUrl = readerArchiveUrl();
+      var editionUrl = readerEditionUrl();
+      var readerIsOpen = document.getElementById('reader').classList.contains('open');
+      var archiveBacked = Boolean(readerIsOpen && archiveUrl);
+      var intro = archiveBacked
+        ? '<p>This issue is being read from Internet Archive. Signing in does not automatically borrow a restricted scan. Open the issue, choose Borrow there, then return to this rack and press Reload.</p>'
+        : '<p>Sign in on Open Library while this rack stays open. Open Library uses your Internet Archive account for borrowing and restricted scans.</p>';
+      var editionAction = editionUrl
+        ? '<button class="btn-secondary" id="ol-edition">Open edition on Open Library</button>'
+        : '';
+      var archiveAction = archiveBacked
+        ? '<button class="btn-primary" id="ol-archive">Open issue on Internet Archive</button>'
+        : '';
       document.getElementById('modal-title').textContent = 'Open Library access';
       document.getElementById('modal-body').innerHTML =
         '<div class="account-panel">' +
-          '<p>Sign in on Open Library while this rack stays open. Open Library uses your Internet Archive account for borrowing and restricted scans.</p>' +
+          intro +
           '<div class="account-status ' + escapeHtml(openLibraryConnection) + '"><i></i><span>' + escapeHtml(openLibraryConnectionLabel()) + '</span></div>' +
           '<div class="modal-actions">' +
             '<button class="btn-primary" id="ol-login">Sign in at Open Library</button>' +
+            archiveAction +
+            editionAction +
             '<button class="btn-secondary" id="ol-books">Open My Books</button>' +
             '<button class="btn-secondary" id="ol-confirm">I’m signed in · retry</button>' +
           '</div>' +
@@ -5001,6 +5026,16 @@
         '</div>';
       document.getElementById('modal').classList.add('open');
       document.getElementById('ol-login').addEventListener('click', openOpenLibraryLogin);
+      if (archiveBacked) {
+        document.getElementById('ol-archive').addEventListener('click', function() {
+          window.open(archiveUrl, '_blank', 'noopener,noreferrer');
+        });
+      }
+      if (editionUrl) {
+        document.getElementById('ol-edition').addEventListener('click', function() {
+          window.open(editionUrl, '_blank', 'noopener,noreferrer');
+        });
+      }
       document.getElementById('ol-books').addEventListener('click', function() {
         window.open('https://openlibrary.org/account', '_blank', 'noopener,noreferrer');
       });
@@ -5030,7 +5065,10 @@
       if (!button) return;
       var enabled = Boolean(doc && (doc.accountSource === 'openlibrary' || doc.source === 'openlibrary' || doc.source === 'olsubjects'));
       button.hidden = !enabled;
-      button.title = enabled ? 'Open Library access' : '';
+      var label = button.querySelector('.reader-action-label');
+      var text = enabled && isValidIaId(readerState.iaId) ? 'Access / borrow' : 'Open Library access';
+      if (label) label.textContent = text;
+      button.title = enabled ? text : '';
     }
 
     document.getElementById('reader-close').addEventListener('click', closeReader);
