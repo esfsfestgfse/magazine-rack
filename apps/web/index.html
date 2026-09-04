@@ -2348,8 +2348,39 @@
     buildJumpChips();
 
     function normalizeCoverUrl(value) {
-      var url = String(value || '').trim().replace(/^http:\/\//i, 'https://');
+      var url = String(value || '').trim().replace(/^http:\/\//i, 'https://').replace(/^\/\//, 'https://');
       return /^https:\/\//i.test(url) ? url : '';
+    }
+
+    function sourceUrls(value, out, depth) {
+      out = out || [];
+      depth = depth || 0;
+      if (depth > 5 || value == null) return out;
+      if (Array.isArray(value)) {
+        value.forEach(function(item) { sourceUrls(item, out, depth + 1); });
+        return out;
+      }
+      if (typeof value === 'string' || typeof value === 'number') {
+        var url = normalizeCoverUrl(value);
+        if (url && out.indexOf(url) === -1) out.push(url);
+        return out;
+      }
+      if (typeof value === 'object') {
+        var preferred = ['@id', 'id', 'url', 'uri', 'href', 'image', 'image_url', 'thumbnail', 'thumbnail_url', 'preview', 'object', 'isShownBy', 'hasView', 'value'];
+        preferred.forEach(function(key) { if (Object.prototype.hasOwnProperty.call(value, key)) sourceUrls(value[key], out, depth + 1); });
+        Object.keys(value).forEach(function(key) {
+          if (preferred.indexOf(key) === -1) sourceUrls(value[key], out, depth + 1);
+        });
+      }
+      return out;
+    }
+
+    function imageUrlCandidates() {
+      var values = [];
+      Array.prototype.slice.call(arguments).forEach(function(value) { sourceUrls(value, values, 0); });
+      return values.filter(function(url) {
+        return /\.(?:jpe?g|png|gif|webp|avif|jp2|jpx|tiff?)(?:[?#]|$)/i.test(url) || /(?:iiif|image|thumbnail|preview|cover|object)/i.test(url);
+      });
     }
 
     function coverCandidates(doc) {
@@ -2369,6 +2400,8 @@
         add('https://archive.org/services/img/' + encodeURIComponent(String(doc.iaId || id)));
       }
       if (doc && Array.isArray(doc.image_url)) doc.image_url.slice(0, 4).forEach(add);
+      imageUrlCandidates(doc && doc.image_url, doc && doc.thumbnail_url, doc && doc.thumbnail, doc && doc.preview,
+        doc && doc.object, doc && doc.isShownBy, doc && doc.hasView, doc && doc.resources).slice(0, 6).forEach(add);
       return candidates;
     }
 
@@ -2476,22 +2509,23 @@
     }
 
     function locThumb(imageUrls) {
-      if (!imageUrls || !imageUrls.length) return null;
-      var mid = imageUrls.find(function(u) { return u.indexOf('pct:12.5') !== -1 || u.indexOf('pct:25') !== -1; });
-      var pick = (mid || imageUrls[0] || '').split('#')[0];
-      return pick || null;
+      var urls = imageUrlCandidates(imageUrls);
+      if (!urls.length) return null;
+      var mid = urls.find(function(u) { return /(?:pct:12\.5|pct:25|_150px|_300px)/i.test(u); });
+      return (mid || urls[0] || '').split('#')[0] || null;
     }
 
     function locFullImage(imageUrls) {
-      if (!imageUrls || !imageUrls.length) return null;
-      var base = (imageUrls[0] || '').split('#')[0];
+      var urls = imageUrlCandidates(imageUrls);
+      if (!urls.length) return null;
+      var base = (urls[0] || '').split('#')[0];
       // bump IIIF size for reading
       return base.replace(/\/pct:[0-9.]+\/0\//, '/pct:50/0/').replace(/\/full\/[^/]+\/0\//, '/full/pct:50/0/');
     }
 
     function mapLocResults(results) {
       return (results || []).map(function(it) {
-        var imgs = it.image_url || [];
+        var imgs = imageUrlCandidates(it.image_url, it.thumbnail_url, it.thumbnail, it.image, it.resources, it.files);
         var title = it.title || 'Newspaper page';
         var date = (it.date || '').toString().slice(0, 10);
         var paper = '';
@@ -2998,6 +3032,38 @@
       return { docs: docs, numFound: docs.length + offset + (docs.length === ROWS_PER_PAGE ? ROWS_PER_PAGE : 0) };
     }
 
+    async function fetchGcdIssueCover(issueUrl) {
+      var url = sourceUrl(issueUrl);
+      if (!url) return null;
+      try {
+        var res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) return null;
+        var issue = await res.json();
+        return imageUrlCandidates(issue.cover, issue.cover_image, issue.coverUrl, issue.image, issue.images, issue.resources)[0] || null;
+      } catch (e) { return null; }
+    }
+
+    async function hydrateGcdCovers(rows, maxRows) {
+      var targets = (rows || []).filter(function(row) { return row && row._gcdIssueUrl && !bestCoverUrl(row); }).slice(0, maxRows == null ? 12 : maxRows);
+      var covers = new Map();
+      for (var offset = 0; offset < targets.length; offset += 4) {
+        var batch = await Promise.all(targets.slice(offset, offset + 4).map(async function(row) {
+          return { id: itemKey(row), cover: await fetchGcdIssueCover(row._gcdIssueUrl) };
+        }));
+        batch.forEach(function(entry) { if (entry.cover) covers.set(entry.id, entry.cover); });
+      }
+      return (rows || []).map(function(row) {
+        var copy = Object.assign({}, row);
+        var cover = covers.get(itemKey(row));
+        delete copy._gcdIssueUrl;
+        if (cover) {
+          copy.cover = cover;
+          copy.fullImage = cover;
+        }
+        return copy;
+      });
+    }
+
     async function fetchGcdPage(shelf, page, extraQuery) {
       var name = extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1
         ? extraQuery.trim()
@@ -3009,8 +3075,8 @@
         var data = await res.json();
         var rows = data.results || data || [];
         if (!Array.isArray(rows)) rows = [];
-        var docs = rows.map(function(s) {
-          var id = String(s.id || s.api_url || s.name || Math.random());
+        var rowsWithCovers = rows.map(function(s, index) {
+          var id = String(s.id || s.api_url || s.name || ('series-' + index));
           var years = [s.year_began, s.year_ended].filter(Boolean).join('–');
           return {
             source: 'gcd',
@@ -3021,11 +3087,13 @@
             subject: ['comics', 'catalog'],
             format: 'comic',
             publication: s.publisher || s.name || '',
-            cover: s.cover || null,
+            cover: imageUrlCandidates(s.cover, s.cover_image, s.image)[0] || null,
             locUrl: s.api_url || ('https://www.comics.org/series/' + (s.id || '') + '/'),
-            pages: (s.active_issues && s.active_issues.length) ? s.active_issues.length : ''
+            pages: (s.active_issues && s.active_issues.length) ? s.active_issues.length : '',
+            _gcdIssueUrl: Array.isArray(s.active_issues) ? s.active_issues[0] : null
           };
         });
+        var docs = await hydrateGcdCovers(rowsWithCovers);
         return { docs: docs, numFound: data.count || docs.length };
       } catch (err) {
         return {
@@ -3057,13 +3125,13 @@
     function sourceValue(value) {
       if (Array.isArray(value)) return sourceValue(value[0]);
       if (value && typeof value === 'object') {
-        return sourceValue(value.name || value.label || value.value || value.text || value.display || value.id || '');
+        return sourceValue(value.name || value.label || value.value || value.text || value.display || value['@id'] || value.url || value.uri || value.href || value.id || '');
       }
       return value == null ? '' : String(value);
     }
 
     function sourceUrl(value) {
-      var url = sourceValue(value).replace(/^http:\/\//i, 'https://');
+      var url = sourceValue(value).replace(/^http:\/\//i, 'https://').replace(/^\/\//, 'https://');
       return /^https:\/\//i.test(url) ? url : null;
     }
 
@@ -3172,6 +3240,17 @@
       return shelf.euQuery || 'newspaper';
     }
 
+    function gcdIssueHint(metadata) {
+      var value = metadata && metadata.active_issues;
+      if (!value) return null;
+      var values = Array.isArray(value) ? value : [value];
+      for (var i = 0; i < values.length; i++) {
+        var match = String(values[i] || '').match(/https:\/\/www\.comics\.org\/api\/issue\/[^\s,]+/i);
+        if (match) return match[0];
+      }
+      return null;
+    }
+
     async function fetchConnectedShelfPage(shelf, page, extraQuery) {
       var source = connectedSource(shelf);
       if (!source) return null;
@@ -3205,9 +3284,12 @@
           locUrl: sourceUrlValue,
           readerUrl: item.readerUrl || sourceUrlValue,
           pages: item.pages || 0,
-          description: item.description || ''
+          description: item.description || '',
+          metadata: item.metadata || {},
+          _gcdIssueUrl: source === 'gcd' ? gcdIssueHint(item.metadata) : null
         };
       });
+      if (source === 'gcd') docs = await hydrateGcdCovers(docs, 12);
       return { docs: docs, numFound: Number(data.total) || docs.length, mode: 'search', stale: !!data.stale };
     }
 
@@ -3230,8 +3312,12 @@
           : sr.date;
         var date = sourceValue(dateValue || item.date || '');
         var subject = sr.subject || sr.type || sr.format || [];
-        var cover = sourceUrl(item.object || item.thumbnail || item.objectUrl || item.isShownBy);
-        var fullImage = sourceUrl(item.isShownBy || item.object || item.objectUrl || cover);
+        var dplaImages = imageUrlCandidates(
+          item.object, item.thumbnail, item.objectUrl, item.isShownBy, item.hasView,
+          item.preview, item.image, sr.image, sr.thumbnail, item.originalRecord
+        );
+        var cover = dplaImages[0] || null;
+        var fullImage = dplaImages[1] || cover;
         var manifest = sourceValue(item.iiifManifest || item.manifest || item.hasView);
         var link = sourceUrl(item.isShownAt || item.source || item.provider);
         var id = sourceValue(item.id || item.identifier || title);
@@ -4468,6 +4554,20 @@
         '</style></head><body><div class="toolbar"><div class="title" id="page-title">Reader</div><button id="page-prev" type="button" title="Previous page">‹</button><span id="page-status">—</span><button id="page-next" type="button" title="Next page">›</button><button id="page-zoom-out" type="button" title="Zoom out">−</button><button id="page-zoom-in" type="button" title="Zoom in">+</button><button id="page-fit" type="button" title="Fit page">Fit</button></div><div class="viewport"><img id="page-image" alt=""><div id="page-message"></div></div><script>' + script + '<' + '/script></body></html>';
     }
 
+    function buildSourceNoticeHtml(doc, sourceLabel) {
+      var title = escapeHtml(doc && doc.title || 'This item');
+      var source = sourceUrl(doc && (doc.locUrl || doc.readerUrl || '')) || '';
+      var sourceLink = source
+        ? '<a href="' + escapeHtml(source) + '" target="_blank" rel="noopener">Open ' + escapeHtml(sourceLabel || 'source') + '</a>'
+        : '';
+      return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
+        'html,body{margin:0;min-height:100%;background:#14161a;color:#eee;font-family:system-ui,sans-serif;}' +
+        'body{display:grid;place-items:center;padding:28px;box-sizing:border-box;text-align:center;}' +
+        'main{max-width:560px;border:1px solid #3b3f48;border-radius:14px;padding:28px;background:linear-gradient(155deg,#242830,#191b20);box-shadow:0 18px 60px #0008;}' +
+        'p{color:#b9bdc7;line-height:1.55;}a{display:inline-block;margin-top:10px;padding:11px 15px;border-radius:7px;background:#ff9f43;color:#17181c;text-decoration:none;font-weight:800;}small{display:block;margin-top:16px;color:#858b98;}' +
+        '</style></head><body><main><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#ffd166">' + escapeHtml(sourceLabel || 'Source') + '</div><h1 style="font-size:24px;line-height:1.15">' + title + '</h1><p>This collection does not allow its catalog page to be embedded here. The item is still available at its original public source.</p>' + sourceLink + '<small>Use the source button in the reader header to open it in a full tab.</small></main></body></html>';
+    }
+
     function loadReaderContent() {
       var frame = document.getElementById('reader-frame');
       var doc = readerState.doc;
@@ -4517,6 +4617,12 @@
             '<style>html,body{margin:0;background:#111;min-height:100%;}body{min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:auto;padding:12px;}img{max-width:100%;max-height:calc(100vh - 24px);height:auto;display:block;object-fit:contain;}</style></head>' +
             '<body><img src="' + String(img).replace(/"/g, '&quot;') + '" alt=""/>' + alt + '</body></html>';
           scheduleReaderHint(token, 8000);
+          return;
+        }
+        if ((doc.source === 'dpla' || doc.source === 'gcd') && doc.locUrl) {
+          setReaderLoading(true, 'Source link ready', 'This catalog page blocks embedded viewing.');
+          bindFrame(sourceLabel + ' · source link');
+          frame.srcdoc = buildSourceNoticeHtml(doc, sourceLabel);
           return;
         }
         if (doc.locUrl) {

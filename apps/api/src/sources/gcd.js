@@ -11,13 +11,16 @@ export async function fetchGcd({ query, page }, env) {
     items: records.map((record) => {
       const id = String(record.id || record.api_url || record.name || '').slice(0, 180);
       if (!id) return null;
-      const seriesId = String(record.id || '').trim();
+      const seriesId = String(record.id || '').trim() || String(record.api_url || '').match(/\/series\/(\d+)/)?.[1] || '';
       const sourceUrl = seriesId ? `https://www.comics.org/series/${encodeURIComponent(seriesId)}/` : 'https://www.comics.org/search/advanced/';
       return sourceItem('gcd', id, {
         title: `${record.name || term}${record.year_began ? ` (${record.year_began}${record.year_ended ? `–${record.year_ended}` : ''})` : ''}`,
         creator: record.publisher || 'Grand Comics Database',
         year: record.year_began,
         genre: inferGenre(`${record.name || ''} comics`),
+        // GCD puts the actual cover on the issue record, not the series
+        // record. Keep the issue URL in the projected metadata so the web
+        // client can enrich visible cards without blocking this catalog call.
         coverUrl: record.cover,
         sourceUrl,
         readerUrl: sourceUrl,

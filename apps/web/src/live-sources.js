@@ -47,10 +47,27 @@ const list = (value, max = 12) => {
     .slice(0, max);
 };
 
-const httpsUrl = (value) => {
-  const url = cleanText(value, 1_000).replace(/^http:\/\//i, 'https://');
-  return /^https:\/\//i.test(url) ? url : null;
+const urlCandidates = (value, output = [], depth = 0) => {
+  if (value == null || depth > 5) return output;
+  if (Array.isArray(value)) {
+    value.forEach((entry) => urlCandidates(entry, output, depth + 1));
+    return output;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const url = String(value).trim().replace(/^http:\/\//i, 'https://').replace(/^\/\//, 'https://');
+    if (/^https:\/\//i.test(url) && !output.includes(url)) output.push(url);
+    return output;
+  }
+  if (typeof value === 'object') {
+    const preferred = ['@id', 'id', 'url', 'uri', 'href', 'image', 'image_url', 'thumbnail', 'thumbnail_url', 'preview', 'object', 'isShownBy', 'hasView', 'value'];
+    preferred.forEach((key) => { if (key in value) urlCandidates(value[key], output, depth + 1); });
+    Object.keys(value).forEach((key) => { if (!preferred.includes(key)) urlCandidates(value[key], output, depth + 1); });
+  }
+  return output;
 };
+
+const httpsUrl = (value) => urlCandidates(value)[0] || null;
+const imageUrl = (...values) => urlCandidates(values).find((url) => /\.(?:jpe?g|png|gif|webp|avif|jp2|jpx|tiff?)(?:[?#]|$)/i.test(url) || /(?:iiif|image|thumbnail|preview|cover|object)/i.test(url)) || null;
 
 const numberValue = (value) => {
   const number = Number(value);
@@ -76,7 +93,7 @@ const formatKey = (value) => {
 const valueText = (value) => Array.isArray(value)
   ? valueText(value[0])
   : value && typeof value === 'object'
-    ? valueText(value.name || value.label || value.value || value.text || value.id || '')
+    ? valueText(value.name || value.label || value.value || value.text || value.display || value['@id'] || value.url || value.uri || value.href || value.id || '')
     : String(value || '');
 
 const errorInfo = (error) => ({
@@ -416,11 +433,11 @@ async function fetchIaScrape(shelf, page, options) {
 }
 
 function locImageUrls(item) {
-  return list(item?.image_url || item?.imageUrl, 30).map(httpsUrl).filter(Boolean);
+  return urlCandidates([item?.image_url, item?.imageUrl, item?.thumbnail_url, item?.thumbnail, item?.image, item?.resources, item?.files]).slice(0, 30);
 }
 
 function locThumb(urls) {
-  return httpsUrl(urls.find((url) => /pct:(12\.5|25)(?:\/|$)/.test(url)) || urls[0]);
+  return httpsUrl(urls.find((url) => /pct:(12\.5|25)(?:\/|$)/.test(url) || /_(?:150|300)px\./i.test(url)) || urls[0]);
 }
 
 function locFullImage(urls) {
@@ -715,14 +732,25 @@ async function fetchGcdPage(shelf, page, options) {
   const url = `https://www.comics.org/api/series/name/${encodeURIComponent(query)}/?format=json&page=${page}`;
   const data = await fetchJson(url, options);
   const records = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
-  const docs = records.map((record) => {
+  const enriched = await mapLimit(records, MAX_CONCURRENT_DETAIL_REQUESTS, async (record) => {
+    const issueUrl = first(record.active_issues);
+    let cover = imageUrl(record.cover, record.cover_image, record.image);
+    if (issueUrl) {
+      try {
+        const issue = await fetchJson(issueUrl, options);
+        cover = imageUrl(cover, issue.cover, issue.cover_image, issue.coverUrl, issue.image, issue.images, issue.resources) || cover;
+      } catch { /* keep the series record usable if one issue request fails */ }
+    }
+    return { record, cover };
+  });
+  const docs = enriched.filter((entry) => entry && entry.record).map(({ record, cover }) => {
     const id = valueText(record.id || record.api_url || record.name);
-    const seriesId = valueText(record.id);
+    const seriesId = valueText(record.id) || valueText(record.api_url).match(/\/series\/(\d+)/)?.[1] || '';
     const locUrl = seriesId ? `https://www.comics.org/series/${encodeURIComponent(seriesId)}/` : 'https://www.comics.org/search/advanced/';
     return {
       source: 'gcd', identifier: `gcd-${id}`, title: `${record.name || query}${record.year_began ? ` (${record.year_began}${record.year_ended ? `–${record.year_ended}` : ''})` : ''}`,
       creator: record.publisher || 'Grand Comics Database', date: record.year_began ? String(record.year_began) : '', subject: ['comics', 'catalog'], format: 'comic',
-      cover: httpsUrl(record.cover), locUrl, pages: Array.isArray(record.active_issues) ? record.active_issues.length : 0
+      cover, fullImage: cover, locUrl, pages: Array.isArray(record.active_issues) ? record.active_issues.length : 0
     };
   });
   return result(docs, { source: 'gcd', page, pageSize: pageSize(options.pageSize), numFound: numberValue(data?.count) || docs.length });
@@ -740,7 +768,10 @@ async function fetchDplaPage(shelf, page, options) {
     const resource = record.sourceResource || {};
     const id = valueText(record.id || record.identifier || resource.title || 'dpla-item');
     const link = valueText(record.isShownAt || record.source || record.provider);
-    return { source: 'dpla', identifier: `dpla-${id}`, title: valueText(resource.title || record.title || 'DPLA item'), creator: valueText(resource.creator || resource.contributor || resource.publisher || 'DPLA'), publication: valueText(resource.publisher || resource.source), date: valueText(resource.date || record.date), issueDate: valueText(resource.date || record.date), subject: list(resource.subject || resource.type || resource.format), format: formatKey(shelf.format || resource.type || resource.format || resource.subject) || 'magazine', cover: httpsUrl(record.object || record.thumbnail || record.objectUrl || record.isShownBy), fullImage: httpsUrl(record.isShownBy || record.object || record.objectUrl), iiifManifest: httpsUrl(record.iiifManifest || record.manifest || record.hasView), locUrl: /^https?:\/\//i.test(link) ? link : `https://dp.la/item/${encodeURIComponent(id)}` };
+    const covers = urlCandidates([record.object, record.thumbnail, record.objectUrl, record.isShownBy, record.hasView, record.preview, record.image, resource.image, resource.thumbnail, record.originalRecord]);
+    const cover = imageUrl(covers);
+    const fullImage = imageUrl(covers.slice(1)) || cover;
+    return { source: 'dpla', identifier: `dpla-${id}`, title: valueText(resource.title || record.title || 'DPLA item'), creator: valueText(resource.creator || resource.contributor || resource.publisher || 'DPLA'), publication: valueText(resource.publisher || resource.source), date: valueText(resource.date || record.date), issueDate: valueText(resource.date || record.date), subject: list(resource.subject || resource.type || resource.format), format: formatKey(shelf.format || resource.type || resource.format || resource.subject) || 'magazine', cover, fullImage, iiifManifest: httpsUrl(record.iiifManifest || record.manifest || record.hasView), locUrl: /^https?:\/\//i.test(link) ? link : `https://dp.la/item/${encodeURIComponent(id)}` };
   });
   return result(docs, { source: 'dpla', page, pageSize: size, numFound: numberValue(data?.count || data?.total || data?.pagination?.total) || docs.length, ...newspaperMetadata(shelf, options) });
 }

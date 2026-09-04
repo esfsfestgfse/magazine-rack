@@ -21,7 +21,7 @@ const URL_POLICIES = Object.freeze({
   gcd: {
     source: [['www.comics.org', '/series/'], ['www.comics.org', '/search/']],
     reader: [['www.comics.org', '/series/'], ['www.comics.org', '/search/']],
-    cover: [['www.comics.org', '/']],
+    cover: [['www.comics.org', '/'], ['files1.comics.org', '/img/gcd/']],
   },
   dpla: {
     source: [['dp.la', '/item/'], ['www.dp.la', '/item/'], ['pro.dp.la', '/']],
@@ -81,8 +81,10 @@ function safeExternalUrl(value, source, kind) {
   let parsed;
   try { parsed = new URL(candidate); } catch { return ''; }
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port || parsed.hash) return '';
+  if (kind === 'cover' && source === 'dpla' && /(?:iiif|image|thumbnail|preview|cover|object|\.(?:jpe?g|png|gif|webp|avif))(?:[/?#]|$)/i.test(`${parsed.pathname}${parsed.search}`)) return parsed.toString();
   const policies = URL_POLICIES[source]?.[kind] || [];
-  return policies.some(([host, prefix]) => parsed.hostname === host && parsed.pathname.startsWith(prefix)) ? parsed.toString() : '';
+  const pathname = parsed.pathname.replace(/^\/+/, '/');
+  return policies.some(([host, prefix]) => parsed.hostname === host && pathname.startsWith(prefix)) ? parsed.toString() : '';
 }
 
 function metadataProjection(value) {

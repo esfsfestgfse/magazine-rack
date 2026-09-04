@@ -2,9 +2,33 @@ import { fetchJson } from './request.js';
 import { sourceItem } from './common.js';
 
 function locUrl(value) {
-  const candidate = String(value || '').replace(/^http:\/\//i, 'https://');
+  const candidate = String(value || '').replace(/^http:\/\//i, 'https://').replace(/^\/\//, 'https://');
   if (candidate.startsWith('/')) return `https://www.loc.gov${candidate}`;
   return candidate.startsWith('https://www.loc.gov/') ? candidate : '';
+}
+
+function imageUrls(value, output = [], depth = 0) {
+  if (value == null || depth > 5) return output;
+  if (Array.isArray(value)) {
+    value.forEach((entry) => imageUrls(entry, output, depth + 1));
+    return output;
+  }
+  if (typeof value === 'string') {
+    const candidate = value.replace(/^http:\/\//i, 'https://').replace(/^\/\//, 'https://');
+    if (/^https:\/\/(?:www\.|tile\.|cdn\.)?loc\.gov\//i.test(candidate) && !output.includes(candidate)) output.push(candidate);
+    return output;
+  }
+  if (typeof value === 'object') {
+    ['url', 'image', 'image_url', 'thumbnail_url', 'thumbnail', 'filename', 'download', 'resources', 'files'].forEach((key) => {
+      if (key in value) imageUrls(value[key], output, depth + 1);
+    });
+  }
+  return output;
+}
+
+function imageUrl(...values) {
+  const candidates = imageUrls(values);
+  return candidates.find((value) => /(?:_150px|_300px|thumbnail|iiif|image)/i.test(value)) || candidates[0] || '';
 }
 
 function recordMonthDay(value) {
@@ -51,7 +75,7 @@ async function fetchLocMonthDay({ query, page, newspaperMonthDay }, env) {
     items: records.map((record) => {
       const url = locUrl(record.id);
       if (!url || !record.title) return null;
-      const image = Array.isArray(record.image_url) ? record.image_url.at(-1) : '';
+      const image = imageUrl(record.image_url, record.thumbnail_url, record.image, record.resources, record.files);
       return sourceItem('loc', url, { title: record.title, creator: record.contributor, year: record.date, genre: 'Newspapers', description: record.description, coverUrl: image, sourceUrl: url, readerUrl: url, metadata: record });
     }).filter(Boolean),
   };
@@ -64,7 +88,7 @@ export async function fetchLoc({ query, page, newspaperMonthDay }, env) {
   return { total: Number(data.pagination?.total) || 0, items: (data.results || []).map((record) => {
     const url = locUrl(record.id);
     if (!url || !record.title) return null;
-    const image = Array.isArray(record.image_url) ? record.image_url.at(-1) : '';
+    const image = imageUrl(record.image_url, record.thumbnail_url, record.image, record.resources, record.files);
     return sourceItem('loc', url, { title: record.title, creator: record.contributor, year: record.date, genre: 'Newspapers', description: record.description, coverUrl: image, sourceUrl: url, readerUrl: url, metadata: record });
   }).filter(Boolean) };
 }
