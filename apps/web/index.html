@@ -5004,13 +5004,13 @@
       var readerIsOpen = document.getElementById('reader').classList.contains('open');
       var archiveBacked = Boolean(readerIsOpen && archiveUrl);
       var intro = archiveBacked
-        ? '<p>This issue is being read from Internet Archive. Signing in does not automatically borrow a restricted scan. Open the issue, choose Borrow there, then return to this rack and press Reload.</p>'
+        ? '<p>This issue is being read through Internet Archive. To unlock a restricted scan, open the Open Library edition, sign in, and choose Borrow there. Then return to this rack and press Reload.</p>'
         : '<p>Sign in on Open Library while this rack stays open. Open Library uses your Internet Archive account for borrowing and restricted scans.</p>';
       var editionAction = editionUrl
-        ? '<button class="btn-secondary" id="ol-edition">Open edition on Open Library</button>'
+        ? '<button class="btn-primary" id="ol-edition">Borrow / open edition on Open Library</button>'
         : '';
       var archiveAction = archiveBacked
-        ? '<button class="btn-primary" id="ol-archive">Open issue on Internet Archive</button>'
+        ? '<button class="btn-secondary" id="ol-archive">Preview issue on Internet Archive</button>'
         : '';
       document.getElementById('modal-title').textContent = 'Open Library access';
       document.getElementById('modal-body').innerHTML =
