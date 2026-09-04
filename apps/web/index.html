@@ -12,6 +12,7 @@
   <title>Magazine Rack</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Magazine%20Rack%22%2C%22short_name%22%3A%22MagRack%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23070a12%22%2C%22theme_color%22%3A%22%23070a12%22%2C%22description%22%3A%22Free%20magazines%20%26%20comics%20from%20public%20archives%22%7D" />
+  <script src="config.js"></script>
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='%23070a12'/%3E%3Crect x='22' y='30' width='28' height='68' rx='4' fill='%235eead4'/%3E%3Crect x='54' y='22' width='24' height='84' rx='4' fill='%2338bdf8'/%3E%3Crect x='82' y='36' width='24' height='62' rx='4' fill='%23fbbf24'/%3E%3C/svg%3E" />
   <style>
     :root {
@@ -2871,6 +2872,65 @@
       return docs.length;
     }
 
+    var PUBLIC_CATALOG_API = 'https://margin-api-production.tdy1990.workers.dev';
+
+    function catalogApiBase() {
+      var configured = window.MR_CONFIG && window.MR_CONFIG.apiBaseUrl;
+      var saved = '';
+      try { saved = localStorage.getItem('margin-api-base') || ''; } catch (e) {}
+      return String(configured || saved || PUBLIC_CATALOG_API).replace(/\/$/, '');
+    }
+
+    function connectedSource(shelf) {
+      return shelf && (shelf.source === 'dpla' || shelf.source === 'gcd' || shelf.source === 'europeana') ? shelf.source : '';
+    }
+
+    function connectedQuery(shelf) {
+      if (!shelf) return '';
+      if (shelf.source === 'dpla') return shelf.dplaQuery || '';
+      if (shelf.source === 'gcd') return shelf.gcdName || 'comic';
+      return shelf.euQuery || 'newspaper';
+    }
+
+    async function fetchConnectedShelfPage(shelf, page, extraQuery) {
+      var source = connectedSource(shelf);
+      if (!source) return null;
+      var url = new URL(catalogApiBase() + '/api/catalog');
+      url.searchParams.set('source', source);
+      var query = connectedQuery(shelf);
+      if (extraQuery && extraQuery.trim()) {
+        if (source === 'dpla') query = query + ' ' + extraQuery.trim();
+        else if (extraQuery.indexOf('date:') === -1) query = extraQuery.trim();
+      }
+      url.searchParams.set('q', query);
+      url.searchParams.set('page', String(page));
+      if (shelf.newspaperDateMode === 'month-day') url.searchParams.set('newspaper_month_day', currentNewspaperMonthDay());
+      var res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error('Catalog API HTTP ' + res.status);
+      var data = await res.json();
+      var docs = (data.items || []).map(function(item) {
+        var sourceId = item.id || item.sourceId || item.identifier || item.title || 'catalog-item';
+        var sourceUrlValue = item.sourceUrl || item.locUrl || null;
+        return {
+          source: item.source || source,
+          identifier: sourceId,
+          title: item.title || 'Untitled issue',
+          creator: item.creator || item.sourceName || '',
+          date: item.year || '',
+          issueDate: item.year || '',
+          subject: item.genre ? [item.genre] : [],
+          format: formatKey(item.genre || shelf.format) || shelfFormat(shelf),
+          cover: item.cover || null,
+          fullImage: item.cover || null,
+          locUrl: sourceUrlValue,
+          readerUrl: item.readerUrl || sourceUrlValue,
+          pages: item.pages || 0,
+          description: item.description || ''
+        };
+      });
+      return { docs: docs, numFound: Number(data.total) || docs.length, mode: 'search', stale: !!data.stale };
+    }
+
     async function fetchDplaPage(shelf, page, extraQuery) {
       if (!prefs.dplaKey) return { docs: [dplaSetupDoc()], numFound: 1, mode: 'search' };
       var params = new URLSearchParams();
@@ -3061,6 +3121,19 @@
     }
 
     async function fetchShelfPage(shelf, page, extraQuery, sortMode) {
+
+      if (connectedSource(shelf)) {
+        try {
+          return await fetchConnectedShelfPage(shelf, page, extraQuery);
+        } catch (connectedError) {
+          // Keep a source-specific browser fallback for local/offline runs or
+          // a temporary Worker outage; hosted Pages normally uses the Worker.
+          if (shelf.source === 'gcd') return fetchGcdPage(shelf, page, extraQuery);
+          if (shelf.source === 'europeana') return fetchEuropeanaPage(shelf, page, extraQuery);
+          if (shelf.source === 'dpla' && prefs.dplaKey) return fetchDplaPage(shelf, page, extraQuery);
+          throw connectedError;
+        }
+      }
 
       if (shelf.source === 'loc') {
         return fetchLocPage(shelf, page, extraQuery);

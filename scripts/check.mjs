@@ -52,4 +52,8 @@ const liveSources = readFileSync(join(root, 'apps/web/src/live-sources.js'), 'ut
 if (!liveSources.includes(".replace(/\\+/g, ' ')") || !liveSources.includes('shelf.newspaperDateMode === \'month-day\'')) {
   throw new Error('Live source checks failed: IA sort encoding or calendar-day filtering is missing');
 }
+const standalone = readFileSync(join(root, 'apps/web/index.html'), 'utf8');
+if (!standalone.includes('fetchConnectedShelfPage') || !standalone.includes('PUBLIC_CATALOG_API')) {
+  throw new Error('Standalone checks failed: connected source bridge is missing');
+}
 console.log('Shelf parity check passed (58 live shelves; restricted shelves last).');
