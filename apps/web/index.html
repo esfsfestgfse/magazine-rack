@@ -4232,8 +4232,12 @@
             publication: doc.publication || '',
             issueDate: doc.issueDate || doc.date || '',
             locUrl: doc.locUrl || null,
+            readerUrl: doc.readerUrl || null,
             fullImage: doc.fullImage || null,
             iiifManifest: doc.iiifManifest || null,
+            viewerBase: doc.viewerBase || (doc.metadata && doc.metadata.viewerBase) || null,
+            pages: doc.pages || doc.imagecount || (doc.metadata && doc.metadata.pageCount) || 0,
+            metadata: doc.metadata || {},
             addedAt: new Date().toISOString()
           });
           saveLibrary();
