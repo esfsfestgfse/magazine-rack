@@ -44,8 +44,8 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/api
-          config: apps/api/wrangler.jsonc
-          command: d1 migrations apply margin-catalog --remote --env production
+          wranglerVersion: 4.128.0
+          command: d1 migrations apply margin-catalog --remote --env production --config wrangler.jsonc
 
       - name: Deploy production Worker
         uses: cloudflare/wrangler-action@v3
@@ -53,5 +53,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/api
-          config: apps/api/wrangler.jsonc
-          command: deploy --env production
+          wranglerVersion: 4.128.0
+          command: deploy --env production --config wrangler.jsonc
