@@ -2593,6 +2593,13 @@
       return String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     }
 
+    function fetchWithTimeout(url, options, timeoutMs) {
+      var controller = new AbortController();
+      var timer = setTimeout(function() { controller.abort(); }, timeoutMs || 7000);
+      var requestOptions = Object.assign({}, options || {}, { signal: controller.signal });
+      return fetch(url, requestOptions).finally(function() { clearTimeout(timer); });
+    }
+
     function recordMonthDay(value) {
       var text = String(value || '');
       var compactYearFirst = text.match(/(?:^|[^0-9])((?:19|20)\d{2})(\d{2})(\d{2})(?:$|[^0-9])/);
@@ -2636,7 +2643,7 @@
       if (includeFacet && shelf.locExtra) {
         new URLSearchParams(String(shelf.locExtra)).forEach(function(value, key) { params.append(key, value); });
       }
-      var res = await fetch('https://www.loc.gov/collections/chronicling-america/?' + params.toString(), { headers: { 'Accept': 'application/json' } });
+      var res = await fetchWithTimeout('https://www.loc.gov/collections/chronicling-america/?' + params.toString(), { headers: { 'Accept': 'application/json' } }, 6500);
       if (!res.ok) throw new Error('LOC HTTP ' + res.status);
       return res.json();
     }
@@ -2688,7 +2695,7 @@
       var url = 'https://www.loc.gov/collections/chronicling-america/?' + params;
       var res;
       try {
-        res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        res = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } }, 6500);
         if (!res.ok) throw new Error('LOC HTTP ' + res.status);
       } catch (firstErr) {
         // LOC occasionally drops the browser connection for a state facet.
@@ -2702,12 +2709,12 @@
           if (safeParts[1]) safeParams += '&end_date=' + encodeURIComponent(safeParts[1].slice(0, 10));
         }
         try {
-          res = await fetch('https://www.loc.gov/collections/chronicling-america/?' + safeParams, { headers: { 'Accept': 'application/json' } });
+          res = await fetchWithTimeout('https://www.loc.gov/collections/chronicling-america/?' + safeParams, { headers: { 'Accept': 'application/json' } }, 6500);
           if (!res.ok) throw new Error('LOC HTTP ' + res.status);
         } catch (secondErr) {
           // Last-resort LOC search endpoint: it returns the same public
           // catalog records without collection/facet routing at the edge.
-          res = await fetch('https://www.loc.gov/search/?fo=json&c=' + ROWS_PER_PAGE + '&sp=' + page + '&q=' + encodeURIComponent(qs), { headers: { 'Accept': 'application/json' } });
+          res = await fetchWithTimeout('https://www.loc.gov/search/?fo=json&c=' + ROWS_PER_PAGE + '&sp=' + page + '&q=' + encodeURIComponent(qs), { headers: { 'Accept': 'application/json' } }, 6500);
         }
       }
       if (!res.ok) throw new Error('LOC HTTP ' + res.status);
