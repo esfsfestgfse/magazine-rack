@@ -41,6 +41,8 @@ async function fetchLocMonthDay({ query, page, newspaperMonthDay }, env) {
     const batch = await Promise.allSettled(years.slice(index, index + 6).map((year) => fetchExactDay(year, monthDay, search, page, env)));
     responses.push(...batch);
   }
+  const failures = responses.filter((entry) => entry.status === 'rejected').map((entry) => entry.reason?.code || 'unknown');
+  if (failures.length) console.error(JSON.stringify({ source: 'loc', event: 'month_day_upstream_failures', monthDay, count: failures.length, codes: failures.slice(0, 8) }));
   const records = responses.flatMap((entry) => entry.status === 'fulfilled' ? (entry.value.results || []).filter((record) => recordMonthDay(record.date) === monthDay) : []);
   const total = responses.reduce((sum, entry) => sum + (entry.status === 'fulfilled' ? Number(entry.value.pagination?.of || entry.value.pagination?.total) || 0 : 0), 0);
   return {
