@@ -6,8 +6,8 @@ function allowedComicBookPlusImage(value) {
   try {
     const url = new URL(String(value || ''));
     if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) return null;
-    if (!['comicbookplus.com', 'www.comicbookplus.com'].includes(url.hostname)) return null;
-    if (!/^\/viewer\/[A-Za-z0-9]+\/[A-Za-z0-9]+\/(?:\d+|mediumthumb|largethumb)\.jpg$/i.test(url.pathname)) return null;
+    if (!['comicbookplus.com', 'www.comicbookplus.com', 'box01.comicbookplus.com'].includes(url.hostname)) return null;
+    if (!/^\/viewer\/[A-Za-z0-9]+(?:\/[A-Za-z0-9]+)?\/(?:\d+|mediumthumb|largethumb)\.jpg$/i.test(url.pathname)) return null;
     return url;
   } catch {
     return null;

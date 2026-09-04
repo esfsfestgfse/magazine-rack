@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import worker from '../apps/api/src/index.js';
 import { rateLimit, rateLimitScope } from '../apps/api/src/rate-limit.js';
 import { sourceItem } from '../apps/api/src/sources/common.js';
+import { parseSeriesBooks } from '../apps/api/src/sources/comicbookplus.js';
 
 const env = { ENVIRONMENT: 'production', ALLOWED_ORIGIN: 'https://reader.example', DPLA_API_KEY: 'test-dpla-key' };
 const context = { waitUntil() {} };
@@ -43,6 +44,11 @@ assert.equal(safe.readerUrl, safe.sourceUrl);
 assert.equal(safe.coverUrl, '');
 assert.equal(safe.metadata.description, 'bounded metadata');
 assert.ok(safe.observedAt);
+
+const seriesRows = parseSeriesBooks('<tr itemprop="hasPart"><meta itemprop="discussionUrl" content="https://comicbookplus.com/?dlid=77"><meta itemprop="thumbnailUrl" content="https://box01.comicbookplus.com/viewer/aabb/mediumthumb.jpg"><a itemprop="name">Demo Series 1</a><time itemprop="datePublished" datetime="1950-01"></time><td itemprop="numberOfPages">12</td><meta itemprop="contributor" content="Demo Artist"></tr>', 'series-1');
+assert.equal(seriesRows.length, 1);
+assert.equal(seriesRows[0].sourceId, '77');
+assert.equal(seriesRows[0].metadata.viewerBase, 'https://box01.comicbookplus.com/viewer/aabb');
 
 const catalogRows = new Map();
 const libraryRows = new Map();

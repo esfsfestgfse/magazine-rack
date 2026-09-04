@@ -1,0 +1,35 @@
+name: Refresh Comic Book Plus catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Refresh catalog snapshot
+        run: node scripts/refresh-comicbookplus.mjs --output=apps/web/data/comicbookplus.json
+
+      - name: Commit changed catalog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/data/comicbookplus.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Refresh Comic Book Plus catalog"
+          git push origin HEAD:main

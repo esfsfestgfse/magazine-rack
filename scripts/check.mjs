@@ -18,6 +18,7 @@ const required = [
   'apps/web/src/shelf-catalog.js',
   'apps/web/src/live-sources.js',
   'apps/web/src/styles.css',
+  'apps/web/data/comicbookplus.json',
   'apps/api/src/index.js',
   'apps/api/src/http.js',
   'apps/api/src/library.js',
@@ -60,5 +61,9 @@ if (!liveSources.includes(".replace(/\\+/g, ' ')") || !liveSources.includes('she
 const standalone = readFileSync(join(root, 'apps/web/index.html'), 'utf8');
 if (!standalone.includes('fetchConnectedShelfPage') || !standalone.includes('PUBLIC_CATALOG_API') || !standalone.includes("id: 'manga'") || !standalone.includes('MANGA_EXCLUDE')) {
   throw new Error('Standalone checks failed: connected source bridge or Manga routing is missing');
+}
+const comicBookPlusSnapshot = JSON.parse(readFileSync(join(root, 'apps/web/data/comicbookplus.json'), 'utf8'));
+if (comicBookPlusSnapshot.source !== 'comicbookplus' || comicBookPlusSnapshot.items.length <= 50 || comicBookPlusSnapshot.items.some((item) => !item.sourceId || !item.cover || !item.viewerBase)) {
+  throw new Error('Comic Book Plus snapshot check failed: expected more than 50 readable, covered issues');
 }
 console.log('Shelf parity check passed (52 readable shelves including Manga; restricted shelves last).');

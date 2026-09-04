@@ -36,7 +36,7 @@ const URL_POLICIES = Object.freeze({
   comicbookplus: {
     source: [['comicbookplus.com', '/'], ['www.comicbookplus.com', '/']],
     reader: [['comicbookplus.com', '/'], ['www.comicbookplus.com', '/']],
-    cover: [['comicbookplus.com', '/viewer/'], ['www.comicbookplus.com', '/viewer/']],
+    cover: [['comicbookplus.com', '/viewer/'], ['www.comicbookplus.com', '/viewer/'], ['box01.comicbookplus.com', '/viewer/']],
   },
 });
 

@@ -3219,6 +3219,51 @@
       return shelf.euQuery || 'newspaper';
     }
 
+    var comicBookPlusCatalogPromise = null;
+
+    function fetchComicBookPlusSnapshot() {
+      if (!comicBookPlusCatalogPromise) {
+        if (window.location.protocol === 'file:') return Promise.reject(new Error('Hosted Comic Book Plus catalog is unavailable from file://'));
+        var snapshotUrl = new URL('data/comicbookplus.json', document.baseURI);
+        comicBookPlusCatalogPromise = fetch(snapshotUrl.toString(), { cache: 'no-store' }).then(function(res) {
+          if (!res.ok) throw new Error('Comic Book Plus snapshot HTTP ' + res.status);
+          return res.json();
+        }).then(function(data) {
+          if (!data || !Array.isArray(data.items)) throw new Error('Comic Book Plus snapshot is invalid');
+          return data;
+        }).catch(function(error) {
+          comicBookPlusCatalogPromise = null;
+          throw error;
+        });
+      }
+      return comicBookPlusCatalogPromise;
+    }
+
+    async function fetchComicBookPlusSnapshotPage(page) {
+      var data = await fetchComicBookPlusSnapshot();
+      var start = Math.max(0, (page - 1) * ROWS_PER_PAGE);
+      var docs = data.items.slice(start, start + ROWS_PER_PAGE).map(function(item) {
+        return {
+          source: 'comicbookplus',
+          identifier: item.sourceId || item.readerUrl || item.title,
+          title: item.title || 'Untitled comic',
+          creator: item.creator || 'Comic Book Plus',
+          date: item.year || '',
+          issueDate: item.year || '',
+          subject: ['Comics'],
+          format: 'comic',
+          cover: item.cover || null,
+          fullImage: item.cover || null,
+          locUrl: item.sourceUrl || item.readerUrl || 'https://comicbookplus.com/',
+          readerUrl: item.readerUrl || item.sourceUrl || 'https://comicbookplus.com/',
+          pages: item.pages || 0,
+          viewerBase: item.viewerBase || null,
+          metadata: { viewerBase: item.viewerBase || '', pageCount: item.pages || 0, provider: 'Comic Book Plus', catalogSnapshot: true }
+        };
+      });
+      return { docs: docs, numFound: Number(data.total) || data.items.length, mode: 'search', snapshot: true };
+    }
+
     function gcdIssueHint(metadata) {
       var value = metadata && metadata.active_issues;
       if (!value) return null;
@@ -3233,6 +3278,14 @@
     async function fetchConnectedShelfPage(shelf, page, extraQuery) {
       var source = connectedSource(shelf);
       if (!source) return null;
+      if (source === 'comicbookplus' && !(extraQuery && extraQuery.trim())) {
+        try {
+          return await fetchComicBookPlusSnapshotPage(page);
+        } catch (snapshotError) {
+          // The API remains the live fallback for local/dev builds or while a
+          // freshly published snapshot is still propagating on Pages.
+        }
+      }
       var url = new URL(catalogApiBase() + '/api/catalog');
       url.searchParams.set('source', source);
       var query = connectedQuery(shelf);

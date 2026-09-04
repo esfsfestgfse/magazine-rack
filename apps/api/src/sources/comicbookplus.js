@@ -104,6 +104,14 @@ function pageIndexUrl(url) {
   }
 }
 
+function viewerThumbnail(value) {
+  return /^https:\/\/(?:comicbookplus\.com|www\.comicbookplus\.com|box01\.comicbookplus\.com)\/viewer\/[A-Za-z0-9]+(?:\/[A-Za-z0-9]+)?\/(?:mediumthumb|largethumb)\.jpg(?:[?#].*)?$/i.test(String(value || ''));
+}
+
+function viewerBaseFromThumbnail(value) {
+  return String(value || '').replace(/\/(?:mediumthumb|largethumb)\.jpg(?:[?#].*)?$/i, '');
+}
+
 function parseBooks(html) {
   const source = String(html || '');
   const markers = [...source.matchAll(/<meta[^>]+itemprop=["']discussionUrl["'][^>]+>/gi)];
@@ -114,8 +122,8 @@ function parseBooks(html) {
     const thumbnail = attr(block, 'thumbnailUrl');
     const title = tagText(block, 'name') || attr(block, 'name');
     const pages = pageNumber(attr(block, 'numberOfPages') || tagText(block, 'numberOfPages'));
-    if (!sourceUrl || !title || !thumbnail || !/^https:\/\/comicbookplus\.com\/viewer\//i.test(thumbnail)) return null;
-    const viewerBase = thumbnail.replace(/\/(?:mediumthumb|largethumb)\.jpg(?:[?#].*)?$/i, '');
+    if (!sourceUrl || !title || !thumbnail || !viewerThumbnail(thumbnail)) return null;
+    const viewerBase = viewerBaseFromThumbnail(thumbnail);
     if (!viewerBase || viewerBase === thumbnail) return null;
     return sourceItem('comicbookplus', new URL(sourceUrl).searchParams.get('dlid') || title, {
       title,
@@ -132,8 +140,46 @@ function parseBooks(html) {
   }).filter(Boolean);
 }
 
+function datetimeAttr(block, name) {
+  const match = String(block || '').match(new RegExp(`itemprop=["']${name}["'][^>]*datetime=["']([^"']*)["']`, 'i'));
+  return htmlText(match?.[1] || '');
+}
+
+/**
+ * Parse the issue table used by Comic Book Plus series pages. The latest
+ * uploads page uses Book-level meta tags, but the complete catalog is exposed
+ * as `hasPart` issue rows under each series/publisher page.
+ */
+export function parseSeriesBooks(html, seriesId = '') {
+  const source = String(html || '');
+  const rows = [...source.matchAll(/<tr\b[^>]*itemprop=["']hasPart["'][^>]*>[\s\S]*?<\/tr>/gi)];
+  return rows.map((row) => {
+    const block = row[0];
+    const sourceUrl = pageIndexUrl(attr(block, 'discussionUrl'));
+    const sourceId = sourceUrl ? new URL(sourceUrl).searchParams.get('dlid') || '' : '';
+    const thumbnail = attr(block, 'thumbnailUrl');
+    const title = tagText(block, 'name') || attr(block, 'name');
+    const pages = pageNumber(tagText(block, 'numberOfPages') || attr(block, 'numberOfPages'));
+    const viewerBase = viewerBaseFromThumbnail(thumbnail);
+    if (!sourceId || !sourceUrl || !title || !viewerThumbnail(thumbnail) || !viewerBase) return null;
+    return sourceItem('comicbookplus', sourceId, {
+      title,
+      creator: attr(block, 'contributor') || attr(block, 'editor') || 'Comic Book Plus',
+      year: datetimeAttr(block, 'datePublished') || attr(block, 'datePublished'),
+      genre: 'Comics',
+      coverUrl: thumbnail,
+      sourceUrl,
+      readerUrl: sourceUrl,
+      pageCount: pages,
+      metadata: { viewerBase, pageCount: pages, provider: 'Comic Book Plus', seriesId: String(seriesId || '') },
+    });
+  }).filter(Boolean);
+}
+
 export async function fetchComicBookPlus({ page = 1 }, env) {
-  const currentPage = Math.max(1, Math.min(30, Number(page) || 1));
+  const requestedPage = Math.max(1, Number(page) || 1);
+  if (requestedPage > 30) return { total: 1_500, items: [], page: requestedPage };
+  const currentPage = requestedPage;
   const url = `${BASE}/?cbplus=latestuploads_l_s_${currentPage - 1}`;
   let html;
   try {
@@ -147,7 +193,7 @@ export async function fetchComicBookPlus({ page = 1 }, env) {
     return fallbackPage(currentPage);
   }
   const items = parseBooks(html);
-  return items.length ? { total: 49_000, items, page: currentPage } : fallbackPage(currentPage);
+  return items.length ? { total: 1_500, items, page: currentPage } : fallbackPage(currentPage);
 }
 
-export { parseBooks };
+export { parseBooks, viewerBaseFromThumbnail };
