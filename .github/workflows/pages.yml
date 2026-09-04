@@ -40,7 +40,7 @@ jobs:
           API_BASE_URL: ${{ vars.PUBLIC_API_BASE_URL }}
         run: |
           if [ -z "$API_BASE_URL" ]; then
-            echo "PUBLIC_API_BASE_URL is not set; publishing the frontend in demo mode."
+            echo "PUBLIC_API_BASE_URL is not set; using the deployed Magazine Rack API."
             exit 0
           fi
           node --input-type=module <<'NODE'
@@ -58,7 +58,7 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import { writeFile } from 'node:fs/promises';
-          const value = process.env.API_BASE_URL;
+          const value = process.env.API_BASE_URL || 'https://margin-api-production.tdy1990.workers.dev';
           await writeFile('apps/web/config.js', `window.MR_CONFIG = ${JSON.stringify({ apiBaseUrl: value })};\n`, 'utf8');
           NODE
 

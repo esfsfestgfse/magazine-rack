@@ -13,7 +13,7 @@
     {
       "binding": "DB",
       "database_name": "margin-catalog",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "d1bf8c34-6731-415a-a9a1-d08747372fc1",
       "migrations_dir": "migrations"
     }
   ],
@@ -22,13 +22,13 @@
       "name": "margin-api-production",
       "vars": {
         "ENVIRONMENT": "production",
-        "ALLOWED_ORIGIN": "https://REPLACE_WITH_GITHUB_OWNER.github.io"
+        "ALLOWED_ORIGIN": "https://esfsfestgfse.github.io"
       },
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "margin-catalog",
-          "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+          "database_id": "d1bf8c34-6731-415a-a9a1-d08747372fc1",
           "migrations_dir": "migrations"
         }
       ]
