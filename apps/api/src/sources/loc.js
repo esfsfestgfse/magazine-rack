@@ -2,7 +2,7 @@ import { fetchJson } from './request.js';
 import { sourceItem } from './common.js';
 
 function locUrl(value) {
-  const candidate = String(value || '');
+  const candidate = String(value || '').replace(/^http:\/\//i, 'https://');
   if (candidate.startsWith('/')) return `https://www.loc.gov${candidate}`;
   return candidate.startsWith('https://www.loc.gov/') ? candidate : '';
 }
