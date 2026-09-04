@@ -69,6 +69,9 @@ if (standalone.includes("id: 'chronam-funnies'") || standalone.includes('ChronAm
 if (!standalone.includes('waitForMessage') || !standalone.includes('shelf-retry') || !standalone.includes('FEED_TIMEOUT_MS')) {
   throw new Error('Standalone checks failed: bounded feed loading or reader readiness handshakes are missing');
 }
+if (!standalone.includes('page-slider') || !standalone.includes('touchstart') || !standalone.includes('issueQueueFor')) {
+  throw new Error('Standalone checks failed: page scrubbing, touch navigation, or issue navigation is missing');
+}
 if (/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(standalone) || !standalone.includes('<script src="config.js"></script>') || !/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(standalone)) {
   throw new Error('Standalone checks failed: the Pages release entrypoint or hosted shell worker is not canonical');
 }
