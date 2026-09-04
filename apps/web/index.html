@@ -3672,7 +3672,10 @@
         // Variety: different sort + start a few pages in so the front of the
         // shelf isn't always the same mega-popular titles
       state.sort = (shelf.source === 'loc' || shelf.source === 'xkcd' || shelf.source === 'openlibrary' || shelf.source === 'europeana' || shelf.source === 'comicbookplus' || shelf.source === 'wikidata' || shelf.source === 'gcd' || shelf.source === 'dpla' || shelf.source === 'olsubjects' || shelf.source === 'gbooks' || shelf.source === 'locsearch' || shelf.source === 'gutendex' || shelf.source === 'met') ? null : pickIaSort();
-        state.page = shelf.newspaperDateMode === 'month-day' ? 0 : Math.floor(Math.random() * 3); // date shelves must start at their targeted day
+        // Connected feeds and their outage snapshots are page-backed. Start
+        // them at page 1 so a sparse snapshot is never mistaken for an empty
+        // shelf; IA-only racks can still open at a varied page.
+        state.page = shelf.newspaperDateMode === 'month-day' || connectedSource(shelf) ? 0 : Math.floor(Math.random() * 3); // date shelves must start at their targeted day
         state.extraQuery = (extraQuery == null ? buildExtraQuery() : extraQuery) || '';
         state.total = 0;
         state.hasMore = true;

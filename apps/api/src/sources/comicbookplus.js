@@ -66,7 +66,8 @@ const FALLBACK_ITEMS = Object.freeze([
 })));
 
 function fallbackPage(page) {
-  return { total: FALLBACK_ITEMS.length, items: page === 1 ? FALLBACK_ITEMS : [], page, partial: true, stale: true };
+  const start = (Math.max(1, Number(page) || 1) - 1) * 30;
+  return { total: FALLBACK_ITEMS.length, items: FALLBACK_ITEMS.slice(start, start + 30), page, partial: true, stale: true };
 }
 
 function htmlText(value) {
