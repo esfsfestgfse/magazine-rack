@@ -26,9 +26,9 @@ The web shell runs in demo mode until `apps/web/config.js` points it at a deploy
 
 ## Periodical source packs
 
-The rack includes dedicated Comic Series, Trove Papers, and DPLA Periodicals shelves. Trove and DPLA are optional because their search APIs require keys: configure `TROVE_API_KEY` and `DPLA_API_KEY` as Worker secrets for the backend, or use the setup card in the standalone build for local-only testing. The browser build never hardcodes those credentials.
+The rack includes dedicated Comic Series and DPLA Periodicals shelves. DPLA is optional because its search API requires a key: configure `DPLA_API_KEY` as a Worker secret for the backend, or use the setup card in the standalone build for local-only testing. The browser build never hardcodes that credential.
 
-The adapters target Trove API v3 and the DPLA API v2 item search; see the [Trove API v3 overview](https://trove.nla.gov.au/sites/default/files/2023-02/Introducing%20Trove%20API%20v3.pdf) and [DPLA API documentation](https://pro.dp.la/developers/api-codex) for account/key setup.
+The DPLA adapter targets the DPLA API v2 item search; see the [DPLA API documentation](https://pro.dp.la/developers/api-codex) for account/key setup.
 
 ## Source policy
 

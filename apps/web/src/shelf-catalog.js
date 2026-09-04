@@ -380,13 +380,6 @@ export const SHELVES = [
     gcdName: 'comic'
   },
   {
-    id: 'trove-papers',
-    title: 'Trove Papers',
-    source: 'trove',
-    format: 'paper',
-    troveQuery: 'newspaper OR magazine OR comic OR newsletter'
-  },
-  {
     id: 'dpla-periodicals',
     title: 'DPLA Periodicals',
     source: 'dpla',

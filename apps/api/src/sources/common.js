@@ -1,6 +1,6 @@
 import { clean } from '../http.js';
 
-export const SOURCE_LABELS = Object.freeze({ archive: 'Internet Archive', loc: 'Library of Congress', openlibrary: 'Open Library', europeana: 'Europeana', gcd: 'Grand Comics Database', trove: 'Trove · National Library of Australia', dpla: 'Digital Public Library of America' });
+export const SOURCE_LABELS = Object.freeze({ archive: 'Internet Archive', loc: 'Library of Congress', openlibrary: 'Open Library', europeana: 'Europeana', gcd: 'Grand Comics Database', dpla: 'Digital Public Library of America' });
 
 const URL_POLICIES = Object.freeze({
   archive: {
@@ -22,11 +22,6 @@ const URL_POLICIES = Object.freeze({
     source: [['www.comics.org', '/series/'], ['www.comics.org', '/search/']],
     reader: [['www.comics.org', '/series/'], ['www.comics.org', '/search/']],
     cover: [['www.comics.org', '/']],
-  },
-  trove: {
-    source: [['trove.nla.gov.au', '/newspaper/'], ['trove.nla.gov.au', '/']],
-    reader: [['trove.nla.gov.au', '/newspaper/'], ['trove.nla.gov.au', '/']],
-    cover: [['trove.nla.gov.au', '/']],
   },
   dpla: {
     source: [['dp.la', '/item/'], ['www.dp.la', '/item/'], ['pro.dp.la', '/']],

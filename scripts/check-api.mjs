@@ -3,7 +3,7 @@ import worker from '../apps/api/src/index.js';
 import { rateLimit, rateLimitScope } from '../apps/api/src/rate-limit.js';
 import { sourceItem } from '../apps/api/src/sources/common.js';
 
-const env = { ENVIRONMENT: 'production', ALLOWED_ORIGIN: 'https://reader.example', TROVE_API_KEY: 'test-trove-key', DPLA_API_KEY: 'test-dpla-key' };
+const env = { ENVIRONMENT: 'production', ALLOWED_ORIGIN: 'https://reader.example', DPLA_API_KEY: 'test-dpla-key' };
 const context = { waitUntil() {} };
 
 const health = await worker.fetch(new Request('https://api.example/health'), env, context);
@@ -90,7 +90,6 @@ globalThis.fetch = async (url) => {
   if (target.includes('www.loc.gov/search')) return new Response(JSON.stringify({ pagination: { total: 1 }, results: [{ id: '/item/demo', title: 'Library Record', contributor: 'Library', date: '1921', description: ['A record.'], image_url: ['https://tile.loc.gov/image-services/demo.jpg'] }] }), { headers: { 'Content-Type': 'application/json' } });
   if (target.includes('openlibrary.org/search.json')) return new Response(JSON.stringify({ numFound: 1, docs: [{ key: '/works/OL1W', title: 'Open Demo', author_name: ['Writer'], first_publish_year: 1922, cover_i: 123, number_of_pages_median: 100 }] }), { headers: { 'Content-Type': 'application/json' } });
   if (target.includes('www.comics.org/api/series/name/')) return new Response(JSON.stringify({ count: 1, results: [{ id: 77, name: 'Demo Comics', publisher: 'Demo Press', year_began: 1940 }] }), { headers: { 'Content-Type': 'application/json' } });
-  if (target.includes('api.trove.nla.gov.au/v3/result')) return new Response(JSON.stringify({ response: { total: 1, records: { article: [{ id: 88, heading: 'Demo Paper', title: 'The Demo Daily', date: '1941-01-01', troveUrl: 'https://trove.nla.gov.au/newspaper/article/88' }] } } }), { headers: { 'Content-Type': 'application/json' } });
   if (target.includes('api.dp.la/v2/items')) return new Response(JSON.stringify({ count: 1, docs: [{ id: 'demo-dpla', isShownAt: 'https://dp.la/item/demo-dpla', sourceResource: { title: ['Demo Periodical'], creator: ['Demo Publisher'], date: '1942', type: ['Magazine'] } }] }), { headers: { 'Content-Type': 'application/json' } });
   throw new Error(`unexpected test fetch: ${target}`);
 };
@@ -102,7 +101,7 @@ try {
   const catalog = await worker.fetch(new Request('https://api.example/api/catalog?q=demo'), dbEnv, dbContext);
   assert.equal(catalog.status, 200);
   const catalogBody = await catalog.json();
-  assert.equal(catalogBody.items.length, 6);
+  assert.equal(catalogBody.items.length, 5);
   assert.equal(catalogBody.stale, false);
   await Promise.all(waits);
 

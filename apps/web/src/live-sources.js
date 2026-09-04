@@ -164,7 +164,7 @@ export function normalizeDoc(raw = {}, fallbackSource = '') {
   const subjects = list(raw.subject || raw.subjects, 16);
   const imagecount = numberValue(raw.imagecount || raw.imageCount);
   const pages = numberValue(raw.pages || raw.pageCount || imagecount);
-  const format = formatKey(raw.format || raw.type || raw.genre || subjects) || (source === 'gcd' ? 'comic' : source === 'loc' || source === 'locsearch' || source === 'trove' ? 'paper' : 'magazine');
+  const format = formatKey(raw.format || raw.type || raw.genre || subjects) || (source === 'gcd' ? 'comic' : source === 'loc' || source === 'locsearch' ? 'paper' : 'magazine');
 
   return {
     identifier,
@@ -201,7 +201,6 @@ export function sourceLabel(source = '') {
     wikimedia: 'Wikimedia Commons',
     gbooks: 'Google Books',
     gcd: 'Grand Comics Database',
-    trove: 'Trove · National Library of Australia',
     dpla: 'Digital Public Library of America'
   })[source] || cleanText(source, 60) || 'Public collection';
 }
@@ -253,7 +252,6 @@ function sourceOf(shelf = {}) {
   if (['commons', 'wikimedia-commons', 'wikimedia_commons'].includes(source)) return 'wikimedia';
   if (['google-books', 'googlebooks', 'google_books'].includes(source)) return 'gbooks';
   if (['grand-comics-database', 'grand_comics_database', 'comics.org'].includes(source)) return 'gcd';
-  if (['national-library-of-australia', 'nla-trove', 'trove-api'].includes(source)) return 'trove';
   if (['digital-public-library-of-america', 'digital-public-library', 'dpla-api'].includes(source)) return 'dpla';
   if (['archive', 'internet-archive', 'internet_archive'].includes(source)) return 'ia';
   return source || (shelf.query || shelf.iaQuery ? 'ia' : 'ia');
@@ -576,13 +574,6 @@ function sourceQueryText(base, options) {
     .slice(0, 220);
 }
 
-function troveRecords(data) {
-  const root = data?.response || data || {};
-  const zones = Array.isArray(root.zone || root.category) ? (root.zone || root.category) : [root.zone || root.category].filter(Boolean);
-  const candidates = [root.records?.article, root.records?.newspaper, root.records?.magazine, root.article, root.newspaper, root.magazine, root.results, ...zones.flatMap((zone) => [zone.records?.article, zone.records?.newspaper, zone.records?.magazine])];
-  return candidates.find(Array.isArray) || [];
-}
-
 async function fetchGcdPage(shelf, page, options) {
   const query = boundedQuery(options.query || options.extraQuery || shelf.gcdName || 'comic') || 'comic';
   const url = `https://www.comics.org/api/series/name/${encodeURIComponent(query)}/?format=json&page=${page}`;
@@ -599,24 +590,6 @@ async function fetchGcdPage(shelf, page, options) {
     };
   });
   return result(docs, { source: 'gcd', page, pageSize: pageSize(options.pageSize), numFound: numberValue(data?.count) || docs.length });
-}
-
-async function fetchTrovePage(shelf, page, options) {
-  const key = cleanText(options.troveKey || options.apiKeys?.trove || '', 200);
-  if (!key) {
-    return result([{ source: 'trove', identifier: 'trove:setup', title: 'Add a Trove API key', creator: 'National Library of Australia · Trove', subject: ['setup', 'newspapers', 'magazines'], format: 'paper', setup: true, locUrl: 'https://trove.nla.gov.au/about/create-something/using-api' }], { source: 'trove', page, pageSize: pageSize(options.pageSize), numFound: 1, partial: true, errors: [{ message: 'Trove API key is not configured', status: null, code: 'missing-key', retryAfter: null }] });
-  }
-  const size = pageSize(options.pageSize);
-  const params = new URLSearchParams({ category: shelf.troveCategory || 'newspaper', include: 'article', encoding: 'json', n: String(size), s: String((page - 1) * size), q: sourceQueryText(shelf.troveQuery || 'newspaper OR magazine OR comic', options) });
-  const data = await fetchJson(`https://api.trove.nla.gov.au/v3/result?${params}`, { ...options, headers: { 'X-API-KEY': key, ...(options.headers || {}) } });
-  const records = troveRecords(data);
-  const docs = records.map((record) => {
-    const id = valueText(record.id || record.identifier || record.url || record.troveUrl || record.heading);
-    const publication = valueText(record.publicationTitle || record.newspaperTitle || record.journalTitle || record.title || 'Trove');
-    const link = valueText(record.troveUrl || record.url || record.link);
-    return { source: 'trove', identifier: `trove-${id || publication}`, title: valueText(record.heading || record.articleTitle || record.title || 'Trove article'), creator: publication, publication, date: valueText(record.date || record.dateOfIssue || record.issueDate), issueDate: valueText(record.date || record.dateOfIssue || record.issueDate), subject: ['newspaper', 'periodical'], format: 'paper', locUrl: /^https?:\/\//i.test(link) ? link : `https://trove.nla.gov.au/newspaper/article/${encodeURIComponent(id)}` };
-  });
-  return result(docs, { source: 'trove', page, pageSize: size, numFound: numberValue(data?.response?.total || data?.response?.records?.total || data?.total) || docs.length });
 }
 
 async function fetchDplaPage(shelf, page, options) {
@@ -722,7 +695,6 @@ export async function fetchShelfPage(shelf = {}, page = 1, options = {}) {
     if (source === 'openlibrary') return fetchOpenLibraryPage(shelf, normalizedPage, safeOptions);
     if (source === 'olsubjects') return fetchOpenLibrarySubjectsPage(shelf, normalizedPage, safeOptions);
     if (source === 'gcd') return fetchGcdPage(shelf, normalizedPage, safeOptions);
-    if (source === 'trove') return fetchTrovePage(shelf, normalizedPage, safeOptions);
     if (source === 'dpla') return fetchDplaPage(shelf, normalizedPage, safeOptions);
     if (source === 'europeana') return fetchEuropeanaPage(shelf, normalizedPage, safeOptions);
     if (source === 'wikimedia') return fetchWikimediaPage(shelf, normalizedPage, safeOptions);

@@ -24,7 +24,6 @@ const required = [
   'apps/api/src/routes/items.js',
   'apps/api/src/sources/registry.js',
   'apps/api/src/sources/gcd.js',
-  'apps/api/src/sources/trove.js',
   'apps/api/src/sources/dpla.js',
   'apps/api/wrangler.jsonc',
   'apps/api/migrations/0001_initial.sql',
@@ -44,8 +43,8 @@ for (const file of ['apps/web/index.html', 'apps/web/src/main.js', 'apps/api/src
 }
 
 console.log(`Magazine Rack checks passed (${required.length} required files present).`);
-if (SHELVES.length !== 60) throw new Error(`Shelf parity check failed: expected 60 shelves, found ${SHELVES.length}`);
+if (SHELVES.length !== 59) throw new Error(`Shelf parity check failed: expected 59 shelves, found ${SHELVES.length}`);
 if (ADULT_SHELF_IDS.length !== 2 || SHELVES.at(-2)?.id !== 'adult-mags' || SHELVES.at(-1)?.id !== 'adult-comics') {
   throw new Error('Shelf parity check failed: restricted shelves are not last');
 }
-console.log('Shelf parity check passed (60 live shelves; restricted shelves last).');
+console.log('Shelf parity check passed (59 live shelves; restricted shelves last).');

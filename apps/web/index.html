@@ -1380,7 +1380,7 @@
           <div class="hero-kicker">The open stacks · a living index for curious people</div>
           <h1>Find your <em>next obsession.</em></h1>
           <p>Magazines, comics, newspapers, zines, and beautifully strange things gathered from public collections.</p>
-          <div class="hero-meta"><span><b>60</b>live shelves</span><span><b>11</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
+          <div class="hero-meta"><span><b>59</b>live shelves</span><span><b>11</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
         </div>
         <div class="hero-ticket"><span>Magazine Rack</span><strong>Read<br>widely.</strong><span>Free / public / curious</span></div>
       </div>
@@ -1917,13 +1917,6 @@
         gcdName: 'comic'
       },
       {
-        id: 'trove-papers',
-        title: 'Trove Papers',
-        source: 'trove',
-        format: 'paper',
-        troveQuery: 'newspaper OR magazine OR comic OR newsletter'
-      },
-      {
         id: 'dpla-periodicals',
         title: 'DPLA Periodicals',
         source: 'dpla',
@@ -2217,7 +2210,7 @@
       card.className = 'cover-card';
 
       const id = doc.identifier;
-      const noArchiveCover = ['loc', 'locsearch', 'xkcd', 'europeana', 'gcd', 'trove', 'dpla'].indexOf(doc.source) !== -1;
+      const noArchiveCover = ['loc', 'locsearch', 'xkcd', 'europeana', 'gcd', 'dpla'].indexOf(doc.source) !== -1;
       const coverUrl = doc.cover || (!noArchiveCover && id ? 'https://archive.org/services/img/' + id : null);
       const title = doc.title || 'Untitled';
       const creator = Array.isArray(doc.creator) ? doc.creator[0] : (doc.creator || '');
@@ -2754,19 +2747,6 @@
       return /^https:\/\//i.test(url) ? url : null;
     }
 
-    function troveSetupDoc() {
-      return {
-        source: 'trove',
-        identifier: 'trove-setup',
-        title: 'Add a Trove API key',
-        creator: 'National Library of Australia · Trove',
-        subject: ['newspapers', 'magazines', 'setup'],
-        format: 'paper',
-        setup: true,
-        locUrl: 'https://trove.nla.gov.au/about/create-something/using-api'
-      };
-    }
-
     function dplaSetupDoc() {
       return {
         source: 'dpla',
@@ -2778,32 +2758,6 @@
         setup: true,
         locUrl: 'https://pro.dp.la/developers/api-codex'
       };
-    }
-
-    function troveRecordArray(data) {
-      var root = data && data.response ? data.response : data;
-      var candidates = [];
-      function add(value) { if (Array.isArray(value) && value.length) candidates.push(value); }
-      function addRecords(value) {
-        if (!value || typeof value !== 'object') return;
-        add(value.article);
-        add(value.newspaper);
-        add(value.magazine);
-        add(value.journal);
-        add(value.record);
-        add(value.item);
-      }
-      addRecords(root && root.records);
-      addRecords(root);
-      var zones = root && (root.zone || root.category);
-      if (!Array.isArray(zones)) zones = zones ? [zones] : [];
-      zones.forEach(function(zone) {
-        addRecords(zone);
-        addRecords(zone && zone.records);
-      });
-      add(root && root.results);
-      add(root && root.items);
-      return candidates[0] || [];
     }
 
     function sourceTotal(data, docs) {
@@ -2821,47 +2775,6 @@
         if (!isNaN(n) && n >= 0) return n;
       }
       return docs.length;
-    }
-
-    async function fetchTrovePage(shelf, page, extraQuery) {
-      if (!prefs.troveKey) return { docs: [troveSetupDoc()], numFound: 1, mode: 'search' };
-      var params = new URLSearchParams();
-      params.set('category', shelf.troveCategory || 'newspaper');
-      params.set('include', 'article');
-      params.set('encoding', 'json');
-      params.set('n', String(ROWS_PER_PAGE));
-      params.set('s', String(Math.max(0, (page - 1) * ROWS_PER_PAGE)));
-      params.set('q', sourceTextQuery(shelf.troveQuery || 'newspaper OR magazine OR comic', extraQuery));
-      var res = await fetch('https://api.trove.nla.gov.au/v3/result?' + params.toString(), {
-        headers: { 'Accept': 'application/json', 'X-API-KEY': prefs.troveKey }
-      });
-      if (!res.ok) throw new Error('Trove HTTP ' + res.status);
-      var data = await res.json();
-      var records = troveRecordArray(data);
-      var docs = records.map(function(item) {
-        var id = sourceValue(item.id || item.identifier || item.url || item.troveUrl);
-        var heading = sourceValue(item.heading || item.articleTitle || item.title || 'Trove article');
-        var publication = sourceValue(item.publicationTitle || item.newspaperTitle || item.journalTitle || item.title || 'Trove');
-        var date = sourceValue(item.date || item.dateOfIssue || item.issueDate || item.troveDate || '');
-        var link = sourceUrl(item.troveUrl || item.url || item.link);
-        if (!link && id && !/^https?:/i.test(id)) link = 'https://trove.nla.gov.au/newspaper/article/' + encodeURIComponent(id);
-        var image = sourceUrl(item.image || item.imageUrl || item.thumbnail || item.thumbnailUrl || (item.links && (item.links.image || item.links.thumbnail)));
-        return {
-          source: 'trove',
-          identifier: 'trove-' + (id || heading),
-          title: heading,
-          creator: publication,
-          publication: publication,
-          date: date,
-          issueDate: date,
-          subject: ['newspaper', 'periodical'],
-          format: 'paper',
-          cover: image,
-          fullImage: image,
-          locUrl: link || 'https://trove.nla.gov.au/'
-        };
-      });
-      return { docs: docs, numFound: sourceTotal(data, docs), mode: 'search' };
     }
 
     async function fetchDplaPage(shelf, page, extraQuery) {
@@ -3069,9 +2982,6 @@
       if (shelf.source === 'gcd') {
         return fetchGcdPage(shelf, page, extraQuery);
       }
-      if (shelf.source === 'trove') {
-        return fetchTrovePage(shelf, page, extraQuery);
-      }
       if (shelf.source === 'dpla') {
         return fetchDplaPage(shelf, page, extraQuery);
       }
@@ -3146,7 +3056,7 @@
       if (reset) {
         // Variety: different sort + start a few pages in so the front of the
         // shelf isn't always the same mega-popular titles
-        state.sort = (shelf.source === 'loc' || shelf.source === 'xkcd' || shelf.source === 'openlibrary' || shelf.source === 'europeana' || shelf.source === 'wikimedia' || shelf.source === 'wikidata' || shelf.source === 'gcd' || shelf.source === 'trove' || shelf.source === 'dpla' || shelf.source === 'olsubjects' || shelf.source === 'gbooks' || shelf.source === 'locsearch' || shelf.source === 'gutendex' || shelf.source === 'met') ? null : pickIaSort();
+        state.sort = (shelf.source === 'loc' || shelf.source === 'xkcd' || shelf.source === 'openlibrary' || shelf.source === 'europeana' || shelf.source === 'wikimedia' || shelf.source === 'wikidata' || shelf.source === 'gcd' || shelf.source === 'dpla' || shelf.source === 'olsubjects' || shelf.source === 'gbooks' || shelf.source === 'locsearch' || shelf.source === 'gutendex' || shelf.source === 'met') ? null : pickIaSort();
         state.page = Math.floor(Math.random() * 3); // next fetch uses 1..3
         state.extraQuery = (extraQuery == null ? buildExtraQuery() : extraQuery) || '';
         state.total = 0;
@@ -3570,18 +3480,6 @@
       }
     };
 
-    window.__setTroveKey = function() {
-      var k = prompt('Paste your Trove API key (from trove.nla.gov.au/about/create-something/using-api):', prefs.troveKey || '');
-      if (k != null) {
-        prefs.troveKey = k.trim();
-        savePrefs();
-        showToast(prefs.troveKey ? 'Trove key saved' : 'Trove key cleared');
-        SHELVES.filter(function(s) { return s.source === 'trove'; }).forEach(function(s) {
-          loadShelf(s, buildExtraQuery(), true);
-        });
-      }
-    };
-
     window.__setDplaKey = function() {
       var k = prompt('Paste your DPLA API key (from pro.dp.la/developers):', prefs.dplaKey || '');
       if (k != null) {
@@ -3613,7 +3511,6 @@
     function openDetail(doc) {
       if (doc && doc.setup) {
         if (doc.source === 'europeana') window.__setEuropeanaKey();
-        if (doc.source === 'trove') window.__setTroveKey();
         if (doc.source === 'dpla') window.__setDplaKey();
         return;
       }
@@ -3624,7 +3521,6 @@
         : doc.source === 'europeana' ? 'Europeana'
         : doc.source === 'openlibrary' ? 'Open Library'
         : doc.source === 'gcd' ? 'Grand Comics Database'
-        : doc.source === 'trove' ? 'Trove · National Library of Australia'
         : doc.source === 'dpla' ? 'DPLA'
         : 'Internet Archive';
       const id = doc.identifier;
@@ -3632,7 +3528,7 @@
       const creator = Array.isArray(doc.creator) ? doc.creator.join(', ') : (doc.creator || 'Unknown');
       const year = (doc.date || '').toString().slice(0, 4);
       const subjects = Array.isArray(doc.subject) ? doc.subject.slice(0, 6) : [];
-      const noArchiveCover = ['loc', 'locsearch', 'xkcd', 'europeana', 'gcd', 'trove', 'dpla'].indexOf(doc.source) !== -1;
+      const noArchiveCover = ['loc', 'locsearch', 'xkcd', 'europeana', 'gcd', 'dpla'].indexOf(doc.source) !== -1;
       const coverUrl = doc.cover || (!noArchiveCover && id ? 'https://archive.org/services/img/' + id : null);
       const already = library.find(b => b.iaId === id);
       const issueMeta = [doc.publication, doc.issueDate || year, doc.volume ? 'Vol. ' + doc.volume : '', doc.issue ? 'No. ' + doc.issue : '']
@@ -3848,7 +3744,6 @@
         wikidata: 'Wikidata',
         met: 'The Met',
         gcd: 'Grand Comics Database',
-        trove: 'Trove · National Library of Australia',
         dpla: 'Digital Public Library of America',
         ia: 'Internet Archive'
       };
@@ -3996,7 +3891,7 @@
         return;
       }
 
-      if (doc && (doc.source === 'loc' || doc.source === 'locsearch' || doc.source === 'xkcd' || doc.source === 'europeana' || doc.source === 'wikimedia' || doc.source === 'wikidata' || doc.source === 'met' || doc.source === 'gcd' || doc.source === 'trove' || doc.source === 'dpla')) {
+      if (doc && (doc.source === 'loc' || doc.source === 'locsearch' || doc.source === 'xkcd' || doc.source === 'europeana' || doc.source === 'wikimedia' || doc.source === 'wikidata' || doc.source === 'met' || doc.source === 'gcd' || doc.source === 'dpla')) {
         if (doc.fullImage || doc.cover) {
           var img = doc.fullImage || doc.cover;
           var alt = doc.alt
