@@ -77,18 +77,21 @@ async function main() {
 
   const items = [...records.values()]
     .sort((a, b) => Number(b.sourceId) - Number(a.sourceId))
-    .map((item) => ({
-      sourceId: item.sourceId,
-      title: item.title,
-      creator: item.creator,
-      year: item.year,
-      pages: item.pageCount,
-      cover: item.coverUrl,
-      sourceUrl: item.sourceUrl,
-      readerUrl: item.readerUrl,
-      viewerBase: item.metadata?.viewerBase || '',
-      genre: 'Comics',
-    }));
+    .map((item) => {
+      const viewerBase = item.metadata?.viewerBase || '';
+      return {
+        sourceId: item.sourceId,
+        title: item.title,
+        creator: item.creator,
+        year: item.year,
+        pages: item.pageCount,
+        cover: viewerBase ? `${viewerBase}/mediumthumb.jpg` : item.coverUrl,
+        sourceUrl: item.sourceUrl,
+        readerUrl: item.readerUrl,
+        viewerBase,
+        genre: 'Comics',
+      };
+    });
 
   let generatedAt = new Date().toISOString();
   try {

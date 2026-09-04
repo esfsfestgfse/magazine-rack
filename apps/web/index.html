@@ -3239,6 +3239,12 @@
       return comicBookPlusCatalogPromise;
     }
 
+    function comicBookPlusMediaUrl(value) {
+      var raw = normalizeCoverUrl(value);
+      if (!raw) return null;
+      return catalogApiBase() + '/api/media?source=comicbookplus&url=' + encodeURIComponent(raw);
+    }
+
     async function fetchComicBookPlusSnapshotPage(page) {
       var data = await fetchComicBookPlusSnapshot();
       var start = Math.max(0, (page - 1) * ROWS_PER_PAGE);
@@ -3252,8 +3258,8 @@
           issueDate: item.year || '',
           subject: ['Comics'],
           format: 'comic',
-          cover: item.cover || null,
-          fullImage: item.cover || null,
+          cover: comicBookPlusMediaUrl(item.cover),
+          fullImage: comicBookPlusMediaUrl(item.cover),
           locUrl: item.sourceUrl || item.readerUrl || 'https://comicbookplus.com/',
           readerUrl: item.readerUrl || item.sourceUrl || 'https://comicbookplus.com/',
           pages: item.pages || 0,
@@ -3314,8 +3320,8 @@
           issueDate: item.year || '',
           subject: item.genre ? [item.genre] : [],
           format: formatKey(item.genre || shelf.format) || shelfFormat(shelf),
-          cover: item.cover || null,
-          fullImage: item.cover || null,
+          cover: source === 'comicbookplus' ? comicBookPlusMediaUrl(item.cover) : (item.cover || null),
+          fullImage: source === 'comicbookplus' ? comicBookPlusMediaUrl(item.cover) : (item.cover || null),
           locUrl: sourceUrlValue,
           readerUrl: item.readerUrl || sourceUrlValue,
           pages: item.pages || 0,

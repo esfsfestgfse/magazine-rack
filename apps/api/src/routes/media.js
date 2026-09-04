@@ -14,6 +14,12 @@ function allowedComicBookPlusImage(value) {
   }
 }
 
+function alternateComicBookPlusImage(url) {
+  const alternate = new URL(url.toString());
+  alternate.hostname = alternate.hostname === 'box01.comicbookplus.com' ? 'comicbookplus.com' : 'box01.comicbookplus.com';
+  return alternate;
+}
+
 async function readBytes(response) {
   const contentLength = Number(response.headers.get('Content-Length'));
   if (Number.isFinite(contentLength) && contentLength > MAX_IMAGE_BYTES) return null;
@@ -61,6 +67,19 @@ export async function handleMedia(request, env, _ctx, requestId) {
     });
   } catch {
     return errorJson(request, env, 'media_upstream_unreachable', 502, requestId);
+  }
+  if (!response.ok && (response.status === 403 || response.status === 404)) {
+    try {
+      const alternate = await fetch(alternateComicBookPlusImage(target), {
+        headers: {
+          Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          Referer: 'https://comicbookplus.com/',
+          'User-Agent': env.CATALOG_USER_AGENT || 'MagazineRack/1.0 public catalog client',
+        },
+        redirect: 'manual',
+      });
+      if (alternate.ok) response = alternate;
+    } catch { /* keep the original response for a stable error */ }
   }
   if (response.status >= 300 && response.status < 400) return errorJson(request, env, 'media_redirect_rejected', 502, requestId);
   if (!response.ok) return errorJson(request, env, `media_upstream_${response.status}`, response.status >= 500 ? 502 : 404, requestId);

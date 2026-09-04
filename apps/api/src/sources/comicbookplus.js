@@ -109,7 +109,11 @@ function viewerThumbnail(value) {
 }
 
 function viewerBaseFromThumbnail(value) {
-  return String(value || '').replace(/\/(?:mediumthumb|largethumb)\.jpg(?:[?#].*)?$/i, '');
+  const match = String(value || '').match(/^(https:\/\/(?:comicbookplus\.com|www\.comicbookplus\.com|box01\.comicbookplus\.com)\/viewer)\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9]+))?\/(?:mediumthumb|largethumb)\.jpg(?:[?#].*)?$/i);
+  if (!match) return '';
+  const hash = match[3] || match[2];
+  const shard = match[3] ? match[2] : hash.slice(0, 2);
+  return `${match[1]}/${shard}/${hash}`;
 }
 
 function parseBooks(html) {
