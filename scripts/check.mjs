@@ -69,7 +69,7 @@ if (standalone.includes("id: 'chronam-funnies'") || standalone.includes('ChronAm
 if (!standalone.includes('waitForMessage') || !standalone.includes('shelf-retry') || !standalone.includes('FEED_TIMEOUT_MS')) {
   throw new Error('Standalone checks failed: bounded feed loading or reader readiness handshakes are missing');
 }
-if (/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(standalone) || !standalone.includes('<script src="config.js"></script>') || !standalone.includes("register('./sw.js')")) {
+if (/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(standalone) || !standalone.includes('<script src="config.js"></script>') || !/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(standalone)) {
   throw new Error('Standalone checks failed: the Pages release entrypoint or hosted shell worker is not canonical');
 }
 const comicBookPlusSnapshot = JSON.parse(readFileSync(join(root, 'apps/web/data/comicbookplus.json'), 'utf8'));

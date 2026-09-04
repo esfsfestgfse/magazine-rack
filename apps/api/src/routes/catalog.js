@@ -50,6 +50,18 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   const url = new URL(request.url); const query = clean(url.searchParams.get('q'), 120); const genre = clean(url.searchParams.get('genre'), 80); const source = clean(url.searchParams.get('source'), 30).toLowerCase(); const page = Math.max(1, Math.min(100, Number(url.searchParams.get('page')) || 1)); const newspaperMonthDay = clean(url.searchParams.get('newspaper_month_day'), 5);
   if (newspaperMonthDay && !/^\d{2}-\d{2}$/.test(newspaperMonthDay)) return errorJson(request, env, 'invalid_newspaper_month_day', 400, requestId);
   if (source && !sourceAdapter(source)) return errorJson(request, env, 'invalid_source', 400, requestId);
+  // Cache only healthy public catalog responses. Include the requesting
+  // origin in the cache key because CORS response headers vary by origin.
+  // Ignore the client's minute cache-buster so the Worker cache can actually
+  // absorb repeated shelf loads.
+  const cacheKeyUrl = new URL(request.url);
+  cacheKeyUrl.searchParams.delete('_');
+  const origin = request.headers.get('Origin');
+  if (origin) cacheKeyUrl.searchParams.set('__origin', origin);
+  const cache = globalThis.caches?.default;
+  const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' });
+  const cached = cache ? await cache.match(cacheKey) : null;
+  if (cached) return cached;
   const sourceIds = source ? [source] : configuredSourceIds();
   const responses = await Promise.allSettled(sourceIds.map((id) => sourceAdapter(id)({ query, genre, page, newspaperMonthDay }, env)));
   const liveItems = responses.flatMap((result) => result.status === 'fulfilled' ? result.value.items || [] : []);
@@ -87,7 +99,7 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   }));
   const sourceStatuses = Object.fromEntries(Object.entries(sourceDetails).map(([id, detail]) => [id, detail.status === 'ok' ? 'ok' : 'unavailable']));
   const stale = Object.values(sourceDetails).some((detail) => detail.status !== 'ok' || detail.stale) || Boolean(storedFallback.items.length);
-  return json(request, env, {
+  const response = json(request, env, {
     items: items.map(publicItem),
     total,
     totalIsEstimate: sourceIds.length > 1 || failed > 0,
@@ -98,4 +110,10 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
     stale,
     partial: failed > 0,
   }, { requestId, cacheControl: 'public, max-age=120, stale-while-revalidate=600' });
+  if (cache && !failed && !stale) {
+    ctx.waitUntil(cache.put(cacheKey, response.clone()).catch((error) => {
+      console.error(JSON.stringify({ message: 'catalog_cache_put_failed', requestId, error: error instanceof Error ? error.message : String(error) }));
+    }));
+  }
+  return response;
 }

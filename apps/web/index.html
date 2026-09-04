@@ -2227,11 +2227,19 @@
       if (source === 'ia' || source === 'archive' || source === 'xkcd' || source === 'comicbookplus') return 'full';
       if (source === 'openlibrary' || source === 'olsubjects') return doc && (doc.iaId || doc.openLibraryUrl) ? 'preview' : 'catalog';
       if (source === 'loc' || source === 'locsearch') return doc && (doc.iiifManifest || doc.fullImage || doc.cover) ? 'preview' : 'catalog';
-      if (source === 'europeana' || source === 'dpla' || source === 'gcd') return doc && (doc.fullImage || doc.cover) ? 'image-only' : 'catalog';
+      if (source === 'europeana' || source === 'dpla') return doc && (doc.fullImage || doc.cover) ? 'image-only' : 'catalog';
+      if (source === 'gcd') return 'catalog';
       return doc && (doc.readerUrl || doc.fullImage) ? 'preview' : 'catalog';
     }
     function accessLabel(doc) {
       return ({ full: 'Read in app', borrow: 'Borrow to read', preview: 'Preview', 'image-only': 'Image only', catalog: 'Catalog only', unavailable: 'Unavailable' })[accessKey(doc)] || 'Access unknown';
+    }
+
+    function accessKind(doc) {
+      var access = accessKey(doc);
+      if ((doc && doc.readable === false) || access === 'catalog' || access === 'unavailable' || (doc && doc.readerKind === 'none')) return 'catalog';
+      if (access === 'image-only' || (doc && ['image', 'loc-resource', 'iiif'].indexOf(doc.readerKind) !== -1)) return 'image';
+      return 'reader';
     }
 
     function shelfFormat(shelf) {
@@ -2264,6 +2272,15 @@
       item.iiifManifest = item.iiifManifest || item.manifest || item.iiif || null;
       item.access = accessKey(item);
       item.readerKind = item.readerKind || (item.source === 'comicbookplus' ? 'sequential-images' : item.iiifManifest ? 'iiif' : item.source === 'loc' ? 'loc-resource' : item.source === 'ia' || item.iaId ? 'ia-bookreader' : 'none');
+      // The inline Pages build is the production entrypoint. Preserve an
+      // explicit source contract here so a missing optional field cannot turn
+      // a working scan into a false catalog-only card (or vice versa).
+      if (typeof item.readable !== 'boolean') {
+        item.readable = item.access !== 'catalog' && item.access !== 'unavailable' &&
+          (item.readerKind !== 'none' || item.source === 'ia' || Boolean(item.fullImage));
+      }
+      item.coverQuality = Number(item.coverQuality) || coverQuality(item);
+      item.cover = item.cover || bestCoverUrl(item);
       return item;
     }
 
@@ -2553,6 +2570,10 @@
           locUrl: it.url || it.id || null,
           cover: locThumb(imgs),
           fullImage: locFullImage(imgs),
+          access: imgs.length ? 'image-only' : 'catalog',
+          readable: Boolean(imgs.length),
+          readerKind: imgs.length ? 'loc-resource' : 'none',
+          coverQuality: imgs.length ? 3 : 0,
           iiifManifest: it.iiif_manifest || it.iiifManifest || it.manifest || null,
           image_url: imgs
         };
@@ -2589,6 +2610,48 @@
 
     var FEED_TIMEOUT_MS = 12000;
     var IA_FEED_TIMEOUT_MS = 15000;
+    var LOC_MAX_CONCURRENT = 2;
+    var locInFlight = 0;
+    var locQueue = [];
+    var locCache = {};
+
+    function pumpLocQueue() {
+      while (locInFlight < LOC_MAX_CONCURRENT && locQueue.length) {
+        const job = locQueue.shift();
+        locInFlight++;
+        job.run().then(function(value) {
+          locInFlight--;
+          job.resolve(value);
+          pumpLocQueue();
+        }, function(error) {
+          locInFlight--;
+          job.reject(error);
+          pumpLocQueue();
+        });
+      }
+    }
+
+    function enqueueLoc(run) {
+      return new Promise(function(resolve, reject) {
+        locQueue.push({ run: run, resolve: resolve, reject: reject });
+        pumpLocQueue();
+      });
+    }
+
+    function locCacheGet(key) {
+      var hit = locCache[key];
+      if (!hit || Date.now() > hit.exp) {
+        if (hit) delete locCache[key];
+        return null;
+      }
+      return hit.data;
+    }
+
+    function locCacheSet(key, data) {
+      locCache[key] = { data: data, exp: Date.now() + 10 * 60 * 1000 };
+      var keys = Object.keys(locCache);
+      if (keys.length > 180) keys.slice(0, 60).forEach(function(cacheKey) { delete locCache[cacheKey]; });
+    }
 
     function fetchWithTimeout(url, options, timeoutMs) {
       var controller = new AbortController();
@@ -2630,19 +2693,41 @@
     }
 
     async function fetchLocExactDay(shelf, qs, year, target, page, perYear, includeFacet) {
-      var params = new URLSearchParams();
-      params.set('fo', 'json');
-      params.set('at', 'results');
-      params.set('c', String(perYear));
-      params.set('sp', String(page));
-      params.set('qs', qs);
-      params.set('dates', String(year) + '-' + target);
-      if (includeFacet && shelf.locExtra) {
-        new URLSearchParams(String(shelf.locExtra)).forEach(function(value, key) { params.append(key, value); });
-      }
-      var res = await fetchWithTimeout('https://www.loc.gov/collections/chronicling-america/?' + params.toString(), { headers: { 'Accept': 'application/json' } }, 6500);
-      if (!res.ok) throw new Error('LOC HTTP ' + res.status);
-      return res.json();
+      var key = [qs, year, target, page, perYear, includeFacet ? 'facet' : 'base', shelf.locExtra || ''].join('|');
+      var cached = locCacheGet(key);
+      if (cached) return cached;
+      return enqueueLoc(async function() {
+        var cachedAgain = locCacheGet(key);
+        if (cachedAgain) return cachedAgain;
+        var params = new URLSearchParams();
+        params.set('fo', 'json');
+        params.set('at', 'results');
+        params.set('c', String(perYear));
+        params.set('sp', String(page));
+        params.set('qs', qs);
+        params.set('dates', String(year) + '-' + target);
+        if (includeFacet && shelf.locExtra) {
+          new URLSearchParams(String(shelf.locExtra)).forEach(function(value, keyName) { params.append(keyName, value); });
+        }
+        var lastError = null;
+        for (var attempt = 1; attempt <= 3; attempt++) {
+          try {
+            var res = await fetchWithTimeout('https://www.loc.gov/collections/chronicling-america/?' + params.toString(), { headers: { 'Accept': 'application/json' } }, 6500);
+            if (res.ok) {
+              var data = await res.json();
+              locCacheSet(key, data);
+              return data;
+            }
+            lastError = new Error('LOC HTTP ' + res.status);
+            if (res.status !== 429 && res.status < 500) throw lastError;
+          } catch (error) {
+            lastError = error;
+            if (attempt === 3) throw error;
+          }
+          await new Promise(function(resolve) { setTimeout(resolve, Math.min(2000, 350 * attempt)); });
+        }
+        throw lastError || new Error('LOC request failed');
+      });
     }
 
     async function fetchLocMonthDayPage(shelf, page, extraQuery) {
@@ -2772,6 +2857,10 @@
             subject: ['xkcd', 'webcomic'],
             cover: c.mirror_img || c.img,
             fullImage: c.mirror_img || c.img,
+            access: 'image-only',
+            readable: true,
+            readerKind: 'image',
+            coverQuality: 5,
             alt: c.alt || '',
             locUrl: 'https://xkcd.com/' + c.num
           });
@@ -2876,8 +2965,9 @@
           fullImage: thumb,
           locUrl: it.guid || it.link || null,
           access: 'image-only',
-          readable: false,
-          readerKind: 'none'
+          readable: Boolean(thumb),
+          readerKind: thumb ? 'image' : 'none',
+          coverQuality: thumb ? 3 : 0
         };
       });
       docs = filterNewspaperDocs(shelf, docs);
@@ -3456,8 +3546,9 @@
           iiifManifest: sourceUrl(manifest),
           locUrl: link || 'https://dp.la/',
           access: 'image-only',
-          readable: false,
-          readerKind: 'none'
+          readable: Boolean(fullImage),
+          readerKind: fullImage ? 'image' : 'none',
+          coverQuality: fullImage ? 2 : 0
         };
       });
       docs = filterNewspaperDocs(shelf, docs);
@@ -3493,7 +3584,7 @@
 
     function pumpIaQueue() {
       while (iaInFlight < IA_MAX_CONCURRENT && iaQueue.length) {
-        var job = iaQueue.shift();
+        const job = iaQueue.shift();
         iaInFlight++;
         job.run().then(function(v) {
           iaInFlight--;
@@ -3843,6 +3934,8 @@
 
       try {
         const result = await fetchShelfPage(shelf, nextPage, state.extraQuery, state.sort);
+        state.error = '';
+        state.partial = Boolean(result && result.partial);
         let docs = (result.docs || []).map(function(doc) { return normalizeIssue(doc, shelf); });
         docs = dedupeDocs(docs);
         docs = docs.filter(canReadDocument);
@@ -3958,6 +4051,7 @@
           track.appendChild(createLoadMoreCard(shelf.id));
         }
       } catch (err) {
+        state.error = String(err && err.message || err || 'Source request failed');
         if (tailSpinner) tailSpinner.remove();
         var msg = (err && String(err.message || err).indexOf('429') !== -1)
           ? 'Rate limited · will ease up · pull again'
@@ -5368,14 +5462,29 @@
         .replace(/"/g, '&quot;');
     }
 
-    // Debug: shows each shelf query + loaded count for error reports
+    // Debug: shows each shelf's live contract metrics for error reports.
+    // This is intentionally generated from the shipped UI state so reports
+    // describe what a reader actually received, not only what an API claimed.
     document.getElementById('debug-btn').addEventListener('click', function() {
       var lines = ['MAGAZINE RACK DEBUG REPORT', '-------------------------'];
       SHELVES.forEach(function(s) {
         var st = shelfState[s.id] || {};
+        var docs = Array.isArray(st.docs) ? st.docs : [];
+        var readerCount = docs.filter(function(doc) { return accessKind(doc) === 'reader'; }).length;
+        var imageOnlyCount = docs.filter(function(doc) { return accessKind(doc) === 'image'; }).length;
+        var catalogOnlyCount = docs.filter(function(doc) { return accessKind(doc) === 'catalog'; }).length;
+        var coverCount = docs.filter(function(doc) { return Boolean(bestCoverUrl(doc)); }).length;
+        var titleCounts = {};
+        docs.forEach(function(doc) { var key = canonicalTitle(doc.title); if (key) titleCounts[key] = (titleCounts[key] || 0) + 1; });
+        var duplicateTitles = Object.keys(titleCounts).reduce(function(total, key) { return total + Math.max(0, titleCounts[key] - 1); }, 0);
+        var newspaperDates = s.newspaperDateMode === 'month-day' ? docs.map(function(doc) { return recordMonthDay(doc.issueDate || doc.date || doc.title || doc.identifier); }) : [];
         lines.push(s.title);
         lines.push('  id: ' + s.id);
         lines.push('  page: ' + (st.page || 0) + '  total: ' + (st.total || 0) + '  hasMore: ' + st.hasMore);
+        lines.push('  loaded: ' + docs.length + '  reader: ' + readerCount + '  image-only: ' + imageOnlyCount + '  catalog-only: ' + catalogOnlyCount);
+        lines.push('  covers: ' + coverCount + '/' + docs.length + '  duplicate titles: ' + duplicateTitles + '  source: ' + (healthSourceFor(s) || 'ia'));
+        if (s.newspaperDateMode === 'month-day') lines.push('  newspaper month-day: ' + currentNewspaperMonthDay() + '  matches: ' + newspaperDates.filter(function(value) { return value === currentNewspaperMonthDay(); }).length + '  missing: ' + newspaperDates.filter(function(value) { return !value; }).length + '  mismatches: ' + newspaperDates.filter(function(value) { return value && value !== currentNewspaperMonthDay(); }).length);
+        if (st.error) lines.push('  error: ' + st.error);
         lines.push('  query: ' + s.query);
         lines.push('');
       });
@@ -5390,7 +5499,7 @@
     // PWA: register the hosted shell worker. Provider content and API
     // responses stay network-only so stale scans never masquerade as live.
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-      navigator.serviceWorker.register('./sw.js').catch(function() {});
+      navigator.serviceWorker.register('./sw.js?v=11').catch(function() {});
     }
   </script>
 </body>

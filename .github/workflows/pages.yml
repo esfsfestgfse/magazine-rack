@@ -81,7 +81,7 @@ jobs:
             throw new Error('apps/web/index.html must remain the canonical standalone entrypoint');
           }
           if (!html.includes('<script src="config.js"></script>')) throw new Error('apps/web/index.html is missing runtime configuration');
-          if (!html.includes("register('./sw.js')")) throw new Error('apps/web/index.html is missing the hosted shell worker');
+          if (!/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(html)) throw new Error('apps/web/index.html is missing the hosted shell worker');
           NODE
 
       - name: Upload Pages artifact

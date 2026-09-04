@@ -199,6 +199,12 @@ export function normalizeDoc(raw = {}, fallbackSource = '') {
     volume: cleanText(raw.volume || raw.vol || '', 40),
     issue: cleanText(raw.issue || raw.number || '', 40),
     setup: Boolean(raw.setup),
+    access: cleanText(raw.access || '', 40) || 'catalog',
+    readable: raw.readable === true,
+    readerKind: cleanText(raw.readerKind || '', 60) || 'none',
+    coverQuality: numberValue(raw.coverQuality),
+    availability: raw.availability && typeof raw.availability === 'object' ? raw.availability : {},
+    rights: cleanText(raw.rights || '', 300),
     cover: httpsUrl(raw.cover),
     fullImage: httpsUrl(raw.fullImage),
     locUrl: httpsUrl(raw.locUrl || raw.url || raw.link),
@@ -404,7 +410,12 @@ async function fetchIaAdvanced(shelf, page, options) {
     source: 'ia',
     cover: archiveCover(doc.identifier),
     locUrl: doc.identifier ? `${IA_BASE}/details/${encodeURIComponent(doc.identifier)}` : null,
-    pages: numberValue(doc.imagecount)
+    readerUrl: doc.identifier ? `${IA_BASE}/stream/${encodeURIComponent(doc.identifier)}?ui=embed&wrapper=false` : null,
+    pages: numberValue(doc.imagecount),
+    access: 'full',
+    readable: true,
+    readerKind: 'ia-bookreader',
+    coverQuality: 3
   })), { source: 'ia', page, pageSize: size, numFound, filteredTotal: newspaper ? numFound : undefined, deepAvailable, nextMode: deepAvailable ? 'scrape' : null, ...newspaperMetadata(shelf, options) });
 }
 
@@ -425,7 +436,12 @@ async function fetchIaScrape(shelf, page, options) {
     source: 'ia',
     cover: archiveCover(doc.identifier),
     locUrl: doc.identifier ? `${IA_BASE}/details/${encodeURIComponent(doc.identifier)}` : null,
-    pages: numberValue(doc.imagecount)
+    readerUrl: doc.identifier ? `${IA_BASE}/stream/${encodeURIComponent(doc.identifier)}?ui=embed&wrapper=false` : null,
+    pages: numberValue(doc.imagecount),
+    access: 'full',
+    readable: true,
+    readerKind: 'ia-bookreader',
+    coverQuality: 3
   }));
   return result(docs, {
     source: 'ia',
@@ -467,6 +483,11 @@ function mapLocDoc(item, source = 'loc') {
     cover: locThumb(urls),
     fullImage: locFullImage(urls),
     locUrl: item.url || item.id,
+    readerUrl: item.url || item.id,
+    access: urls.length ? 'image-only' : 'catalog',
+    readable: Boolean(urls.length),
+    readerKind: urls.length ? 'loc-resource' : 'none',
+    coverQuality: urls.length ? 3 : 0,
     imagecount: urls.length,
     pages: urls.length
   };
@@ -618,6 +639,11 @@ async function fetchXkcdPage(shelf, page, options) {
     cover: comic.mirror_img || comic.img,
     fullImage: comic.mirror_img || comic.img,
     locUrl: `https://xkcd.com/${numberValue(comic.num)}`,
+    readerUrl: comic.mirror_img || comic.img,
+    access: 'image-only',
+    readable: true,
+    readerKind: 'image',
+    coverQuality: 5,
     imagecount: 1,
     pages: 1
   }));
@@ -661,7 +687,8 @@ async function fetchOpenLibraryPage(shelf, page, options) {
       readable: Boolean(iaId || borrowable),
       readerKind: iaId ? 'ia-bookreader' : 'none',
       availability,
-      pages: item.number_of_pages
+      pages: item.number_of_pages,
+      coverQuality: item.cover_i ? 5 : (iaId ? 2 : 0)
     };
   }).filter((doc) => doc.source === 'ia');
   return result(docs, { source: 'openlibrary', page, pageSize: size, numFound: numberValue(data?.num_found) || docs.length });
@@ -687,7 +714,11 @@ async function fetchOpenLibrarySubjectsPage(shelf, page, options) {
       fullImage: iaId ? archiveCover(iaId) : null,
       locUrl: item.key ? `https://openlibrary.org${item.key}` : null,
        openLibraryUrl: item.key ? `https://openlibrary.org${item.key}` : null,
-       accountSource: iaId ? 'openlibrary' : null
+       accountSource: iaId ? 'openlibrary' : null,
+       access: iaId ? 'preview' : 'catalog',
+       readable: Boolean(iaId),
+       readerKind: iaId ? 'ia-bookreader' : 'none',
+       coverQuality: item.cover_id ? 5 : (iaId ? 2 : 0)
     };
   });
   return result(docs, { source: 'olsubjects', page, pageSize: size, numFound: numberValue(data?.work_count) || docs.length });
@@ -731,7 +762,11 @@ async function fetchEuropeanaPage(shelf, page, options) {
       fullImage: full,
       locUrl: item.guid || item.link,
       imagecount: 1,
-      pages: 1
+      pages: 1,
+      access: full ? 'image-only' : 'catalog',
+      readable: Boolean(full),
+      readerKind: full ? 'image' : 'none',
+      coverQuality: full ? 3 : 0
     };
   });
   return result(docs, { source: 'europeana', page, pageSize: size, numFound: numberValue(data?.totalResults) || docs.length, ...newspaperMetadata(shelf, options) });
@@ -769,7 +804,8 @@ async function fetchGcdPage(shelf, page, options) {
     return {
       source: 'gcd', identifier: `gcd-${id}`, title: `${record.name || query}${record.year_began ? ` (${record.year_began}${record.year_ended ? `–${record.year_ended}` : ''})` : ''}`,
       creator: record.publisher || 'Grand Comics Database', date: record.year_began ? String(record.year_began) : '', subject: ['comics', 'catalog'], format: 'comic',
-      cover, fullImage: cover, locUrl, pages: Array.isArray(record.active_issues) ? record.active_issues.length : 0
+      cover, fullImage: cover, locUrl, pages: Array.isArray(record.active_issues) ? record.active_issues.length : 0,
+      access: 'catalog', readable: false, readerKind: 'none', coverQuality: cover ? 2 : 0
     };
   });
   return result(docs, { source: 'gcd', page, pageSize: pageSize(options.pageSize), numFound: numberValue(data?.count) || docs.length });
@@ -790,7 +826,7 @@ async function fetchDplaPage(shelf, page, options) {
     const covers = urlCandidates([record.object, record.thumbnail, record.objectUrl, record.isShownBy, record.hasView, record.preview, record.image, resource.image, resource.thumbnail, record.originalRecord]);
     const cover = imageUrl(covers);
     const fullImage = imageUrl(covers.slice(1)) || cover;
-    return { source: 'dpla', identifier: `dpla-${id}`, title: valueText(resource.title || record.title || 'DPLA item'), creator: valueText(resource.creator || resource.contributor || resource.publisher || 'DPLA'), publication: valueText(resource.publisher || resource.source), date: valueText(resource.date || record.date), issueDate: valueText(resource.date || record.date), subject: list(resource.subject || resource.type || resource.format), format: formatKey(shelf.format || resource.type || resource.format || resource.subject) || 'magazine', cover, fullImage, iiifManifest: httpsUrl(record.iiifManifest || record.manifest || record.hasView), locUrl: /^https?:\/\//i.test(link) ? link : `https://dp.la/item/${encodeURIComponent(id)}` };
+    return { source: 'dpla', identifier: `dpla-${id}`, title: valueText(resource.title || record.title || 'DPLA item'), creator: valueText(resource.creator || resource.contributor || resource.publisher || 'DPLA'), publication: valueText(resource.publisher || resource.source), date: valueText(resource.date || record.date), issueDate: valueText(resource.date || record.date), subject: list(resource.subject || resource.type || resource.format), format: formatKey(shelf.format || resource.type || resource.format || resource.subject) || 'magazine', cover, fullImage, iiifManifest: httpsUrl(record.iiifManifest || record.manifest || record.hasView), locUrl: /^https?:\/\//i.test(link) ? link : `https://dp.la/item/${encodeURIComponent(id)}`, access: cover ? 'image-only' : 'catalog', readable: Boolean(cover), readerKind: cover ? 'image' : 'none', coverQuality: cover ? 2 : 0 };
   });
   return result(docs, { source: 'dpla', page, pageSize: size, numFound: numberValue(data?.count || data?.total || data?.pagination?.total) || docs.length, ...newspaperMetadata(shelf, options) });
 }
