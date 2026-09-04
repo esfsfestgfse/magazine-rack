@@ -1355,6 +1355,38 @@
       .reader-header .close-btn { width: 30px; padding: 0; font-size: 22px; }
     }
   </style>
+  <style id="v5-upgrades">
+    .source-pulse { margin: 18px auto 12px; max-width: 1460px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,.035); }
+    .source-pulse-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .source-pulse-head strong { color: var(--text); font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; }
+    .source-pulse-head span { color:var(--muted); font-size:.7rem; }
+    .source-pulse-head button { border:1px solid var(--border); border-radius:999px; background:rgba(255,255,255,.05); color:var(--muted); padding:6px 10px; font-size:.68rem; font-weight:700; cursor:pointer; }
+    .source-health { display:flex; flex-wrap:wrap; gap:7px; }
+    .health-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 8px; border:1px solid var(--border); border-radius:999px; color:var(--muted); background:rgba(255,255,255,.025); font-size:.65rem; }
+    .health-pill i { width:7px; height:7px; border-radius:50%; background:#77808d; box-shadow:0 0 0 2px rgba(119,128,141,.12); }
+    .health-pill.ok { color:#b9f6df; border-color:rgba(94,234,212,.22); }
+    .health-pill.ok i { background:#5eead4; box-shadow:0 0 0 2px rgba(94,234,212,.14); }
+    .health-pill.loading i { background:#ffd166; animation:health-pulse 1s ease-in-out infinite; }
+    .health-pill.degraded { color:#ffe0a3; border-color:rgba(255,209,102,.24); }
+    .health-pill.degraded i { background:#ffd166; }
+    .health-pill.error { color:#ffb4bd; border-color:rgba(240,79,120,.28); }
+    .health-pill.error i { background:#f04f78; }
+    @keyframes health-pulse { 50% { opacity:.35; transform:scale(.75); } }
+    .shelf-health { display:inline-flex; align-items:center; gap:4px; color:var(--muted); font-size:.62rem; }
+    .shelf-health i { width:6px; height:6px; border-radius:50%; background:#77808d; }
+    .shelf-health.ok i { background:#5eead4; }
+    .shelf-health.loading i { background:#ffd166; }
+    .shelf-health.degraded i { background:#ffd166; }
+    .shelf-health.error i { background:#f04f78; }
+    .cover-favorite { position:absolute; top:6px; right:6px; z-index:3; width:28px; height:28px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.18); border-radius:50%; background:rgba(7,10,18,.72); color:#fff; font-size:15px; line-height:1; cursor:pointer; }
+    .cover-favorite.active { color:#ffd166; border-color:rgba(255,209,102,.5); background:rgba(68,42,12,.82); }
+    .cover-favorite:hover { transform:scale(1.08); }
+    .reader-nav { display:flex; align-items:center; gap:5px; margin-right:4px; }
+    .reader-nav button { min-width:32px; padding-inline:8px; }
+    .reader-nav span { min-width:48px; color:#9ca3af; font-size:.68rem; text-align:center; }
+    .reader-nav button:disabled { opacity:.35; cursor:default; }
+    @media (max-width: 650px) { .source-pulse { margin-inline:12px; } .source-pulse-head span { display:none; } .reader-nav span { display:none; } }
+  </style>
 </head>
 <body>
   <header>
@@ -1384,6 +1416,10 @@
           <div class="hero-meta"><span><b>58</b>live shelves</span><span><b>11</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
         </div>
         <div class="hero-ticket"><span>Magazine Rack</span><strong>Read<br>widely.</strong><span>Free / public / curious</span></div>
+      </div>
+      <div class="source-pulse" aria-label="Source health">
+        <div class="source-pulse-head"><strong>Source pulse</strong><span id="source-health-summary">Waiting for live feeds</span><button type="button" id="source-health-refresh">Check feeds</button></div>
+        <div class="source-health" id="source-health"></div>
       </div>
       <div class="racks-panel" id="racks-panel">
         <h3>Visible racks · tap to show/hide</h3>
@@ -1432,6 +1468,7 @@
     <section id="library" class="view">
       <div class="filters" id="status-filters">
         <button class="filter-pill active" data-status="all">All</button>
+        <button class="filter-pill" data-status="favorites">Favorites</button>
         <button class="filter-pill" data-status="want">Want</button>
         <button class="filter-pill" data-status="reading">Reading</button>
         <button class="filter-pill" data-status="finished">Finished</button>
@@ -1515,6 +1552,7 @@
         <h2 id="reader-title">Reading...</h2>
       </div>
       <div class="reader-actions">
+        <div class="reader-nav" aria-label="Issue navigation"><button type="button" id="reader-prev" title="Previous issue">‹</button><span id="reader-position">—</span><button type="button" id="reader-next" title="Next issue">›</button></div>
         <button type="button" class="primary" id="reader-open-ia" title="Open the original source"><span class="reader-action-icon">↗</span><span class="reader-action-label">Open source</span></button>
         <button type="button" id="reader-related" title="Find related items"><span class="reader-action-icon">✦</span><span class="reader-action-label">Related</span></button>
         <button type="button" id="reader-fs" title="Enter fullscreen"><span class="reader-action-icon">⛶</span><span class="reader-action-label">Fullscreen</span></button>
@@ -1642,6 +1680,8 @@
         id: 'manga',
         title: 'Manga',
         format: 'comic',
+        source: 'aggregate',
+        aggregateSources: ['ia', 'openlibrary', 'gbooks', 'europeana', 'dpla', 'gcd'],
         query: 'mediatype:texts AND (title:(manga OR manhwa OR manhua OR doujinshi OR tankobon OR tankōbon OR shonen OR shōnen OR shojo OR shoujo OR seinen OR josei OR "japanese comic" OR "japanese comics") OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels") OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*) OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))' + ADULT_EXCLUDE
       },
       {
@@ -1984,10 +2024,15 @@
 
     const STORAGE_KEY = 'magazine-rack-v2';
     const HISTORY_KEY = 'magazine-rack-history-v1';
+    const FAVORITES_KEY = 'magazine-rack-favorites-v1';
     const PREFS_KEY = 'magazine-rack-prefs-v1';
     let library = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    let favorites = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
     let prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{"wall":false,"hidden":{},"pinned":{}}');
+    if (!Array.isArray(library)) library = [];
+    if (!Array.isArray(history)) history = [];
+    if (!Array.isArray(favorites)) favorites = [];
     if (!prefs.hidden) prefs.hidden = {};
     if (!prefs.pinned) prefs.pinned = {};
     // User Europeana personal API key
@@ -2009,13 +2054,62 @@
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 30)));
     }
 
+    function saveFavorites() {
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites.slice(0, 200)));
+      updateStats();
+    }
+
+    function itemKey(doc) {
+      if (!doc) return '';
+      return String(doc.identifier || doc.id || doc.iaId || doc.locUrl || '');
+    }
+
+    function isFavorite(id) {
+      var key = typeof id === 'string' ? id : itemKey(id);
+      return Boolean(key) && favorites.some(function(item) { return itemKey(item) === key; });
+    }
+
+    function toggleFavorite(doc) {
+      var key = itemKey(doc);
+      if (!key) return false;
+      if (isFavorite(key)) {
+        favorites = favorites.filter(function(item) { return itemKey(item) !== key; });
+        saveFavorites();
+        return false;
+      }
+      favorites.unshift({
+        identifier: key,
+        title: doc.title || 'Untitled issue',
+        creator: Array.isArray(doc.creator) ? doc.creator[0] : (doc.creator || ''),
+        date: doc.date || doc.year || '',
+        cover: bestCoverUrl(doc),
+        source: doc.source || 'ia',
+        locUrl: doc.locUrl || null,
+        fullImage: doc.fullImage || null,
+        iiifManifest: doc.iiifManifest || null,
+        format: doc.format || '',
+        addedAt: new Date().toISOString()
+      });
+      saveFavorites();
+      return true;
+    }
+
     function pushHistory(entry) {
-      if (!entry || !entry.iaId) return;
-      history = history.filter(h => h.iaId !== entry.iaId);
+      if (!entry) return;
+      var key = itemKey(entry) || entry.iaId || entry.title;
+      if (!key) return;
+      history = history.filter(h => itemKey(h) !== key && h.iaId !== key);
       history.unshift({
-        iaId: entry.iaId,
+        iaId: entry.iaId || (entry.source === 'ia' ? key : null),
+        identifier: key,
         title: entry.title || 'Untitled',
-        cover: entry.cover || (isValidIaId(entry.iaId) ? ('https://archive.org/services/img/' + entry.iaId) : null),
+        creator: entry.creator || '',
+        date: entry.date || entry.year || '',
+        source: entry.source || (entry.iaId ? 'ia' : ''),
+        locUrl: entry.locUrl || null,
+        fullImage: entry.fullImage || null,
+        iiifManifest: entry.iiifManifest || null,
+        cover: entry.cover || bestCoverUrl(entry),
         at: new Date().toISOString()
       });
       history = history.slice(0, 30);
@@ -2050,14 +2144,19 @@
       track.innerHTML = '';
       history.forEach(function(item) {
         const doc = {
-          identifier: item.iaId,
+          identifier: item.identifier || item.iaId,
+          iaId: item.iaId || null,
           title: item.title,
-          creator: '',
-          date: '',
+          creator: item.creator || '',
+          date: item.date || '',
           subject: [],
-          cover: item.cover || null
+          cover: item.cover || null,
+          source: item.source || (item.iaId ? 'ia' : ''),
+          locUrl: item.locUrl || null,
+          fullImage: item.fullImage || null,
+          iiifManifest: item.iiifManifest || null
         };
-        const card = createCoverCard(doc);
+        const card = createCoverCard(doc, history.map(function(old) { return { identifier: old.identifier || old.iaId, iaId: old.iaId, title: old.title, cover: old.cover, source: old.source, locUrl: old.locUrl, fullImage: old.fullImage, iiifManifest: old.iiifManifest }; }));
         var meta = document.createElement('div');
         meta.className = 'continue-meta';
         meta.textContent = timeAgo(item.at);
@@ -2079,7 +2178,8 @@
 
     function updateStats() {
       const n = library.length;
-      document.getElementById('stats').textContent = n === 0 ? '0 saved' : n + ' saved';
+      const fav = favorites.length;
+      document.getElementById('stats').textContent = (n === 0 ? '0 saved' : n + ' saved') + ' · ' + fav + ' fav';
     }
 
     // Nav
@@ -2143,7 +2243,7 @@
       // IA's search endpoints return bare records, while the other adapters
       // include an explicit source. Keep the shelf contract consistent so a
       // cover click can always resolve an Internet Archive reader.
-      item.source = item.source || (shelf && shelf.source) || 'ia';
+      item.source = item.source || (shelf && shelf.source === 'aggregate' ? 'ia' : (shelf && shelf.source)) || 'ia';
       if (item.source === 'ia' && item.identifier && !item.locUrl) {
         item.locUrl = 'https://archive.org/details/' + encodeURIComponent(item.identifier);
       }
@@ -2180,6 +2280,7 @@
           '<div class="shelf-header-actions">' +
             '<button type="button" class="shelf-pin' + (pinned ? ' pinned' : '') + '" data-shelf="' + shelf.id + '" title="Pin rack">' + (pinned ? '★' : '☆') + '</button>' +
             '<button type="button" class="shelf-refresh" data-shelf="' + shelf.id + '" title="Shuffle this rack">↻</button>' +
+            '<span class="shelf-health" data-health-source="' + healthSourceFor(shelf) + '"><i></i><span>idle</span></span>' +
             '<div class="shelf-count" id="count-' + shelf.id + '"></div>' +
           '</div>' +
         '</div>' +
@@ -2221,7 +2322,7 @@
 
     SHELVES.forEach(s => {
       shelvesEl.appendChild(buildShelfSkeleton(s));
-      shelfState[s.id] = { page: 0, extraQuery: '', total: 0, loading: false, hasMore: true, scrapeCursor: null, useScrape: false, mode: 'search' };
+      shelfState[s.id] = { page: 0, extraQuery: '', total: 0, loading: false, hasMore: true, scrapeCursor: null, useScrape: false, mode: 'search', seenKeys: {}, docs: [] };
     });
     reorderShelvesByPin();
 
@@ -2246,13 +2347,100 @@
     }
     buildJumpChips();
 
-    function createCoverCard(doc) {
+    function normalizeCoverUrl(value) {
+      var url = String(value || '').trim().replace(/^http:\/\//i, 'https://');
+      return /^https:\/\//i.test(url) ? url : '';
+    }
+
+    function coverCandidates(doc) {
+      var candidates = [];
+      function add(value) {
+        var url = normalizeCoverUrl(value);
+        if (url && candidates.indexOf(url) === -1) candidates.push(url);
+      }
+      add(doc && doc.cover);
+      add(doc && doc.coverUrl);
+      add(doc && doc.fullImage);
+      if (doc && (doc.source === 'openlibrary' || doc.source === 'olsubjects')) {
+        add(doc.openLibraryCover);
+      }
+      var id = doc && (doc.identifier || doc.id || doc.iaId);
+      if (id && (doc.source === 'ia' || doc.source === 'openlibrary' || doc.source === 'olsubjects' || doc.iaId)) {
+        add('https://archive.org/services/img/' + encodeURIComponent(String(doc.iaId || id)));
+      }
+      if (doc && Array.isArray(doc.image_url)) doc.image_url.slice(0, 4).forEach(add);
+      return candidates;
+    }
+
+    function bestCoverUrl(doc) {
+      return coverCandidates(doc)[0] || null;
+    }
+
+    function canonicalTitle(value) {
+      return String(value || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\b(the|a|an|issue|vol|volume|no|number)\b/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+
+    function dedupeKey(doc) {
+      var title = canonicalTitle(doc && doc.title);
+      var yearMatch = String((doc && (doc.date || doc.year || doc.issueDate)) || '').match(/\b(?:18|19|20)\d{2}\b/);
+      var year = yearMatch ? yearMatch[0] : '';
+      var issue = canonicalTitle([doc && doc.volume, doc && doc.issue].filter(Boolean).join(' '));
+      var creator = canonicalTitle(doc && doc.creator);
+      if (!title) return 'id:' + itemKey(doc);
+      return [title, year, issue, year ? '' : creator].join('|');
+    }
+
+    function coverQuality(doc) {
+      var score = coverCandidates(doc).length ? 5 : 0;
+      if (doc && (doc.fullImage || doc.iiifManifest)) score += 2;
+      if (doc && (doc.pages || doc.imagecount)) score += 1;
+      if (doc && (doc.locUrl || doc.readerUrl)) score += 1;
+      if (doc && doc.setup) score -= 20;
+      return score;
+    }
+
+    function dedupeDocs(docs) {
+      var winners = new Map();
+      (docs || []).forEach(function(doc) {
+        var key = dedupeKey(doc);
+        var prior = winners.get(key);
+        if (!prior || coverQuality(doc) > coverQuality(prior)) winners.set(key, Object.assign({}, prior || {}, doc, {
+          cover: bestCoverUrl(doc) || bestCoverUrl(prior) || null,
+          fullImage: doc.fullImage || (prior && prior.fullImage) || null,
+          locUrl: doc.locUrl || (prior && prior.locUrl) || null,
+          readerUrl: doc.readerUrl || (prior && prior.readerUrl) || null
+        }));
+        else if (prior && (!prior.cover || !prior.locUrl || !prior.fullImage)) winners.set(key, Object.assign({}, prior, {
+          cover: bestCoverUrl(prior) || bestCoverUrl(doc) || null,
+          locUrl: prior.locUrl || doc.locUrl || null,
+          fullImage: prior.fullImage || doc.fullImage || null
+        }));
+      });
+      return Array.from(winners.values());
+    }
+
+    function bindCoverFallbacks(card) {
+      var image = card.querySelector('img[data-cover-fallbacks]');
+      if (!image) return;
+      var fallback = (image.getAttribute('data-cover-fallbacks') || '').split('|').filter(Boolean);
+      image.addEventListener('error', function() {
+        var next = fallback.shift();
+        if (next) { image.src = next; return; }
+        image.style.display = 'none';
+        var placeholder = image.nextElementSibling;
+        if (placeholder) placeholder.style.display = 'flex';
+      });
+    }
+
+    function createCoverCard(doc, contextDocs) {
       const card = document.createElement('div');
       card.className = 'cover-card';
 
-      const id = doc.identifier;
-      const noArchiveCover = ['loc', 'locsearch', 'xkcd', 'europeana', 'gcd', 'dpla'].indexOf(doc.source) !== -1;
-      const coverUrl = doc.cover || (!noArchiveCover && id ? 'https://archive.org/services/img/' + id : null);
+      const id = itemKey(doc);
+      const covers = coverCandidates(doc);
+      const coverUrl = covers[0] || null;
       const title = doc.title || 'Untitled';
       const creator = Array.isArray(doc.creator) ? doc.creator[0] : (doc.creator || '');
       const year = (doc.date || '').toString().slice(0, 4);
@@ -2265,14 +2453,25 @@
       card.innerHTML =
         '<div class="cover-img-wrap">' +
           (coverUrl
-            ? '<img src="' + coverUrl + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+            ? '<img src="' + escapeHtml(coverUrl) + '" data-cover-fallbacks="' + escapeHtml(covers.slice(1).join('|')) + '" alt="" loading="lazy">'
             : '') +
           '<div class="cover-placeholder" style="' + (coverUrl ? 'display:none' : '') + '">No cover</div>' +
+          '<button type="button" class="cover-favorite ' + (isFavorite(id) ? 'active' : '') + '" aria-label="' + (isFavorite(id) ? 'Remove favorite' : 'Add favorite') + '">' + (isFavorite(id) ? '★' : '☆') + '</button>' +
           badge +
         '</div>' +
         '<div class="cover-title">' + escapeHtml(title) + '</div>';
 
-      card.addEventListener('click', () => openDetail(doc));
+      bindCoverFallbacks(card);
+      var favorite = card.querySelector('.cover-favorite');
+      if (favorite) favorite.addEventListener('click', function(event) {
+        event.stopPropagation();
+        var active = toggleFavorite(doc);
+        favorite.classList.toggle('active', active);
+        favorite.textContent = active ? '★' : '☆';
+        favorite.setAttribute('aria-label', active ? 'Remove favorite' : 'Add favorite');
+        showToast(active ? 'Added to favorites' : 'Removed from favorites');
+      });
+      card.addEventListener('click', () => openDetail(doc, contextDocs || [doc]));
       return card;
     }
 
@@ -2898,6 +3097,61 @@
       return docs.length;
     }
 
+    const SOURCE_LABELS = {
+      ia: 'Internet Archive',
+      openlibrary: 'Open Library',
+      gbooks: 'Google Books',
+      europeana: 'Europeana',
+      dpla: 'DPLA',
+      gcd: 'GCD',
+      loc: 'Library of Congress',
+      locsearch: 'LOC Search',
+      xkcd: 'xkcd',
+      multi: 'Multi-source'
+    };
+    var sourceHealthState = {};
+
+    function healthSourceFor(shelf) {
+      if (shelf && (shelf.id === 'manga' || shelf.source === 'aggregate')) return 'multi';
+      return shelf && (shelf.source || 'ia') || 'ia';
+    }
+
+    function noteSourceHealth(source, status, detail, count) {
+      source = source || 'ia';
+      sourceHealthState[source] = Object.assign({}, sourceHealthState[source] || {}, {
+        status: status,
+        detail: detail || '',
+        count: Number(count) || 0,
+        checkedAt: new Date().toISOString()
+      });
+      renderSourceHealth();
+    }
+
+    function renderSourceHealth() {
+      var wrap = document.getElementById('source-health');
+      var summary = document.getElementById('source-health-summary');
+      if (!wrap) return;
+      var sources = ['ia', 'openlibrary', 'gbooks', 'europeana', 'dpla', 'gcd', 'loc', 'multi'];
+      var ok = 0;
+      var checked = 0;
+      wrap.innerHTML = sources.map(function(source) {
+        var entry = sourceHealthState[source] || { status: 'idle', detail: 'Not checked yet', count: 0 };
+        if (entry.status !== 'idle') checked++;
+        if (entry.status === 'ok') ok++;
+        var statusText = entry.status === 'ok' ? 'live' : entry.status === 'loading' ? 'checking' : entry.status === 'degraded' ? 'fallback' : entry.status === 'error' ? 'offline' : 'idle';
+        var countText = entry.count ? ' · ' + entry.count.toLocaleString() : '';
+        return '<span class="health-pill ' + escapeHtml(entry.status) + '" title="' + escapeHtml(entry.detail || statusText) + '"><i></i>' + escapeHtml(SOURCE_LABELS[source]) + ' · ' + statusText + escapeHtml(countText) + '</span>';
+      }).join('');
+      if (summary) summary.textContent = checked ? ok + '/' + checked + ' feeds responding' : 'Waiting for live feeds';
+      document.querySelectorAll('[data-health-source]').forEach(function(el) {
+        var source = el.getAttribute('data-health-source') || 'ia';
+        var entry = sourceHealthState[source] || { status: 'idle' };
+        el.className = 'shelf-health ' + entry.status;
+        el.innerHTML = '<i></i><span>' + escapeHtml(entry.status === 'ok' ? 'live' : entry.status === 'degraded' ? 'fallback' : entry.status === 'error' ? 'offline' : entry.status === 'loading' ? 'checking' : 'idle') + '</span>';
+        el.title = entry.detail || SOURCE_LABELS[source] || source;
+      });
+    }
+
     var PUBLIC_CATALOG_API = 'https://margin-api-production.tdy1990.workers.dev';
 
     function catalogApiBase() {
@@ -3146,7 +3400,7 @@
       });
     }
 
-    async function fetchShelfPage(shelf, page, extraQuery, sortMode) {
+    async function fetchShelfPageRaw(shelf, page, extraQuery, sortMode) {
 
       if (connectedSource(shelf)) {
         try {
@@ -3238,6 +3492,93 @@
       return filterNewspaperResult(shelf, adv);
     }
 
+    function providerFallbackQuery(shelf) {
+      if (shelf && shelf.newspaperDateMode === 'month-day') {
+        return 'mediatype:texts AND (collection:newspapers OR subject:newspapers)' + ADULT_EXCLUDE;
+      }
+      if (shelf && (shelf.format === 'comic' || /comic|gcd/i.test(String(shelf.id || '') + ' ' + String(shelf.title || '')))) {
+        return 'mediatype:texts AND (subject:("comic books" OR comics) OR collection:(comics OR comicbooks)) AND NOT subject:(superhero OR "underground comics" OR "underground comix")' + MANGA_EXCLUDE + ADULT_EXCLUDE;
+      }
+      return 'mediatype:texts AND (collection:magazine_rack OR subject:magazine OR subject:periodicals)' + MANGA_EXCLUDE + ADULT_EXCLUDE;
+    }
+
+    async function fetchProviderFallbackPage(shelf, page, extraQuery, sortMode) {
+      var q = providerFallbackQuery(shelf);
+      if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) q = '(' + q + ') AND (' + extraQuery.trim() + ')';
+      var result = await fetchIaAdvanced(q, page, sortMode || 'downloads+desc', shelf && shelf.newspaperDateMode === 'month-day');
+      return Object.assign({}, filterNewspaperResult(shelf, result), {
+        degraded: true,
+        fallbackSource: shelf && shelf.source || 'provider',
+        docs: (result.docs || []).map(function(doc) { return Object.assign({}, doc, { fallback: true, fallbackFor: shelf && shelf.source || 'provider' }); })
+      });
+    }
+
+    async function fetchMangaAggregatePage(shelf, page, extraQuery) {
+      var feedQuery = extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1 ? extraQuery.trim() : '';
+      var feeds = [
+        { source: 'ia', shelf: { id: 'manga', title: 'Manga', query: SHELVES.find(function(item) { return item.id === 'manga'; }).query } },
+        { source: 'openlibrary', shelf: { id: 'manga-openlibrary', source: 'openlibrary', olQuery: 'subject:manga OR subject:manhwa OR subject:manhua OR title:manga OR title:manhwa' } },
+        { source: 'gbooks', shelf: { id: 'manga-gbooks', source: 'gbooks', gbQuery: 'manga OR manhwa OR manhua OR doujinshi' } },
+        { source: 'europeana', shelf: { id: 'manga-europeana', source: 'europeana', euQuery: 'manga OR manhwa OR manhua OR doujinshi', euTheme: '' } },
+        { source: 'dpla', shelf: { id: 'manga-dpla', source: 'dpla', dplaQuery: 'manga OR manhwa OR manhua OR doujinshi' } },
+        { source: 'gcd', shelf: { id: 'manga-gcd', source: 'gcd', gcdName: 'manga' } }
+      ];
+      noteSourceHealth('multi', 'loading', 'Checking Manga feeds');
+      var errors = [];
+      var responses = await Promise.all(feeds.map(async function(feed) {
+        noteSourceHealth(feed.source, 'loading', 'Checking ' + SOURCE_LABELS[feed.source]);
+        try {
+          var data;
+          if (feed.source === 'ia') {
+            var q = feed.shelf.query;
+            if (feedQuery) q = '(' + q + ') AND (' + feedQuery + ')';
+            data = await fetchIaAdvanced(q, page, 'downloads+desc', false);
+          } else {
+            data = await fetchShelfPageRaw(feed.shelf, page, feedQuery, null);
+          }
+          var docs = (data && data.docs || []).filter(function(doc) { return !doc.setup && doc.identifier !== 'gcd-info'; });
+          noteSourceHealth(feed.source, docs.length ? (data.stale ? 'degraded' : 'ok') : 'degraded', docs.length ? docs.length + ' Manga records' : 'No Manga records', docs.length);
+          return { data: data || {}, docs: docs };
+        } catch (error) {
+          errors.push({ source: feed.source, message: String(error && error.message || error) });
+          noteSourceHealth(feed.source, 'error', String(error && error.message || error));
+          return { data: {}, docs: [] };
+        }
+      }));
+      var docs = dedupeDocs(responses.reduce(function(all, response) { return all.concat(response.docs); }, [])).filter(isMangaDoc);
+      var total = responses.reduce(function(sum, response) { return sum + (Number(response.data.numFound || response.data.total) || response.docs.length); }, 0);
+      noteSourceHealth('multi', errors.length ? (docs.length ? 'degraded' : 'error') : 'ok', errors.length ? errors.length + ' Manga feeds need attention' : 'All Manga feeds responding', docs.length);
+      return { docs: docs, numFound: total || docs.length, mode: 'search', partial: errors.length > 0, errors: errors };
+    }
+
+    async function fetchShelfPage(shelf, page, extraQuery, sortMode) {
+      if (shelf && (shelf.id === 'manga' || shelf.source === 'aggregate')) return fetchMangaAggregatePage(shelf, page, extraQuery);
+      var source = healthSourceFor(shelf);
+      var provider = ['openlibrary', 'gbooks', 'europeana', 'dpla', 'gcd'].indexOf(source) !== -1;
+      noteSourceHealth(source, 'loading', 'Checking ' + (SOURCE_LABELS[source] || source));
+      try {
+        var result = await fetchShelfPageRaw(shelf, page, extraQuery, sortMode);
+        var docs = (result && result.docs || []).filter(function(doc) { return !doc.setup && doc.identifier !== 'gcd-info'; });
+        if (provider && !docs.length) {
+          var fallback = await fetchProviderFallbackPage(shelf, page, extraQuery, sortMode);
+          noteSourceHealth(source, 'degraded', 'Provider returned no records; showing Internet Archive fallback', fallback.docs.length);
+          return fallback;
+        }
+        noteSourceHealth(source, result && (result.stale || result.degraded) ? 'degraded' : 'ok', result && result.stale ? 'Serving cached provider data' : docs.length + ' records', docs.length);
+        return result;
+      } catch (error) {
+        if (provider) {
+          try {
+            var fallback = await fetchProviderFallbackPage(shelf, page, extraQuery, sortMode);
+            noteSourceHealth(source, 'degraded', 'Provider unavailable; showing Internet Archive fallback', fallback.docs.length);
+            return fallback;
+          } catch (fallbackError) { /* surface the original error below */ }
+        }
+        noteSourceHealth(source, 'error', String(error && error.message || error));
+        throw error;
+      }
+    }
+
     function createLoadMoreCard(shelfId) {
       const card = document.createElement('div');
       card.className = 'load-more-card';
@@ -3273,6 +3614,8 @@
         state.scrapeCursor = null;
         state.useScrape = false;
         state.mode = 'search';
+        state.seenKeys = {};
+        state.docs = [];
         track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Loading...</div>';
       }
 
@@ -3293,8 +3636,15 @@
       try {
         const result = await fetchShelfPage(shelf, nextPage, state.extraQuery, state.sort);
         let docs = (result.docs || []).map(function(doc) { return normalizeIssue(doc, shelf); });
+        docs = dedupeDocs(docs);
         var mangaRack = shelf.id === 'manga' || isAdultShelfId(shelf.id);
         if (!mangaRack) docs = docs.filter(function(doc) { return !isMangaDoc(doc); });
+        docs = docs.filter(function(doc) {
+          var key = dedupeKey(doc);
+          if (state.seenKeys[key]) return false;
+          state.seenKeys[key] = true;
+          return true;
+        });
         const numFound = result.numFound || 0;
 
         if (tailSpinner) tailSpinner.remove();
@@ -3313,7 +3663,7 @@
             : 'deep browse';
         } else {
           state.mode = 'search';
-          countEl.textContent = numFound ? (numFound.toLocaleString() + ' available') : '';
+          countEl.textContent = numFound ? (numFound.toLocaleString() + ' available' + (result.degraded ? ' · fallback' : '')) : '';
           const loaded = state.page * ROWS_PER_PAGE;
           state.hasMore = loaded < numFound && docs.length > 0;
           // Switch to scrape for subsequent loads on huge shelves
@@ -3355,10 +3705,11 @@
         });
 
         kept = shuffleDocs(kept);
+        Array.prototype.push.apply(state.docs, kept);
 
         let added = 0;
         kept.forEach(function(doc) {
-          track.appendChild(createCoverCard(doc));
+          track.appendChild(createCoverCard(doc, state.docs));
           added++;
         });
 
@@ -3619,6 +3970,12 @@
     }
     buildRacksPanel();
     applyRackVisibility();
+    renderSourceHealth();
+    document.getElementById('source-health-refresh').addEventListener('click', function() {
+      renderSourceHealth();
+      loadAllShelves();
+      showToast('Checking source feeds…');
+    });
     document.getElementById('racks-btn').addEventListener('click', function() {
       var panel = document.getElementById('racks-panel');
       panel.classList.toggle('open');
@@ -3627,7 +3984,7 @@
 
     // Library export / import
     document.getElementById('lib-export').addEventListener('click', function() {
-      var blob = new Blob([JSON.stringify({ library: library, history: history, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
+      var blob = new Blob([JSON.stringify({ library: library, favorites: favorites, history: history, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' });
       var a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'magazine-rack-library.json';
@@ -3648,12 +4005,14 @@
           else if (data && Array.isArray(data.library)) {
             library = data.library;
             if (Array.isArray(data.history)) history = data.history;
+            if (Array.isArray(data.favorites)) favorites = data.favorites;
           } else {
             showToast('Invalid library file');
             return;
           }
           saveLibrary();
           saveHistory();
+          saveFavorites();
           renderLibrary();
           renderContinueReading();
           showToast('Library imported · ' + library.length + ' items');
@@ -3718,7 +4077,7 @@
     });
 
     // Detail
-    function openDetail(doc) {
+    function openDetail(doc, contextDocs) {
       if (doc && doc.setup) {
         if (doc.source === 'europeana') window.__setEuropeanaKey();
         if (doc.source === 'dpla') window.__setDplaKey();
@@ -3738,8 +4097,7 @@
       const creator = Array.isArray(doc.creator) ? doc.creator.join(', ') : (doc.creator || 'Unknown');
       const year = (doc.date || '').toString().slice(0, 4);
       const subjects = Array.isArray(doc.subject) ? doc.subject.slice(0, 6) : [];
-      const noArchiveCover = ['loc', 'locsearch', 'xkcd', 'europeana', 'gcd', 'dpla'].indexOf(doc.source) !== -1;
-      const coverUrl = doc.cover || (!noArchiveCover && id ? 'https://archive.org/services/img/' + id : null);
+      const coverUrl = bestCoverUrl(doc);
       const already = library.find(b => b.iaId === id);
       const issueMeta = [doc.publication, doc.issueDate || year, doc.volume ? 'Vol. ' + doc.volume : '', doc.issue ? 'No. ' + doc.issue : '']
         .filter(Boolean).join(' · ');
@@ -3758,6 +4116,7 @@
           : '') +
         '<div class="modal-actions">' +
           '<button class="btn-primary" id="detail-read">Read in App</button>' +
+          '<button class="btn-secondary" id="detail-favorite">' + (isFavorite(id) ? '★ Favorited' : '☆ Favorite') + '</button>' +
           (already
             ? '<button class="btn-secondary" id="detail-open-lib">In Library · Edit</button>'
             : '<button class="btn-secondary" id="detail-add">Save</button>') +
@@ -3771,7 +4130,13 @@
           existing.status = 'reading';
           saveLibrary();
         }
-        openReader(title, id, coverUrl, doc);
+        openReader(title, id, coverUrl, doc, contextDocs || [doc]);
+      });
+
+      document.getElementById('detail-favorite').addEventListener('click', function() {
+        var active = toggleFavorite(doc);
+        this.textContent = active ? '★ Favorited' : '☆ Favorite';
+        showToast(active ? 'Added to favorites' : 'Removed from favorites');
       });
 
       const addBtn = document.getElementById('detail-add');
@@ -3819,8 +4184,8 @@
     function renderLibrary() {
       const grid = document.getElementById('library-grid');
       const empty = document.getElementById('library-empty');
-      let items = library.slice();
-      if (currentFilter !== 'all') items = items.filter(b => b.status === currentFilter);
+      let items = currentFilter === 'favorites' ? favorites.slice() : library.slice();
+      if (currentFilter !== 'all' && currentFilter !== 'favorites') items = items.filter(b => b.status === currentFilter);
 
       grid.innerHTML = '';
       if (items.length === 0) {
@@ -3832,16 +4197,29 @@
       items.forEach(item => {
         const card = document.createElement('div');
         card.className = 'lib-card';
+        const cover = bestCoverUrl(item);
+        const favoriteActive = isFavorite(itemKey(item));
         card.innerHTML =
           '<div class="cover-img-wrap">' +
-            (item.cover
-              ? '<img src="' + item.cover + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'
+            (cover
+              ? '<img src="' + escapeHtml(cover) + '" data-cover-fallbacks="' + escapeHtml(coverCandidates(item).slice(1).join('|')) + '" alt="" loading="lazy">'
               : '') +
-            '<div class="cover-placeholder" style="' + (item.cover ? 'display:none' : '') + '">No cover</div>' +
+            '<div class="cover-placeholder" style="' + (cover ? 'display:none' : '') + '">No cover</div>' +
+            '<button type="button" class="cover-favorite ' + (favoriteActive ? 'active' : '') + '" aria-label="' + (favoriteActive ? 'Remove favorite' : 'Add favorite') + '">' + (favoriteActive ? '★' : '☆') + '</button>' +
           '</div>' +
           '<div class="cover-title">' + escapeHtml(item.title) + '</div>' +
-          '<div class="cover-meta">' + statusLabel(item.status) + '</div>';
-        card.addEventListener('click', () => openLibraryDetail(item));
+          '<div class="cover-meta">' + (currentFilter === 'favorites' ? 'Favorite' : statusLabel(item.status)) + '</div>';
+        bindCoverFallbacks(card);
+        card.querySelector('.cover-favorite').addEventListener('click', function(event) {
+          event.stopPropagation();
+          var active = toggleFavorite(item);
+          this.classList.toggle('active', active);
+          this.textContent = active ? '★' : '☆';
+          this.setAttribute('aria-label', active ? 'Remove favorite' : 'Add favorite');
+          renderLibrary();
+          showToast(active ? 'Added to favorites' : 'Removed from favorites');
+        });
+        card.addEventListener('click', () => currentFilter === 'favorites' ? openDetail(item, [item]) : openLibraryDetail(item));
         grid.appendChild(card);
       });
     }
@@ -3923,8 +4301,33 @@
     var readerState = {
       title: '', iaId: null, cover: null, doc: null,
       hintTimer: null, loadTimer: null, loadToken: 0,
-      lastFocus: null, manualChromeHidden: false
+      lastFocus: null, manualChromeHidden: false, queue: [], queueIndex: 0
     };
+
+    function canReadDocument(doc) {
+      if (!doc) return false;
+      return Boolean(isValidIaId(doc.iaId || (doc.source === 'ia' ? doc.identifier : '')) || doc.fullImage || doc.cover || doc.locUrl || doc.iiifManifest);
+    }
+
+    function updateReaderNavigation() {
+      var previous = document.getElementById('reader-prev');
+      var next = document.getElementById('reader-next');
+      var position = document.getElementById('reader-position');
+      var queue = readerState.queue || [];
+      var hasQueue = queue.length > 1;
+      if (previous) { previous.disabled = !hasQueue || readerState.queueIndex <= 0; previous.title = previous.disabled ? 'No previous issue' : 'Previous issue'; }
+      if (next) { next.disabled = !hasQueue || readerState.queueIndex >= queue.length - 1; next.title = next.disabled ? 'No next issue' : 'Next issue'; }
+      if (position) position.textContent = queue.length ? (readerState.queueIndex + 1) + ' / ' + queue.length : '—';
+    }
+
+    function navigateReader(delta) {
+      var queue = readerState.queue || [];
+      var nextIndex = readerState.queueIndex + delta;
+      if (nextIndex < 0 || nextIndex >= queue.length) return;
+      var item = queue[nextIndex];
+      if (!item) return;
+      openReader(item.title, item.iaId || item.identifier, bestCoverUrl(item), item, queue, nextIndex);
+    }
 
     function isValidIaId(id) {
       if (!id) return false;
@@ -4163,7 +4566,7 @@
       if (h) h.classList.add('show');
     }
 
-    function openReader(title, iaId, cover, doc) {
+    function openReader(title, iaId, cover, doc, contextDocs, requestedIndex) {
       closeModal();
 
       var docSource = doc && doc.source ? String(doc.source).toLowerCase() : 'ia';
@@ -4179,6 +4582,11 @@
         return;
       }
 
+      var navQueue = dedupeDocs((Array.isArray(contextDocs) && contextDocs.length ? contextDocs : [doc]).filter(Boolean)).filter(canReadDocument);
+      if (!navQueue.some(function(item) { return itemKey(item) === itemKey(doc) && itemKey(doc); })) navQueue.unshift(doc);
+      var navIndex = Number.isInteger(requestedIndex) ? requestedIndex : navQueue.findIndex(function(item) { return itemKey(item) === itemKey(doc); });
+      if (navIndex < 0) navIndex = 0;
+
       var active = document.activeElement;
       var priorToken = readerState.loadToken || 0;
       readerState = {
@@ -4190,14 +4598,16 @@
         loadTimer: null,
         loadToken: priorToken + 1,
         lastFocus: active && active !== document.body && active.focus ? active : null,
-        manualChromeHidden: false
+        manualChromeHidden: false,
+        queue: navQueue,
+        queueIndex: navIndex
       };
 
-      pushHistory({
+      pushHistory(Object.assign({}, doc || {}, {
         iaId: readerState.iaId || (doc && doc.locUrl) || title,
         title: title,
-        cover: cover || null
-      });
+        cover: cover || bestCoverUrl(doc) || null
+      }));
 
       var short = (title || 'Reading').length > 42
         ? (title || '').slice(0, 40) + '…'
@@ -4218,6 +4628,7 @@
       reader.classList.remove('chrome-hidden');
       reader.classList.add('open');
       document.body.style.overflow = 'hidden';
+      updateReaderNavigation();
       setReaderStatus('Preparing ' + sourceLabel + '...');
       loadReaderContent();
       setTimeout(function() {
@@ -4247,8 +4658,9 @@
       readerState = {
         title: '', iaId: null, cover: null, doc: null,
         hintTimer: null, loadTimer: null, loadToken: nextToken,
-        lastFocus: null, manualChromeHidden: false
+        lastFocus: null, manualChromeHidden: false, queue: [], queueIndex: 0
       };
+      updateReaderNavigation();
       if (priorFocus && priorFocus.isConnected) {
         try { priorFocus.focus(); } catch (e) {}
       }
@@ -4270,6 +4682,13 @@
     document.getElementById('reader-hint-dismiss').addEventListener('click', hideReaderHint);
     document.getElementById('reader-loading-retry').addEventListener('click', function() {
       loadReaderContent();
+    });
+
+    document.getElementById('reader-prev').addEventListener('click', function() {
+      navigateReader(-1);
+    });
+    document.getElementById('reader-next').addEventListener('click', function() {
+      navigateReader(1);
     });
 
     document.getElementById('reader-reload').addEventListener('click', function() {
@@ -4346,6 +4765,11 @@
           tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
         e.preventDefault();
         document.getElementById('reader-fs').click();
+      }
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
+          tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+        e.preventDefault();
+        navigateReader(e.key === 'ArrowLeft' ? -1 : 1);
       }
     });
 
