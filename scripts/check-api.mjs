@@ -91,6 +91,7 @@ globalThis.fetch = async (url) => {
   if (target.includes('openlibrary.org/search.json')) return new Response(JSON.stringify({ numFound: 1, docs: [{ key: '/works/OL1W', title: 'Open Demo', author_name: ['Writer'], first_publish_year: 1922, cover_i: 123, number_of_pages_median: 100 }] }), { headers: { 'Content-Type': 'application/json' } });
   if (target.includes('www.comics.org/api/series/name/')) return new Response(JSON.stringify({ count: 1, results: [{ id: 77, name: 'Demo Comics', publisher: 'Demo Press', year_began: 1940 }] }), { headers: { 'Content-Type': 'application/json' } });
   if (target.includes('api.dp.la/v2/items')) return new Response(JSON.stringify({ count: 1, docs: [{ id: 'demo-dpla', isShownAt: 'https://dp.la/item/demo-dpla', sourceResource: { title: ['Demo Periodical'], creator: ['Demo Publisher'], date: '1942', type: ['Magazine'] } }] }), { headers: { 'Content-Type': 'application/json' } });
+  if (target.includes('api.europeana.eu/record/v2/search.json')) return new Response(JSON.stringify({ totalResults: 1, items: [{ id: '/demo/europeana', title: ['Demo Europeana'], dcCreator: ['Demo Publisher'], year: ['1943'], guid: 'https://www.europeana.eu/en/item/demo/europeana' }] }), { headers: { 'Content-Type': 'application/json' } });
   throw new Error(`unexpected test fetch: ${target}`);
 };
 
@@ -101,7 +102,7 @@ try {
   const catalog = await worker.fetch(new Request('https://api.example/api/catalog?q=demo'), dbEnv, dbContext);
   assert.equal(catalog.status, 200);
   const catalogBody = await catalog.json();
-  assert.equal(catalogBody.items.length, 5);
+  assert.equal(catalogBody.items.length, 6);
   assert.equal(catalogBody.stale, false);
   await Promise.all(waits);
 

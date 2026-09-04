@@ -28,6 +28,11 @@ const URL_POLICIES = Object.freeze({
     reader: [['dp.la', '/item/'], ['www.dp.la', '/item/'], ['pro.dp.la', '/']],
     cover: [['images.dp.la', '/'], ['dp.la', '/'], ['www.dp.la', '/']],
   },
+  europeana: {
+    source: [['europeana.eu', '/'], ['www.europeana.eu', '/']],
+    reader: [['europeana.eu', '/'], ['www.europeana.eu', '/']],
+    cover: [['api.europeana.eu', '/'], ['europeana.eu', '/'], ['www.europeana.eu', '/']],
+  },
 });
 
 export function asText(value, max = 500) {

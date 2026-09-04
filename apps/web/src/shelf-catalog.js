@@ -254,7 +254,7 @@ export const SHELVES = [
     title: 'Funnies',
     newspaperDateMode: 'month-day',
     newspaperOnly: true,
-    query: `mediatype:texts AND (title:("little nemo" OR "dick tracy" OR "flash gordon" OR "buck rogers" OR "little orphan annie" OR "katzenjammer" OR "bringing up father" OR "sunday funnies" OR "sunday comics" OR "terry and the pirates" OR "prince valiant" OR "krazy kat" OR "gasoline alley" OR "popeye" OR "thimble theatre" OR "blondie" OR "li'l abner" OR "barnaby") OR subject:("comic strip" OR "comic strips" OR "sunday comics" OR "newspaper comics" OR funnies)) AND NOT subject:(manga OR anime OR hentai OR "graphic novel")${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (collection:(comics OR comicbooks) OR title:(comic OR comics OR funnies OR "comic news") OR subject:(comic OR comics OR funnies OR "comic strip")) AND NOT subject:(manga OR anime OR hentai OR "graphic novel")${ADULT_EXCLUDE}`
   },
   {
     id: 'chronam',

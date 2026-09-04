@@ -2300,7 +2300,7 @@
       var target = currentNewspaperMonthDay();
       return docs.filter(function(doc) {
         if (!shelf.newspaperOnly && !isNewspaperDocument(doc)) return true;
-        return recordMonthDay(doc && (doc.issueDate || doc.date)) === target;
+        return [doc && doc.title, doc && doc.identifier, doc && doc.issueDate, doc && doc.date].map(recordMonthDay).some(function(value) { return value === target; });
       });
     }
 
@@ -2317,10 +2317,18 @@
 
     function recordMonthDay(value) {
       var text = String(value || '');
+      var compactYearFirst = text.match(/(?:^|[^0-9])((?:19|20)\d{2})(\d{2})(\d{2})(?:$|[^0-9])/);
+      if (compactYearFirst) return compactYearFirst[2].padStart(2, '0') + '-' + compactYearFirst[3].padStart(2, '0');
+      var compactMonthFirst = text.match(/(?:^|[^0-9])(\d{2})(\d{2})((?:19|20)\d{2})(?:$|[^0-9])/);
+      if (compactMonthFirst) return compactMonthFirst[1] + '-' + compactMonthFirst[2];
       var iso = text.match(/\b\d{4}[-/.](\d{1,2})[-/.](\d{1,2})\b/);
       if (iso) return String(iso[1]).padStart(2, '0') + '-' + String(iso[2]).padStart(2, '0');
       var american = text.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.]\d{4}\b/);
-      return american ? String(american[1]).padStart(2, '0') + '-' + String(american[2]).padStart(2, '0') : '';
+      if (american) return String(american[1]).padStart(2, '0') + '-' + String(american[2]).padStart(2, '0');
+      var named = text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+\d{4}\b/i);
+      if (named) return String(['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'].indexOf(named[1].toLowerCase()) + 1).padStart(2, '0') + '-' + String(named[2]).padStart(2, '0');
+      var namedDayFirst = text.match(/\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:[,]?)\s+\d{4}\b/i);
+      return namedDayFirst ? String(['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'].indexOf(namedDayFirst[2].toLowerCase()) + 1).padStart(2, '0') + '-' + String(namedDayFirst[1]).padStart(2, '0') : '';
     }
 
     var CHRONAM_SAMPLE_YEARS = [1963, 1960, 1955, 1950, 1945, 1940, 1935, 1930, 1925, 1920, 1915, 1910, 1905, 1900, 1890, 1880, 1870, 1860, 1850, 1840, 1830, 1820, 1810, 1800];
@@ -2519,7 +2527,7 @@
     }
 
     async function fetchEuropeanaPage(shelf, page, extraQuery) {
-      var key = (prefs.europeanaKey || '').trim();
+      var key = (prefs.europeanaKey || 'api2demo').trim();
       if (!key) {
         // No key yet — return a single instructional card
         return {
@@ -2540,6 +2548,12 @@
       var q = shelf.euQuery || 'newspaper';
       if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) {
         q = extraQuery.trim();
+      }
+      if (shelf.newspaperDateMode === 'month-day') {
+        var target = currentNewspaperMonthDay();
+        var parts = target.split('-');
+        var monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][parseInt(parts[0], 10) - 1];
+        q = '(' + q + ') AND ("' + monthName + ' ' + parseInt(parts[1], 10) + '" OR "' + target + '" OR "' + parseInt(parts[0], 10) + '/' + parseInt(parts[1], 10) + '")';
       }
       var start = 1 + ((page - 1) * ROWS_PER_PAGE);
       var params = 'wskey=' + encodeURIComponent(key) +
@@ -2982,21 +2996,27 @@
       return String(sortMode).replace(/\+/g, ' ');
     }
 
-    async function fetchIaAdvanced(q, page, sortMode) {
-      var key = iaCacheKey('adv', [q, String(page), sortMode || '']);
+    async function fetchIaAdvanced(q, page, sortMode, newspaperMode) {
+      var key = iaCacheKey('adv', [q, String(page), sortMode || '', newspaperMode ? 'paper' : 'all']);
       var cached = iaCacheGet(key);
       if (cached) return cached;
       return enqueueIa(async function() {
         var cached2 = iaCacheGet(key);
         if (cached2) return cached2;
-        var url = 'https://archive.org/advancedsearch.php?q=' + encodeURIComponent(q) +
-          '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=date&fl[]=subject&fl[]=imagecount&fl[]=collection&fl[]=publicdate' +
-          '&rows=' + ROWS_PER_PAGE +
-          '&page=' + page +
-          '&output=json&sort[]=' + (sortMode || 'downloads+desc');
-        var data = await iaFetchJson(url);
-        var docs = (data.response && data.response.docs) ? data.response.docs : [];
-        var numFound = (data.response && data.response.numFound) ? data.response.numFound : docs.length;
+        var rawPages = newspaperMode ? 6 : 1;
+        var responses = [];
+        for (var offset = 0; offset < rawPages; offset++) {
+          var rawPage = newspaperMode ? ((page - 1) * rawPages) + offset + 1 : page;
+          var url = 'https://archive.org/advancedsearch.php?q=' + encodeURIComponent(q) +
+            '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=date&fl[]=subject&fl[]=imagecount&fl[]=collection&fl[]=publicdate' +
+            '&rows=' + ROWS_PER_PAGE +
+            '&page=' + rawPage +
+            '&output=json&sort[]=' + (sortMode || 'downloads+desc');
+          responses.push(await iaFetchJson(url));
+        }
+        var docs = responses.reduce(function(all, data) { return all.concat((data.response && data.response.docs) ? data.response.docs : []); }, []);
+        var rawTotal = responses.reduce(function(total, data) { return total + ((data.response && data.response.numFound) ? data.response.numFound : 0); }, 0);
+        var numFound = newspaperMode ? Math.max((page - 1) * ROWS_PER_PAGE + docs.length + (docs.length ? ROWS_PER_PAGE : 0), docs.length) : rawTotal || docs.length;
         var out = { docs: docs, numFound: numFound, mode: 'search' };
         iaCacheSet(key, out);
         return out;
@@ -3083,6 +3103,14 @@
       if (extraQuery && extraQuery.trim()) {
         q = '(' + q + ') AND (' + extraQuery.trim() + ')';
       }
+      if (shelf.newspaperDateMode === 'month-day') {
+        var newspaperTarget = currentNewspaperMonthDay();
+        var newspaperParts = newspaperTarget.split('-');
+        var newspaperMonth = newspaperParts[0];
+        var newspaperDay = newspaperParts[1];
+        var newspaperName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][parseInt(newspaperMonth, 10) - 1];
+        q = '(' + q + ') AND (identifier:*' + newspaperMonth + newspaperDay + '* OR title:("' + newspaperName + ' ' + parseInt(newspaperDay, 10) + '"))';
+      }
 
       var sort = sortMode || 'downloads+desc';
       var state = shelfState[shelf.id] || {};
@@ -3093,7 +3121,7 @@
         return filterNewspaperResult(shelf, scraped);
       }
 
-      var adv = await fetchIaAdvanced(q, page, sort);
+      var adv = await fetchIaAdvanced(q, page, sort, shelf.newspaperDateMode === 'month-day');
       // If we're deep into results or collection is huge, next loads use scrape
       var loadedApprox = page * ROWS_PER_PAGE;
       if (adv.numFound > 8000 && loadedApprox >= 90) {

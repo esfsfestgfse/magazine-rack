@@ -282,6 +282,10 @@ export function monthDayKey(value = new Date()) {
 export function dateMonthDay(value) {
   const text = valueText(value).trim();
   if (!text || !/\d{4}/.test(text)) return '';
+  const compactYearFirst = text.match(/(?:^|[^0-9])((?:19|20)\d{2})(\d{2})(\d{2})(?:$|[^0-9])/);
+  if (compactYearFirst) return `${compactYearFirst[2]}-${compactYearFirst[3]}`;
+  const compactMonthFirst = text.match(/(?:^|[^0-9])(\d{2})(\d{2})((?:19|20)\d{2})(?:$|[^0-9])/);
+  if (compactMonthFirst) return `${compactMonthFirst[1]}-${compactMonthFirst[2]}`;
   const iso = text.match(/\b\d{4}[-/.](\d{1,2})[-/.](\d{1,2})\b/);
   if (iso) return `${String(iso[1]).padStart(2, '0')}-${String(iso[2]).padStart(2, '0')}`;
   const american = text.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.]\d{4}\b/);
@@ -290,6 +294,11 @@ export function dateMonthDay(value) {
   if (named) {
     const month = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'].indexOf(named[1].toLowerCase()) + 1;
     return `${String(month).padStart(2, '0')}-${String(named[2]).padStart(2, '0')}`;
+  }
+  const namedDayFirst = text.match(/\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)(?:[,]?)\s+\d{4}\b/i);
+  if (namedDayFirst) {
+    const month = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'].indexOf(namedDayFirst[2].toLowerCase()) + 1;
+    return `${String(month).padStart(2, '0')}-${String(namedDayFirst[1]).padStart(2, '0')}`;
   }
   return '';
 }
@@ -312,7 +321,7 @@ function newspaperMetadata(shelf, options) {
 function filterNewspaperDocs(docs, metadata) {
   if (metadata.newspaperDateMode !== 'month-day') return docs;
   const target = metadata.newspaperMonthDay || monthDayKey();
-  return docs.filter((doc) => (!metadata.newspaperOnly && !isNewspaperDoc(doc)) || dateMonthDay(doc.date || doc.issueDate) === target);
+  return docs.filter((doc) => (!metadata.newspaperOnly && !isNewspaperDoc(doc)) || [doc.title, doc.identifier, doc.issueDate, doc.date].map(dateMonthDay).find(Boolean) === target);
 }
 
 function iaQuery(shelf, options) {
@@ -320,12 +329,20 @@ function iaQuery(shelf, options) {
   if (!query) query = 'mediatype:texts';
   const range = dateRange(options);
   if (range.start && range.end && !/\bdate\s*:/i.test(query)) query = `${query} AND date:[${range.start} TO ${range.end}]`;
+  if (shelf.newspaperDateMode === 'month-day') {
+    const target = options.newspaperMonthDay || monthDayKey();
+    const [month, day] = target.split('-');
+    const monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(month) - 1];
+    query = `${query} AND (identifier:*${month}${day}* OR title:("${monthName} ${Number(day)}"))`;
+  }
   return boundedQuery(query);
 }
 
 function iaSort(value) {
   const candidate = String(value || '').replace(/\s+/g, '+');
-  return IA_SORTS.has(candidate) ? candidate : 'downloads+desc';
+  // URLSearchParams percent-encodes `+` as a literal plus. IA expects the
+  // separator as a space, so return the canonical value with spaces here.
+  return (IA_SORTS.has(candidate) ? candidate : 'downloads+desc').replace(/\+/g, ' ');
 }
 
 function iaFields(params) {
@@ -342,12 +359,17 @@ function archiveCover(identifier) {
 
 async function fetchIaAdvanced(shelf, page, options) {
   const size = pageSize(options.pageSize);
-  const params = new URLSearchParams({ q: iaQuery(shelf, options), rows: String(size), page: String(page), output: 'json' });
-  iaFields(params);
-  params.append('sort[]', iaSort(options.sort || options.sortMode));
-  const data = await fetchJson(`${IA_BASE}/advancedsearch.php?${params}`, options);
-  const docs = data?.response?.docs || [];
-  const numFound = numberValue(data?.response?.numFound) || docs.length;
+  const newspaper = shelf.newspaperDateMode === 'month-day';
+  const rawPages = newspaper ? Array.from({ length: 6 }, (_, index) => ((page - 1) * 6) + index + 1) : [page];
+  const responses = await mapLimit(rawPages, newspaper ? 3 : 1, async (rawPage) => {
+    const params = new URLSearchParams({ q: iaQuery(shelf, options), rows: String(size), page: String(rawPage), output: 'json' });
+    iaFields(params);
+    params.append('sort[]', iaSort(options.sort || options.sortMode));
+    return fetchJson(`${IA_BASE}/advancedsearch.php?${params}`, options);
+  });
+  const docs = responses.flatMap((data) => data?.response?.docs || []);
+  const rawTotal = responses.reduce((sum, data) => sum + numberValue(data?.response?.numFound), 0);
+  const numFound = newspaper ? Math.max((page - 1) * size + docs.length + (docs.length ? size : 0), docs.length) : rawTotal || docs.length;
   const deepAvailable = numFound > 8_000 && page * size >= 90;
   return result(docs.map((doc) => ({
     ...doc,
@@ -355,7 +377,7 @@ async function fetchIaAdvanced(shelf, page, options) {
     cover: archiveCover(doc.identifier),
     locUrl: doc.identifier ? `${IA_BASE}/details/${encodeURIComponent(doc.identifier)}` : null,
     pages: numberValue(doc.imagecount)
-  })), { source: 'ia', page, pageSize: size, numFound, deepAvailable, nextMode: deepAvailable ? 'scrape' : null, ...newspaperMetadata(shelf, options) });
+  })), { source: 'ia', page, pageSize: size, numFound, filteredTotal: newspaper ? numFound : undefined, deepAvailable, nextMode: deepAvailable ? 'scrape' : null, ...newspaperMetadata(shelf, options) });
 }
 
 async function fetchIaScrape(shelf, page, options) {
@@ -631,7 +653,7 @@ async function fetchOpenLibrarySubjectsPage(shelf, page, options) {
 }
 
 async function fetchEuropeanaPage(shelf, page, options) {
-  const key = cleanText(options.europeanaKey || shelf.europeanaKey || shelf.euKey || options.apiKeys?.europeana || '', 200);
+  const key = cleanText(options.europeanaKey || shelf.europeanaKey || shelf.euKey || options.apiKeys?.europeana || 'api2demo', 200);
   if (!key) {
     return result([{
       source: 'europeana',
@@ -645,6 +667,12 @@ async function fetchEuropeanaPage(shelf, page, options) {
   const size = pageSize(options.pageSize);
   let query = queryFor(shelf, options, ['euQuery', 'query']) || 'newspaper';
   if (options.query && !options.dateRange && !options.decade) query = boundedQuery(options.query);
+  if (shelf.newspaperDateMode === 'month-day') {
+    const target = options.newspaperMonthDay || monthDayKey();
+    const [month, day] = target.split('-');
+    const monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(month) - 1];
+    query = boundedQuery(`(${query}) AND ("${monthName} ${Number(day)}" OR "${target}" OR "${Number(month)}/${Number(day)}")`);
+  }
   const params = new URLSearchParams({ wskey: key, query, rows: String(size), start: String(1 + ((page - 1) * size)), media: 'true', profile: 'rich' });
   if (shelf.euTheme) params.set('theme', boundedQuery(shelf.euTheme));
   const data = await fetchJson(`https://api.europeana.eu/record/v2/search.json?${params}`, options);
