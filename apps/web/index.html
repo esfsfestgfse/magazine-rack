@@ -3242,8 +3242,11 @@
       }
       url.searchParams.set('q', query);
       url.searchParams.set('page', String(page));
+      // Avoid pinning a previous empty provider response in the browser or
+      // an edge cache after a source recovers or a new fallback is published.
+      url.searchParams.set('_', String(Math.floor(Date.now() / 60000)));
       if (shelf.newspaperDateMode === 'month-day') url.searchParams.set('newspaper_month_day', currentNewspaperMonthDay());
-      var res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+      var res = await fetch(url.toString(), { cache: 'no-store', headers: { 'Accept': 'application/json' } });
       if (!res.ok) throw new Error('Catalog API HTTP ' + res.status);
       var data = await res.json();
       var docs = (data.items || []).map(function(item) {
