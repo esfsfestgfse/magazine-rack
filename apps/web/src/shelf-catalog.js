@@ -245,17 +245,23 @@ export const SHELVES = [
   {
     id: 'newspapers',
     title: 'Papers',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: true,
     query: `mediatype:texts AND (collection:(newspapers) OR subject:newspapers) AND language:English${ADULT_EXCLUDE}`
   },
   {
     id: 'funnies',
     title: 'Funnies',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: true,
     query: `mediatype:texts AND (title:("little nemo" OR "dick tracy" OR "flash gordon" OR "buck rogers" OR "little orphan annie" OR "katzenjammer" OR "bringing up father" OR "sunday funnies" OR "sunday comics" OR "terry and the pirates" OR "prince valiant" OR "krazy kat" OR "gasoline alley" OR "popeye" OR "thimble theatre" OR "blondie" OR "li'l abner" OR "barnaby") OR subject:("comic strip" OR "comic strips" OR "sunday comics" OR "newspaper comics" OR funnies)) AND NOT subject:(manga OR anime OR hentai OR "graphic novel")${ADULT_EXCLUDE}`
   },
   {
     id: 'chronam',
     title: 'ChronAm',
     source: 'loc',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: true,
     locQs: 'newspaper',
     locExtra: 'dl=page'
   },
@@ -263,6 +269,8 @@ export const SHELVES = [
     id: 'chronam-funnies',
     title: 'ChronAm Funnies',
     source: 'loc',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: true,
     locQs: 'comic strip',
     locExtra: 'dl=page'
   },
@@ -270,6 +278,8 @@ export const SHELVES = [
     id: 'chronam-front',
     title: 'ChronAm Front',
     source: 'loc',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: true,
     locQs: 'front page',
     locExtra: 'dl=page'
   },
@@ -277,6 +287,8 @@ export const SHELVES = [
     id: 'chronam-texas',
     title: 'ChronAm Texas',
     source: 'loc',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: true,
     locQs: 'texas',
     locExtra: 'dl=page&location_state=texas'
   },
@@ -284,6 +296,8 @@ export const SHELVES = [
     id: 'chronam-ca',
     title: 'ChronAm CA',
     source: 'loc',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: true,
     locQs: 'california',
     locExtra: 'dl=page&location_state=california'
   },
@@ -291,6 +305,8 @@ export const SHELVES = [
     id: 'chronam-ny',
     title: 'ChronAm NY',
     source: 'loc',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: true,
     locQs: 'new york',
     locExtra: 'dl=page&location_state=new york'
   },
@@ -315,6 +331,8 @@ export const SHELVES = [
     id: 'europeana',
     title: 'Europeana',
     source: 'europeana',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: true,
     euQuery: 'newspaper',
     euTheme: 'newspaper'
   },
@@ -324,12 +342,6 @@ export const SHELVES = [
     source: 'europeana',
     euQuery: 'comic OR comics OR "bande dessinee" OR "comic strip"',
     euTheme: ''
-  },
-  {
-    id: 'wikimedia-comics',
-    title: 'Wikimedia PD',
-    source: 'wikimedia',
-    wmQuery: 'comic strip OR comic book OR bande dessinee'
   },
   {
     id: 'ol-subjects',
@@ -383,6 +395,8 @@ export const SHELVES = [
     id: 'dpla-periodicals',
     title: 'DPLA Periodicals',
     source: 'dpla',
+    newspaperDateMode: 'month-day',
+    newspaperOnly: false,
     format: 'magazine',
     dplaQuery: 'magazine OR periodical OR newspaper OR comic OR zine'
   },

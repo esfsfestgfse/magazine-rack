@@ -198,7 +198,6 @@ export function sourceLabel(source = '') {
     openlibrary: 'Open Library',
     olsubjects: 'Open Library',
     europeana: 'Europeana',
-    wikimedia: 'Wikimedia Commons',
     gbooks: 'Google Books',
     gcd: 'Grand Comics Database',
     dpla: 'Digital Public Library of America'
@@ -220,9 +219,10 @@ function result(docs = [], metadata = {}) {
       seen.add(doc.identifier);
       return true;
     });
+  const filtered = filterNewspaperDocs(normalized, metadata);
   return {
-    docs: normalized,
-    numFound: numberValue(metadata.numFound) || normalized.length,
+    docs: filtered,
+    numFound: metadata.newspaperDateMode === 'month-day' ? numberValue(metadata.filteredTotal) || filtered.length : numberValue(metadata.numFound) || filtered.length,
     page: pageNumber(metadata.page),
     pageSize: pageSize(metadata.pageSize),
     source: metadata.source || normalized[0]?.source || 'unknown',
@@ -249,7 +249,6 @@ function sourceOf(shelf = {}) {
   if (['open-library', 'open_library', 'ol'].includes(source)) return 'openlibrary';
   if (['olsubjects', 'ol-subjects', 'openlibrary-subjects'].includes(source)) return 'olsubjects';
   if (['eu', 'europena'].includes(source)) return 'europeana';
-  if (['commons', 'wikimedia-commons', 'wikimedia_commons'].includes(source)) return 'wikimedia';
   if (['google-books', 'googlebooks', 'google_books'].includes(source)) return 'gbooks';
   if (['grand-comics-database', 'grand_comics_database', 'comics.org'].includes(source)) return 'gcd';
   if (['digital-public-library-of-america', 'digital-public-library', 'dpla-api'].includes(source)) return 'dpla';
@@ -270,6 +269,50 @@ function dateRange(options = {}) {
   if (typeof range === 'object') return { start: cleanText(range.start, 20), end: cleanText(range.end, 20) };
   const [start = '', end = ''] = String(range).split(/\s+TO\s+/i);
   return { start: cleanText(start, 20), end: cleanText(end, 20) };
+}
+
+/** Return the user's local calendar month/day as MM-DD; the year is ignored. */
+export function monthDayKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/** Extract a month/day only when a record contains a complete calendar date. */
+export function dateMonthDay(value) {
+  const text = valueText(value).trim();
+  if (!text || !/\d{4}/.test(text)) return '';
+  const iso = text.match(/\b\d{4}[-/.](\d{1,2})[-/.](\d{1,2})\b/);
+  if (iso) return `${String(iso[1]).padStart(2, '0')}-${String(iso[2]).padStart(2, '0')}`;
+  const american = text.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.]\d{4}\b/);
+  if (american) return `${String(american[1]).padStart(2, '0')}-${String(american[2]).padStart(2, '0')}`;
+  const named = text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+\d{4}\b/i);
+  if (named) {
+    const month = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'].indexOf(named[1].toLowerCase()) + 1;
+    return `${String(month).padStart(2, '0')}-${String(named[2]).padStart(2, '0')}`;
+  }
+  return '';
+}
+
+function isNewspaperDoc(doc = {}) {
+  if (doc.format === 'paper' || doc.source === 'loc') return true;
+  const text = [doc.title, doc.creator, doc.publication, doc.genre, ...(doc.subject || [])].map(valueText).join(' ').toLowerCase();
+  return /newspaper|gazette|\bpaper\b/.test(text);
+}
+
+function newspaperMetadata(shelf, options) {
+  if (shelf?.newspaperDateMode !== 'month-day') return {};
+  return {
+    newspaperDateMode: 'month-day',
+    newspaperOnly: Boolean(shelf.newspaperOnly),
+    newspaperMonthDay: options.newspaperMonthDay || monthDayKey()
+  };
+}
+
+function filterNewspaperDocs(docs, metadata) {
+  if (metadata.newspaperDateMode !== 'month-day') return docs;
+  const target = metadata.newspaperMonthDay || monthDayKey();
+  return docs.filter((doc) => (!metadata.newspaperOnly && !isNewspaperDoc(doc)) || dateMonthDay(doc.date || doc.issueDate) === target);
 }
 
 function iaQuery(shelf, options) {
@@ -312,7 +355,7 @@ async function fetchIaAdvanced(shelf, page, options) {
     cover: archiveCover(doc.identifier),
     locUrl: doc.identifier ? `${IA_BASE}/details/${encodeURIComponent(doc.identifier)}` : null,
     pages: numberValue(doc.imagecount)
-  })), { source: 'ia', page, pageSize: size, numFound, deepAvailable, nextMode: deepAvailable ? 'scrape' : null });
+  })), { source: 'ia', page, pageSize: size, numFound, deepAvailable, nextMode: deepAvailable ? 'scrape' : null, ...newspaperMetadata(shelf, options) });
 }
 
 async function fetchIaScrape(shelf, page, options) {
@@ -340,7 +383,8 @@ async function fetchIaScrape(shelf, page, options) {
     pageSize: size,
     numFound: numberValue(data?.total) || docs.length,
     mode: 'scrape',
-    nextCursor: cleanText(data?.cursor || '', 300) || null
+    nextCursor: cleanText(data?.cursor || '', 300) || null,
+    ...newspaperMetadata(shelf, options)
   });
 }
 
@@ -385,7 +429,65 @@ function locExtraParams(extra) {
   return params;
 }
 
+// LOC accepts an exact ISO date, not a month/day wildcard. Sampling across
+// historical years keeps this feed fast while ensuring every returned record
+// is for today's calendar day regardless of publication year.
+const CHRONAM_SAMPLE_YEARS = Object.freeze([
+  1963, 1960, 1955, 1950, 1945, 1940, 1935, 1930, 1925, 1920,
+  1915, 1910, 1905, 1900, 1890, 1880, 1870, 1860, 1850, 1840,
+  1830, 1820, 1810, 1800
+]);
+
+function newspaperYears(target, options) {
+  const range = dateRange(options);
+  const min = Number(range.start.slice(0, 4)) || 0;
+  const max = Number(range.end.slice(0, 4)) || Number.POSITIVE_INFINITY;
+  if (min && max && max - min <= 4) {
+    return Array.from({ length: max - min + 1 }, (_, index) => min + index)
+      .filter((year) => target !== '02-29' || year % 4 === 0);
+  }
+  return CHRONAM_SAMPLE_YEARS.filter((year) => year >= min && year <= max && (target !== '02-29' || year % 4 === 0));
+}
+
+async function fetchLocExactDay(shelf, query, year, target, page, perYear, options, includeFacet = true) {
+  const params = new URLSearchParams({ fo: 'json', c: String(perYear), sp: String(page), qs: query, dates: `${year}-${target}` });
+  if (includeFacet) {
+    for (const [key, value] of locExtraParams(shelf.locExtra).entries()) params.append(key, value);
+  }
+  return fetchJson(`${LOC_BASE}/collections/chronicling-america/?${params}`, { ...options, headers: { Accept: 'application/json', ...(options.headers || {}) } });
+}
+
+async function fetchLocMonthDayPage(shelf, page, options) {
+  const size = pageSize(options.pageSize);
+  const target = options.newspaperMonthDay || monthDayKey();
+  const years = newspaperYears(target, options);
+  const query = queryFor(shelf, options, ['locQs', 'query']) || 'newspaper';
+  const perYear = Math.max(2, Math.ceil(size / 8));
+  const responses = await mapLimit(years, 6, async (year) => {
+    try {
+      return await fetchLocExactDay(shelf, query, year, target, page, perYear, options, true);
+    } catch (error) {
+      if (!shelf.locExtra) throw error;
+      return fetchLocExactDay(shelf, query, year, target, page, perYear, options, false);
+    }
+  });
+  const successful = responses.filter((entry) => entry && !entry.error);
+  const failed = responses.filter((entry) => entry?.error).map((entry) => errorInfo(entry.error));
+  const docs = successful.flatMap((data) => (data?.results || []).map((item) => mapLocDoc(item, 'loc')));
+  const total = successful.reduce((sum, data) => sum + numberValue(data?.pagination?.of || data?.pagination?.total), 0);
+  return result(docs, {
+    source: 'loc',
+    page,
+    pageSize: size,
+    filteredTotal: total || docs.length,
+    partial: failed.length > 0,
+    errors: failed,
+    ...newspaperMetadata(shelf, options)
+  });
+}
+
 async function fetchLocPage(shelf, page, options, search = false) {
+  if (!search && shelf.newspaperDateMode === 'month-day') return fetchLocMonthDayPage(shelf, page, options);
   const size = pageSize(options.pageSize);
   const query = queryFor(shelf, options, ['locQs', 'query']) || (search ? 'comic' : 'newspaper');
   const params = new URLSearchParams({ fo: 'json', c: String(size), sp: String(page) });
@@ -422,7 +524,8 @@ async function fetchLocPage(shelf, page, options, search = false) {
     source: search ? 'locsearch' : 'loc',
     page,
     pageSize: size,
-    numFound: numberValue(pagination.of || pagination.total) || docs.length
+    numFound: numberValue(pagination.of || pagination.total) || docs.length,
+    ...newspaperMetadata(shelf, options)
   });
 }
 
@@ -562,7 +665,7 @@ async function fetchEuropeanaPage(shelf, page, options) {
       pages: 1
     };
   });
-  return result(docs, { source: 'europeana', page, pageSize: size, numFound: numberValue(data?.totalResults) || docs.length });
+  return result(docs, { source: 'europeana', page, pageSize: size, numFound: numberValue(data?.totalResults) || docs.length, ...newspaperMetadata(shelf, options) });
 }
 
 function sourceQueryText(base, options) {
@@ -606,35 +709,7 @@ async function fetchDplaPage(shelf, page, options) {
     const link = valueText(record.isShownAt || record.source || record.provider);
     return { source: 'dpla', identifier: `dpla-${id}`, title: valueText(resource.title || record.title || 'DPLA item'), creator: valueText(resource.creator || resource.contributor || resource.publisher || 'DPLA'), publication: valueText(resource.publisher || resource.source), date: valueText(resource.date || record.date), issueDate: valueText(resource.date || record.date), subject: list(resource.subject || resource.type || resource.format), format: formatKey(shelf.format || resource.type || resource.format || resource.subject) || 'magazine', cover: httpsUrl(record.object || record.thumbnail || record.objectUrl || record.isShownBy), fullImage: httpsUrl(record.isShownBy || record.object || record.objectUrl), iiifManifest: httpsUrl(record.iiifManifest || record.manifest || record.hasView), locUrl: /^https?:\/\//i.test(link) ? link : `https://dp.la/item/${encodeURIComponent(id)}` };
   });
-  return result(docs, { source: 'dpla', page, pageSize: size, numFound: numberValue(data?.count || data?.total || data?.pagination?.total) || docs.length });
-}
-
-async function fetchWikimediaPage(shelf, page, options) {
-  const size = pageSize(options.pageSize);
-  const baseQuery = boundedQuery(shelf.wmQuery || shelf.query || 'comic strip');
-  const extra = boundedQuery(options.query || options.extraQuery || '');
-  const query = boundedQuery(`${baseQuery} filetype:bitmap${extra ? ` ${extra}` : ''}`);
-  const params = new URLSearchParams({ action: 'query', format: 'json', origin: '*', generator: 'search', gsrsearch: query, gsrnamespace: '6', gsrlimit: String(size), gsroffset: String(Math.max(0, (page - 1) * size)), prop: 'imageinfo', iiprop: 'url|mime|size', iiurlwidth: '240' });
-  const data = await fetchJson(`https://commons.wikimedia.org/w/api.php?${params}`, options);
-  const pages = data?.query?.pages || {};
-  const docs = Object.values(pages).map((item) => {
-    const info = item.imageinfo?.[0];
-    if (!info) return null;
-    const title = String(item.title || '').replace(/^File:/, '');
-    return {
-      source: 'wikimedia',
-      identifier: `wm-${item.pageid || title}`,
-      title,
-      creator: 'Wikimedia Commons',
-      subject: ['public domain', 'image'],
-      cover: info.thumburl || info.url,
-      fullImage: info.url,
-      locUrl: `https://commons.wikimedia.org/wiki/${encodeURIComponent(item.title || '')}`,
-      imagecount: 1,
-      pages: 1
-    };
-  }).filter(Boolean);
-  return result(docs, { source: 'wikimedia', page, pageSize: size, numFound: numberValue(data?.query?.searchinfo?.totalhits) || docs.length });
+  return result(docs, { source: 'dpla', page, pageSize: size, numFound: numberValue(data?.count || data?.total || data?.pagination?.total) || docs.length, ...newspaperMetadata(shelf, options) });
 }
 
 async function fetchGoogleBooksPage(shelf, page, options) {
@@ -697,7 +772,6 @@ export async function fetchShelfPage(shelf = {}, page = 1, options = {}) {
     if (source === 'gcd') return fetchGcdPage(shelf, normalizedPage, safeOptions);
     if (source === 'dpla') return fetchDplaPage(shelf, normalizedPage, safeOptions);
     if (source === 'europeana') return fetchEuropeanaPage(shelf, normalizedPage, safeOptions);
-    if (source === 'wikimedia') return fetchWikimediaPage(shelf, normalizedPage, safeOptions);
     if (source === 'gbooks') return fetchGoogleBooksPage(shelf, normalizedPage, safeOptions);
     return result([], { source, page: normalizedPage, pageSize: safeOptions.pageSize, partial: true, errors: [{ message: `Unsupported shelf source: ${source}`, status: null, code: 'unsupported-source', retryAfter: null }] });
   }, source);

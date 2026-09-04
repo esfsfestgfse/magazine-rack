@@ -1,12 +1,13 @@
-import { fetchShelfPage } from './live-sources.js';
+import { fetchShelfPage, monthDayKey } from './live-sources.js';
 import { ADULT_EXCLUDE, SHELVES, isAdultDoc, isAdultShelfId } from './shelf-catalog.js';
 import { SEED_ITEMS } from './data.js';
 import { store } from './store.js';
+import { hasConfiguredApi, removeLibraryItem, saveLibraryItem, searchCatalog, syncLibrary } from './api.js';
 
 const app = document.querySelector('#app');
 const ROWS_PER_PAGE = 30;
 const MAX_ACTIVE_LOADS = 5;
-const IMAGE_SOURCES = new Set(['loc', 'locsearch', 'xkcd', 'europeana', 'wikimedia', 'wikidata', 'met']);
+const IMAGE_SOURCES = new Set(['loc', 'locsearch', 'xkcd', 'europeana', 'wikidata', 'met']);
 const ERA_FILTERS = [
   ['All eras', ''], ['1890s', '1890-01-01 TO 1899-12-31'], ['1900s', '1900-01-01 TO 1909-12-31'],
   ['1910s', '1910-01-01 TO 1919-12-31'], ['1920s', '1920-01-01 TO 1929-12-31'], ['1930s', '1930-01-01 TO 1939-12-31'],
@@ -45,7 +46,7 @@ function safeUrl(value) { try { const url = new URL(value || '', window.location
 function idOf(doc) { return doc?.identifier || doc?.id || ''; }
 function titleOf(doc) { return doc?.title || 'Untitled issue'; }
 function yearOf(doc) { return String(doc?.date || doc?.year || '').slice(0, 10); }
-function sourceLabel(source = '') { return ({ ia: 'Internet Archive', loc: 'Library of Congress', locsearch: 'Library of Congress', openlibrary: 'Open Library', olsubjects: 'Open Library', europeana: 'Europeana', wikimedia: 'Wikimedia Commons', gbooks: 'Google Books', xkcd: 'xkcd' }[source] || source || 'Public collection'); }
+function sourceLabel(source = '') { return ({ ia: 'Internet Archive', loc: 'Library of Congress', locsearch: 'Library of Congress', openlibrary: 'Open Library', olsubjects: 'Open Library', europeana: 'Europeana', gbooks: 'Google Books', gcd: 'Grand Comics Database', dpla: 'Digital Public Library of America', xkcd: 'xkcd' }[source] || source || 'Public collection'); }
 function sourceClass(source = '') { return `source-${String(source).replace(/[^a-z0-9]/gi, '').toLowerCase() || 'ia'}`; }
 function hashNumber(value = '') { return [...String(value)].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 7); }
 function normalizedDoc(doc = {}) { return { ...doc, identifier: idOf(doc), title: titleOf(doc), creator: Array.isArray(doc.creator) ? doc.creator[0] || '' : doc.creator || '', date: doc.date || doc.year || '', subject: Array.isArray(doc.subject) ? doc.subject : [], source: doc.source || 'ia', cover: doc.cover || '', sourceUrl: doc.sourceUrl || doc.locUrl || '' }; }
@@ -62,6 +63,21 @@ function mergeSavedDoc(item) {
 }
 
 function seedDocs() { return SEED_ITEMS.map((item) => normalizedDoc({ identifier: item.id, title: item.title, creator: item.creator, date: item.year, subject: [item.genre], source: item.source === 'Library of Congress' ? 'loc' : item.source === 'Open Library' ? 'openlibrary' : 'ia', cover: item.cover, sourceUrl: item.sourceUrl, readerUrl: item.readerUrl, description: item.description, pages: item.pages })); }
+
+async function hydrateRemoteLibrary() {
+  if (!hasConfiguredApi()) return;
+  const key = store.getLibraryKey();
+  if (!key) return;
+  const result = await syncLibrary(key);
+  if (Array.isArray(result?.items) && result.items.length) store.mergeSaved(result.items);
+}
+
+function syncRemoteLibrary(operation) {
+  if (!hasConfiguredApi()) return;
+  const key = store.getLibraryKey();
+  if (!key) return;
+  operation(key).catch(() => setNotice('Saved on this device; cloud sync is unavailable.'));
+}
 
 function rackState(shelf) { if (!state.racks.has(shelf.id)) state.racks.set(shelf.id, { docs: [], page: 0, total: 0, cursor: null, hasMore: true, loading: false, error: '', loaded: false, fallback: false }); return state.racks.get(shelf.id); }
 function fallbackDocsForShelf(shelf) {
@@ -99,8 +115,10 @@ function shelfMarkup(shelf, index) {
   const adult = isAdultShelfId(shelf.id);
   const cards = docs.map((doc, cardIndex) => coverMarkup(doc, cardIndex)).join('');
   const status = current.loading ? 'Loading…' : current.fallback ? `${current.docs.length} preview covers` : current.error ? 'Unavailable' : current.total ? `${Math.min(current.total, 999999).toLocaleString()} found` : current.loaded ? 'No results' : 'Ready to load';
-  return `<section class="rack ${adult ? 'adult-rack' : ''}" id="rack-${escapeHtml(shelf.id)}" data-rack-id="${escapeHtml(shelf.id)}" data-index="${index}"><div class="rack-header"><div class="rack-kicker"><span>${String(index + 1).padStart(2, '0')}</span><i></i>${adult ? 'RESTRICTED EDITION' : 'LIVE COLLECTION'}</div><div class="rack-title-row"><div><h2>${escapeHtml(shelf.title)}</h2><p>${escapeHtml(shelf.description || rackDescription(shelf))}</p></div><div class="rack-actions"><span class="rack-count">${escapeHtml(status)}</span><button class="rack-icon ${isPinned(shelf) ? 'active' : ''}" data-action="pin" data-id="${escapeHtml(shelf.id)}" aria-label="${isPinned(shelf) ? 'Unpin' : 'Pin'} ${escapeHtml(shelf.title)}">${isPinned(shelf) ? '★' : '☆'}</button><button class="rack-icon" data-action="refresh-rack" data-id="${escapeHtml(shelf.id)}" aria-label="Refresh ${escapeHtml(shelf.title)}">${icon('refresh')}</button></div></div></div><div class="rack-track" id="track-${escapeHtml(shelf.id)}">${current.loading && !cards ? loadingCards() : cards || (current.error ? `<div class="rack-state error-state"><strong>Rack asleep</strong><span>${escapeHtml(current.error)}</span><button data-action="refresh-rack" data-id="${escapeHtml(shelf.id)}">Try again</button></div>` : current.loaded ? '<div class="rack-state"><strong>Nothing on this shelf yet.</strong><span>Try refreshing this collection.</span></div>' : loadingCards(5))}</div>${railMarkup()}${current.hasMore && current.loaded ? `<button class="rack-more" data-action="load-more" data-id="${escapeHtml(shelf.id)}">Load more issues ${icon('arrow')}</button>` : ''}</section>`;
+  const description = shelf.newspaperDateMode === 'month-day' ? `${shelf.description || rackDescription(shelf)} · ${newspaperDateLabel()}` : (shelf.description || rackDescription(shelf));
+  return `<section class="rack ${adult ? 'adult-rack' : ''}" id="rack-${escapeHtml(shelf.id)}" data-rack-id="${escapeHtml(shelf.id)}" data-index="${index}"><div class="rack-header"><div class="rack-kicker"><span>${String(index + 1).padStart(2, '0')}</span><i></i>${adult ? 'RESTRICTED EDITION' : 'LIVE COLLECTION'}</div><div class="rack-title-row"><div><h2>${escapeHtml(shelf.title)}</h2><p>${escapeHtml(description)}</p></div><div class="rack-actions"><span class="rack-count">${escapeHtml(status)}</span><button class="rack-icon ${isPinned(shelf) ? 'active' : ''}" data-action="pin" data-id="${escapeHtml(shelf.id)}" aria-label="${isPinned(shelf) ? 'Unpin' : 'Pin'} ${escapeHtml(shelf.title)}">${isPinned(shelf) ? '★' : '☆'}</button><button class="rack-icon" data-action="refresh-rack" data-id="${escapeHtml(shelf.id)}" aria-label="Refresh ${escapeHtml(shelf.title)}">${icon('refresh')}</button></div></div></div><div class="rack-track" id="track-${escapeHtml(shelf.id)}">${current.loading && !cards ? loadingCards() : cards || (current.error ? `<div class="rack-state error-state"><strong>Rack asleep</strong><span>${escapeHtml(current.error)}</span><button data-action="refresh-rack" data-id="${escapeHtml(shelf.id)}">Try again</button></div>` : current.loaded ? '<div class="rack-state"><strong>Nothing on this shelf yet.</strong><span>Try refreshing this collection.</span></div>' : loadingCards(5))}</div>${railMarkup()}${current.hasMore && current.loaded ? `<button class="rack-more" data-action="load-more" data-id="${escapeHtml(shelf.id)}">Load more issues ${icon('arrow')}</button>` : ''}</section>`;
 }
+function newspaperDateLabel() { const [month, day] = monthDayKey().split('-'); return month && day ? `newspapers dated ${month}/${day} across years` : 'newspapers matched by calendar day'; }
 function rackDescription(shelf) { return shelf.source ? `${sourceLabel(shelf.source)} · live feed` : 'Deep search across the Internet Archive'; }
 function loadingCards(count = 5) { return Array.from({ length: count }, (_, index) => `<div class="skeleton-cover" style="--delay:${index * 70}ms"><span></span></div>`).join(''); }
 
@@ -191,10 +209,25 @@ async function loadShelf(id, reset = false) {
     const seen = new Set(reset ? [] : current.docs.map(idOf));
     const unique = incoming.filter((doc) => !seen.has(idOf(doc)));
     current.docs = reset ? unique : [...current.docs, ...unique]; current.page = nextPage; current.total = Number(result?.numFound ?? result?.total ?? current.docs.length) || current.docs.length; current.cursor = result?.nextCursor || null; current.mode = result?.mode || current.mode || 'search'; current.deepAvailable = Boolean(result?.deepAvailable); current.nextMode = result?.nextMode || null; if (current.nextMode && current.docs.length >= 90) current.mode = current.nextMode; current.hasMore = Boolean(current.cursor || (unique.length && current.docs.length < current.total)); current.loaded = true; current.fallback = false; current.error = result?.partial && !unique.length ? ((result?.errors || [])[0]?.message || 'This source did not respond') : '';
-    if (result?.partial && !unique.length) { current.docs = fallbackDocsForShelf(shelf); current.total = current.docs.length; current.hasMore = false; current.fallback = current.docs.length > 0; current.error = ''; }
+    if (result?.partial && !unique.length) {
+      if (shelf.newspaperDateMode === 'month-day') {
+        current.docs = [];
+        current.total = 0;
+        current.hasMore = false;
+        current.fallback = false;
+        current.error = `No readable ${newspaperDateLabel()} were returned.`;
+      } else {
+        current.docs = fallbackDocsForShelf(shelf);
+        current.total = current.docs.length;
+        current.hasMore = false;
+        current.fallback = current.docs.length > 0;
+        current.error = '';
+      }
+    }
   } catch (error) {
     current.loaded = true; current.hasMore = false;
-    if (!current.docs.length) { current.docs = fallbackDocsForShelf(shelf); current.total = current.docs.length; current.fallback = current.docs.length > 0; current.error = ''; }
+    if (!current.docs.length && shelf.newspaperDateMode !== 'month-day') { current.docs = fallbackDocsForShelf(shelf); current.total = current.docs.length; current.fallback = current.docs.length > 0; current.error = ''; }
+    else if (!current.docs.length) current.error = `No readable ${newspaperDateLabel()} were returned.`;
     else current.error = error?.message || 'This source did not respond';
   } finally { current.loading = false; state.activeLoads -= 1; render(); pumpLoads(); }
 }
@@ -216,7 +249,9 @@ function bindObserver() {
 async function loadSearch() {
   state.search = { docs: [], total: 0, loading: true, error: '' }; render();
   try {
-    const result = await fetchShelfPage({ id: 'search', title: 'Search', source: 'ia', query: `mediatype:texts AND (${state.query.trim()})${ADULT_EXCLUDE}` }, 1, { extraQuery: '', decade: state.decade, pageSize: 60, search: true });
+    const result = hasConfiguredApi()
+      ? await searchCatalog({ query: state.query, page: 1 })
+      : await fetchShelfPage({ id: 'search', title: 'Search', source: 'ia', query: `mediatype:texts AND (${state.query.trim()})${ADULT_EXCLUDE}` }, 1, { extraQuery: '', decade: state.decade, pageSize: 60, search: true });
     let docs = (result?.docs || result?.items || []).map(normalizedDoc).filter((doc) => idOf(doc) && !isAdultDoc(doc));
     if (result?.partial && !docs.length) {
       const needle = state.query.toLowerCase();
@@ -248,7 +283,15 @@ async function randomIssue() {
 
 function openReader(doc) { if (!isReadable(doc)) { setNotice('This record does not have a readable destination yet.'); return; } const id = idOf(doc); const saved = store.getSaved(id); if (saved?.status === 'want') store.updateSaved(id, { status: 'reading' }); state.modal = null; state.reader = normalizedDoc(doc); store.pushHistory(doc); render(); }
 function getDoc(id) { const searchDoc = state.search.docs.find((doc) => idOf(doc) === id); if (searchDoc) return searchDoc; for (const rack of state.racks.values()) { const found = rack.docs.find((doc) => idOf(doc) === id); if (found) return found; } return store.getSaved(id) || seedDocs().find((doc) => idOf(doc) === id) || null; }
-function toggleSave(id) { const doc = getDoc(id); if (!doc) return false; const saved = store.toggleSaved(doc); setNotice(saved ? 'Saved to your library.' : 'Removed from your library.'); return saved; }
+function toggleSave(id) {
+  const doc = getDoc(id);
+  if (!doc) return false;
+  const saved = store.toggleSaved(doc);
+  const key = hasConfiguredApi() ? store.getLibraryKey() : '';
+  if (key) syncRemoteLibrary((libraryKey) => saved ? saveLibraryItem(id, libraryKey, doc.notes || '') : removeLibraryItem(id, libraryKey));
+  setNotice(saved ? 'Saved to your library.' : 'Removed from your library.');
+  return saved;
+}
 function downloadJson() { const blob = new Blob([JSON.stringify(store.getLibrary(), null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'magazine-rack-library.json'; link.click(); URL.revokeObjectURL(link.href); setNotice('Library export downloaded.'); }
 function importJson() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/json'; input.addEventListener('change', () => { const file = input.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { try { const parsed = JSON.parse(reader.result); if (!Array.isArray(parsed)) throw new Error('Expected a list'); store.mergeSaved(parsed); setNotice(`Imported ${parsed.length} issue${parsed.length === 1 ? '' : 's'}.`); render(); } catch { setNotice('That file could not be imported.'); } }; reader.readAsText(file); }); input.click(); }
 
@@ -293,4 +336,5 @@ window.addEventListener('magazine-rack:state', () => render());
 
 state.view = routeFromHash().view; state.query = routeFromHash().query; render();
 if (state.view === 'search' && state.query) loadSearch();
+hydrateRemoteLibrary().catch(() => {});
 if ('serviceWorker' in navigator && window.location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js?v=10').catch(() => {});

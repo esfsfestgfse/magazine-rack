@@ -2,7 +2,7 @@ import { errorJson, json } from '../http.js';
 import { isValidCatalogId } from '../http.js';
 
 export function publicItem(item) {
-  return { id: item.id, title: item.title, creator: item.creator || '', year: item.year || '', genre: item.genre || 'Periodicals', source: item.sourceName || item.source || '', description: item.description || '', cover: item.coverUrl || item.cover || '', sourceUrl: item.sourceUrl, readerUrl: item.readerUrl || item.sourceUrl, pages: Number(item.pageCount ?? item.pages) || 0, freshness: item.lastSeenAt || item.observedAt || null };
+  return { id: item.id, title: item.title, creator: item.creator || '', year: item.year || '', genre: item.genre || 'Periodicals', source: item.source || '', sourceName: item.sourceName || item.source || '', description: item.description || '', cover: item.coverUrl || item.cover || '', sourceUrl: item.sourceUrl, readerUrl: item.readerUrl || item.sourceUrl, pages: Number(item.pageCount ?? item.pages) || 0, freshness: item.lastSeenAt || item.observedAt || null };
 }
 
 function rowItem(row) { return { ...row, sourceName: row.source, coverUrl: row.cover_url, sourceUrl: row.source_url, readerUrl: row.reader_url, pageCount: row.page_count, lastSeenAt: row.last_seen_at }; }

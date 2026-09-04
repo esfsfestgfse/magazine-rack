@@ -14,8 +14,8 @@ const request = async (path, options = {}) => {
   } finally { clearTimeout(timeout); }
 };
 
-export async function searchCatalog({ query = '', genre = '', source = '', page = 1 } = {}) {
-  try { return await request(`/api/catalog?q=${encodeURIComponent(query)}&genre=${encodeURIComponent(genre)}&source=${encodeURIComponent(source)}&page=${page}`); }
+export async function searchCatalog({ query = '', genre = '', source = '', page = 1, newspaperMonthDay = '' } = {}) {
+  try { return await request(`/api/catalog?q=${encodeURIComponent(query)}&genre=${encodeURIComponent(genre)}&source=${encodeURIComponent(source)}&page=${page}&newspaper_month_day=${encodeURIComponent(newspaperMonthDay)}`); }
   catch { const needle = query.trim().toLowerCase(); const results = SEED_ITEMS.filter((entry) => (!needle || `${entry.title} ${entry.creator} ${entry.genre}`.toLowerCase().includes(needle)) && (!genre || entry.genre === genre) && (!source || entry.source === source)); return { items: results, total: results.length, page: 1, source: 'demo' }; }
 }
 

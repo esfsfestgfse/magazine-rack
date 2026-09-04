@@ -43,8 +43,8 @@ for (const file of ['apps/web/index.html', 'apps/web/src/main.js', 'apps/api/src
 }
 
 console.log(`Magazine Rack checks passed (${required.length} required files present).`);
-if (SHELVES.length !== 59) throw new Error(`Shelf parity check failed: expected 59 shelves, found ${SHELVES.length}`);
+if (SHELVES.length !== 58) throw new Error(`Shelf parity check failed: expected 58 shelves, found ${SHELVES.length}`);
 if (ADULT_SHELF_IDS.length !== 2 || SHELVES.at(-2)?.id !== 'adult-mags' || SHELVES.at(-1)?.id !== 'adult-comics') {
   throw new Error('Shelf parity check failed: restricted shelves are not last');
 }
-console.log('Shelf parity check passed (59 live shelves; restricted shelves last).');
+console.log('Shelf parity check passed (58 live shelves; restricted shelves last).');
