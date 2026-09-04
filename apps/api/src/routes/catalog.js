@@ -29,6 +29,6 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   let total = responses.reduce((sum, result) => sum + (result.status === 'fulfilled' ? result.value.total : 0), 0);
   if (!items.length && env.DB) { const fallback = await stored(env, query, genre, page); items = fallback.items; total = fallback.total; }
   ctx.waitUntil(persist(env, items));
-  const sourceStatuses = Object.fromEntries(sourceIds.map((id, index) => [id, responses[index].status === 'fulfilled' ? 'ok' : 'unavailable']));
+  const sourceStatuses = Object.fromEntries(sourceIds.map((id, index) => [id, responses[index].status === 'fulfilled' && !responses[index].value.partial ? 'ok' : 'unavailable']));
   return json(request, env, { items: items.map(publicItem), total, page, pageSize: 30, sources: sourceStatuses, stale: Object.values(sourceStatuses).some((value) => value !== 'ok') }, { requestId, cacheControl: 'public, max-age=120, stale-while-revalidate=600' });
 }
