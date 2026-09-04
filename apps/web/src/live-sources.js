@@ -450,7 +450,7 @@ function newspaperYears(target, options) {
 }
 
 async function fetchLocExactDay(shelf, query, year, target, page, perYear, options, includeFacet = true) {
-  const params = new URLSearchParams({ fo: 'json', c: String(perYear), sp: String(page), qs: query, dates: `${year}-${target}` });
+  const params = new URLSearchParams({ fo: 'json', at: 'results', c: String(perYear), sp: String(page), qs: query, dates: `${year}-${target}` });
   if (includeFacet) {
     for (const [key, value] of locExtraParams(shelf.locExtra).entries()) params.append(key, value);
   }

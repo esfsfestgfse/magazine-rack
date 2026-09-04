@@ -18,7 +18,7 @@ function yearsFor(monthDay) {
 }
 
 async function fetchExactDay(year, monthDay, query, page, env) {
-  const params = new URLSearchParams({ fo: 'json', c: '4', sp: String(page), qs: query, dates: `${year}-${monthDay}` });
+  const params = new URLSearchParams({ fo: 'json', at: 'results', c: '4', sp: String(page), qs: query, dates: `${year}-${monthDay}` });
   return fetchJson(`https://www.loc.gov/collections/chronicling-america/?${params}`, env, 'loc');
 }
 

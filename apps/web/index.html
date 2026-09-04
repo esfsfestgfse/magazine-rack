@@ -2342,6 +2342,7 @@
     async function fetchLocExactDay(shelf, qs, year, target, page, perYear, includeFacet) {
       var params = new URLSearchParams();
       params.set('fo', 'json');
+      params.set('at', 'results');
       params.set('c', String(perYear));
       params.set('sp', String(page));
       params.set('qs', qs);
