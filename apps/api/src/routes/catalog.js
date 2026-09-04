@@ -7,6 +7,7 @@ const SOURCE_NAMES = Object.freeze({
   loc: 'Library of Congress',
   openlibrary: 'Open Library',
   europeana: 'Europeana',
+  comicbookplus: 'Comic Book Plus',
   gcd: 'Grand Comics Database',
   dpla: 'Digital Public Library of America'
 });

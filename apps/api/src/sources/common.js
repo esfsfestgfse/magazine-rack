@@ -1,6 +1,6 @@
 import { clean } from '../http.js';
 
-export const SOURCE_LABELS = Object.freeze({ archive: 'Internet Archive', loc: 'Library of Congress', openlibrary: 'Open Library', europeana: 'Europeana', gcd: 'Grand Comics Database', dpla: 'Digital Public Library of America' });
+export const SOURCE_LABELS = Object.freeze({ archive: 'Internet Archive', loc: 'Library of Congress', openlibrary: 'Open Library', europeana: 'Europeana', comicbookplus: 'Comic Book Plus', gcd: 'Grand Comics Database', dpla: 'Digital Public Library of America' });
 
 const URL_POLICIES = Object.freeze({
   archive: {
@@ -32,6 +32,11 @@ const URL_POLICIES = Object.freeze({
     source: [['europeana.eu', '/'], ['www.europeana.eu', '/']],
     reader: [['europeana.eu', '/'], ['www.europeana.eu', '/']],
     cover: [['api.europeana.eu', '/'], ['europeana.eu', '/'], ['www.europeana.eu', '/']],
+  },
+  comicbookplus: {
+    source: [['comicbookplus.com', '/'], ['www.comicbookplus.com', '/']],
+    reader: [['comicbookplus.com', '/'], ['www.comicbookplus.com', '/']],
+    cover: [['comicbookplus.com', '/viewer/'], ['www.comicbookplus.com', '/viewer/']],
   },
 });
 

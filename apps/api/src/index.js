@@ -1,6 +1,7 @@
 import { corsPreflight, errorJson, json, now, requestId } from './http.js';
 import { handleCatalogSearch } from './routes/catalog.js';
 import { handleCatalogItem } from './routes/items.js';
+import { handleMedia } from './routes/media.js';
 import { handleLibrary } from './library.js';
 import { rateLimit, rateLimitScope } from './rate-limit.js';
 import { configuredSourceIds } from './sources/registry.js';
@@ -8,6 +9,7 @@ import { configuredSourceIds } from './sources/registry.js';
 const catalogSearchPaths = new Set(['/api/catalog', '/api/v1/catalog', '/api/v1/catalog/search']);
 const itemPrefixes = ['/api/catalog/', '/api/v1/catalog/', '/api/v1/catalog/items/'];
 const libraryPrefixes = ['/api/library', '/api/v1/library'];
+const mediaPaths = new Set(['/api/media', '/api/v1/media']);
 
 function itemIdForPath(pathname) {
   const prefix = itemPrefixes.find((value) => pathname.startsWith(value));
@@ -49,6 +51,7 @@ export default {
         }, { requestId: id, cacheControl: 'no-store' });
       }
       if (request.method === 'GET' && catalogSearchPaths.has(url.pathname)) return await handleCatalogSearch(request, env, ctx, id);
+      if (request.method === 'GET' && mediaPaths.has(url.pathname)) return await handleMedia(request, env, ctx, id);
       if (request.method === 'GET' && itemPrefixes.some((prefix) => url.pathname.startsWith(prefix))) {
         const itemId = itemIdForPath(url.pathname);
         return itemId === null ? errorJson(request, env, 'invalid_id', 400, id) : await handleCatalogItem(request, env, ctx, itemId, id);

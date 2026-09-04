@@ -1413,7 +1413,7 @@
           <div class="hero-kicker">The open stacks · a living index for curious people</div>
           <h1>Find your <em>next obsession.</em></h1>
           <p>Magazines, comics, newspapers, zines, and beautifully strange things gathered from public collections.</p>
-          <div class="hero-meta"><span><b>54</b>live shelves</span><span><b>6</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
+          <div class="hero-meta"><span><b>52</b>live shelves</span><span><b>6</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
         </div>
         <div class="hero-ticket"><span>Magazine Rack</span><strong>Read<br>widely.</strong><span>Free / public / curious</span></div>
       </div>
@@ -1682,7 +1682,7 @@
         title: 'Manga',
         format: 'comic',
         source: 'aggregate',
-        aggregateSources: ['ia', 'openlibrary', 'europeana', 'dpla'],
+        aggregateSources: ['ia', 'openlibrary', 'europeana'],
         query: 'mediatype:texts AND (title:(manga OR manhwa OR manhua OR doujinshi OR tankobon OR tankōbon OR shonen OR shōnen OR shojo OR shoujo OR seinen OR josei OR "japanese comic" OR "japanese comics") OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels") OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*) OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))' + ADULT_EXCLUDE
       },
       {
@@ -1949,20 +1949,6 @@
         euTheme: ''
       },
       {
-        id: 'loc-photos',
-        title: 'LOC Pictures',
-        source: 'locsearch',
-        locPath: 'photos',
-        locQs: 'cartoon OR comic OR caricature'
-      },
-      {
-        id: 'loc-search-comics',
-        title: 'LOC Search',
-        source: 'locsearch',
-        locPath: 'search',
-        locQs: 'comic strip OR comic book'
-      },
-      {
         id: 'ia-folkscanomy',
         title: 'Folkscanomy',
         query: 'mediatype:texts AND collection:(folkscanomy OR folkscanomy_miscellaneous) AND (subject:(comics OR "comic books" OR zine) OR title:(comic OR comics OR comix OR zine))' + ADULT_EXCLUDE
@@ -1973,13 +1959,12 @@
         query: 'mediatype:texts AND collection:comics AND (subject:("comic strip" OR "comic strips" OR funnies) OR title:("comic strip" OR funnies OR "katzenjammer" OR "little nemo"))' + ADULT_EXCLUDE
       },
       {
-        id: 'dpla-periodicals',
-        title: 'DPLA Periodicals',
-        source: 'dpla',
-        newspaperDateMode: 'month-day',
-        newspaperOnly: false,
-        format: 'magazine',
-        dplaQuery: 'magazine OR periodical OR newspaper OR comic OR zine'
+        id: 'comicbookplus',
+        title: 'Comic Book Plus',
+        source: 'comicbookplus',
+        format: 'comic',
+        cbQuery: 'latest uploads',
+        description: 'Sequential comic scans with in-app page turning'
       },
       {
         id: 'adult-mags',
@@ -2064,6 +2049,8 @@
         locUrl: doc.locUrl || null,
         fullImage: doc.fullImage || null,
         iiifManifest: doc.iiifManifest || null,
+        viewerBase: doc.viewerBase || (doc.metadata && doc.metadata.viewerBase) || null,
+        pages: doc.pages || doc.imagecount || (doc.metadata && doc.metadata.pageCount) || 0,
         accountSource: doc.accountSource || null,
         openLibraryUrl: doc.openLibraryUrl || null,
         format: doc.format || '',
@@ -2088,6 +2075,8 @@
         locUrl: entry.locUrl || null,
         fullImage: entry.fullImage || null,
         iiifManifest: entry.iiifManifest || null,
+        viewerBase: entry.viewerBase || (entry.metadata && entry.metadata.viewerBase) || null,
+        pages: entry.pages || entry.imagecount || (entry.metadata && entry.metadata.pageCount) || 0,
         accountSource: entry.accountSource || null,
         openLibraryUrl: entry.openLibraryUrl || null,
         cover: entry.cover || bestCoverUrl(entry),
@@ -2136,6 +2125,8 @@
           locUrl: item.locUrl || null,
           fullImage: item.fullImage || null,
           iiifManifest: item.iiifManifest || null,
+          viewerBase: item.viewerBase || null,
+          pages: item.pages || 0,
           accountSource: item.accountSource || null,
           openLibraryUrl: item.openLibraryUrl || null
         };
@@ -2521,7 +2512,7 @@
           creator: paper || 'Chronicling America',
           date: date,
           subject: it.subject || [],
-          locUrl: it.url || null,
+          locUrl: it.url || it.id || null,
           cover: locThumb(imgs),
           fullImage: locFullImage(imgs),
           iiifManifest: it.iiif_manifest || it.iiifManifest || it.manifest || null,
@@ -3156,6 +3147,7 @@
       openlibrary: 'Open Library',
       gbooks: 'Google Books',
       europeana: 'Europeana',
+      comicbookplus: 'Comic Book Plus',
       dpla: 'DPLA',
       gcd: 'GCD',
       loc: 'Library of Congress',
@@ -3185,7 +3177,7 @@
       var wrap = document.getElementById('source-health');
       var summary = document.getElementById('source-health-summary');
       if (!wrap) return;
-      var sources = ['ia', 'openlibrary', 'europeana', 'dpla', 'loc', 'multi'];
+      var sources = ['ia', 'openlibrary', 'europeana', 'comicbookplus', 'loc', 'multi'];
       var ok = 0;
       var checked = 0;
       wrap.innerHTML = sources.map(function(source) {
@@ -3216,11 +3208,12 @@
     }
 
     function connectedSource(shelf) {
-      return shelf && (shelf.source === 'dpla' || shelf.source === 'gcd' || shelf.source === 'europeana') ? shelf.source : '';
+      return shelf && (shelf.source === 'gcd' || shelf.source === 'europeana' || shelf.source === 'comicbookplus') ? shelf.source : '';
     }
 
     function connectedQuery(shelf) {
       if (!shelf) return '';
+      if (shelf.source === 'comicbookplus') return shelf.cbQuery || 'latest uploads';
       if (shelf.source === 'dpla') return shelf.dplaQuery || '';
       if (shelf.source === 'gcd') return shelf.gcdName || 'comic';
       return shelf.euQuery || 'newspaper';
@@ -3270,6 +3263,7 @@
           locUrl: sourceUrlValue,
           readerUrl: item.readerUrl || sourceUrlValue,
           pages: item.pages || 0,
+          viewerBase: item.metadata && item.metadata.viewerBase || null,
           description: item.description || '',
           metadata: item.metadata || {},
           _gcdIssueUrl: source === 'gcd' ? gcdIssueHint(item.metadata) : null
@@ -3591,7 +3585,6 @@
         { source: 'ia', shelf: { id: 'manga', title: 'Manga', query: SHELVES.find(function(item) { return item.id === 'manga'; }).query } },
         { source: 'openlibrary', shelf: { id: 'manga-openlibrary', source: 'openlibrary', olQuery: 'subject:manga OR subject:manhwa OR subject:manhua OR title:manga OR title:manhwa' } },
         { source: 'europeana', shelf: { id: 'manga-europeana', source: 'europeana', euQuery: 'manga OR manhwa OR manhua OR doujinshi', euTheme: '' } },
-        { source: 'dpla', shelf: { id: 'manga-dpla', source: 'dpla', dplaQuery: 'manga OR manhwa OR manhua OR doujinshi' } }
       ];
       noteSourceHealth('multi', 'loading', 'Checking Manga feeds');
       var errors = [];
@@ -3624,7 +3617,7 @@
     async function fetchShelfPage(shelf, page, extraQuery, sortMode) {
       if (shelf && (shelf.id === 'manga' || shelf.source === 'aggregate')) return fetchMangaAggregatePage(shelf, page, extraQuery);
       var source = healthSourceFor(shelf);
-      var provider = ['openlibrary', 'europeana', 'dpla'].indexOf(source) !== -1;
+      var provider = ['openlibrary', 'europeana', 'comicbookplus'].indexOf(source) !== -1;
       noteSourceHealth(source, 'loading', 'Checking ' + (SOURCE_LABELS[source] || source));
       try {
         var result = await fetchShelfPageRaw(shelf, page, extraQuery, sortMode);
@@ -3675,7 +3668,7 @@
       if (reset) {
         // Variety: different sort + start a few pages in so the front of the
         // shelf isn't always the same mega-popular titles
-      state.sort = (shelf.source === 'loc' || shelf.source === 'xkcd' || shelf.source === 'openlibrary' || shelf.source === 'europeana' || shelf.source === 'wikidata' || shelf.source === 'gcd' || shelf.source === 'dpla' || shelf.source === 'olsubjects' || shelf.source === 'gbooks' || shelf.source === 'locsearch' || shelf.source === 'gutendex' || shelf.source === 'met') ? null : pickIaSort();
+      state.sort = (shelf.source === 'loc' || shelf.source === 'xkcd' || shelf.source === 'openlibrary' || shelf.source === 'europeana' || shelf.source === 'comicbookplus' || shelf.source === 'wikidata' || shelf.source === 'gcd' || shelf.source === 'dpla' || shelf.source === 'olsubjects' || shelf.source === 'gbooks' || shelf.source === 'locsearch' || shelf.source === 'gutendex' || shelf.source === 'met') ? null : pickIaSort();
         state.page = shelf.newspaperDateMode === 'month-day' ? 0 : Math.floor(Math.random() * 3); // date shelves must start at their targeted day
         state.extraQuery = (extraQuery == null ? buildExtraQuery() : extraQuery) || '';
         state.total = 0;
@@ -4390,6 +4383,7 @@
       var source = String(doc.source || '').toLowerCase();
       if (source === 'ia') return Boolean(isValidIaId(doc.iaId || doc.identifier));
       if (source === 'openlibrary' || source === 'olsubjects') return Boolean(isValidIaId(doc.iaId) || doc.fullImage || doc.cover || doc.iiifManifest);
+      if (source === 'comicbookplus') return Boolean(doc.viewerBase || doc.metadata && doc.metadata.viewerBase || doc.fullImage || doc.cover);
       if (['loc', 'locsearch', 'xkcd', 'europeana', 'wikidata', 'met', 'dpla'].indexOf(source) !== -1) {
         return Boolean(doc.fullImage || doc.cover || doc.iiifManifest);
       }
@@ -4442,6 +4436,7 @@
         openlibrary: 'Open Library',
         wikidata: 'Wikidata',
         met: 'The Met',
+        comicbookplus: 'Comic Book Plus',
         gcd: 'Grand Comics Database',
         dpla: 'Digital Public Library of America',
         ia: 'Internet Archive'
@@ -4555,6 +4550,64 @@
         '</style></head><body><div class="toolbar"><div class="title" id="page-title">Reader</div><button id="page-prev" type="button" title="Previous page">‹</button><span id="page-status">—</span><button id="page-next" type="button" title="Next page">›</button><button id="page-zoom-out" type="button" title="Zoom out">−</button><button id="page-zoom-in" type="button" title="Zoom in">+</button><button id="page-fit" type="button" title="Fit page">Fit</button></div><div class="viewport"><img id="page-image" alt=""><div id="page-message"></div></div><script>' + script + '<' + '/script></body></html>';
     }
 
+    function buildComicBookPlusReaderHtml(viewerBase, title, pageCount) {
+      var baseJson = JSON.stringify(String(viewerBase || '').replace(/\/$/, ''));
+      var mediaBaseJson = JSON.stringify(catalogApiBase() + '/api/media?source=comicbookplus&url=');
+      var titleJson = JSON.stringify(String(title || 'Reader'));
+      var countJson = JSON.stringify(Math.max(1, Math.min(1000, Number(pageCount) || 1)));
+      var script = [
+        'var viewerBase = ' + baseJson + ';',
+        'var mediaBase = ' + mediaBaseJson + ';',
+        'var readerTitle = ' + titleJson + ';',
+        'var pageCount = ' + countJson + ';',
+        'var index = 0; var zoom = 1;',
+        'var image = document.getElementById("page-image");',
+        'var status = document.getElementById("page-status");',
+        'var message = document.getElementById("page-message");',
+        'var previous = document.getElementById("page-prev");',
+        'var next = document.getElementById("page-next");',
+        'function render() { var pageUrl = viewerBase + "/" + index + ".jpg"; image.src = mediaBase + encodeURIComponent(pageUrl); image.alt = readerTitle + ", page " + (index + 1); image.style.transform = "scale(" + zoom + ")"; image.style.maxWidth = zoom > 1 ? "none" : "100%"; status.textContent = (index + 1) + " / " + pageCount; previous.disabled = index === 0; next.disabled = index >= pageCount - 1; }',
+        'image.addEventListener("error", function() { message.textContent = "This scan page did not load. Open the original Comic Book Plus issue from the header."; message.classList.add("show"); });',
+        'document.getElementById("page-title").textContent = readerTitle;',
+        'previous.addEventListener("click", function() { if (index > 0) { index -= 1; zoom = 1; message.classList.remove("show"); render(); } });',
+        'next.addEventListener("click", function() { if (index < pageCount - 1) { index += 1; zoom = 1; message.classList.remove("show"); render(); } });',
+        'document.getElementById("page-zoom-out").addEventListener("click", function() { zoom = Math.max(0.6, zoom - 0.2); render(); });',
+        'document.getElementById("page-zoom-in").addEventListener("click", function() { zoom = Math.min(3, zoom + 0.2); render(); });',
+        'document.getElementById("page-fit").addEventListener("click", function() { zoom = 1; render(); });',
+        'render();'
+      ].join('\n');
+      return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
+        'html,body{margin:0;background:#101114;color:#f5f2ea;min-height:100%;font-family:system-ui,sans-serif;}body{min-height:100vh;display:flex;flex-direction:column;overflow:hidden;}.toolbar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#1b1d22;border-bottom:1px solid #343740;}.title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d3d0c7;}button{border:1px solid #484c58;background:#272a32;color:#fff;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:600;}button:disabled{opacity:.35;cursor:default;}#page-status{font-size:12px;color:#aaa;min-width:48px;text-align:center;}.viewport{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:18px;}#page-image{display:block;max-width:100%;max-height:calc(100vh - 76px);height:auto;object-fit:contain;transform-origin:center center;transition:transform .16s ease;}#page-message{display:none;max-width:420px;color:#bbb;text-align:center;line-height:1.5;padding:24px;}#page-message.show{display:block;}' +
+        '</style></head><body><div class="toolbar"><div class="title" id="page-title">Reader</div><button id="page-prev" type="button">‹</button><span id="page-status">—</span><button id="page-next" type="button">›</button><button id="page-zoom-out" type="button">−</button><button id="page-zoom-in" type="button">+</button><button id="page-fit" type="button">Fit</button></div><div class="viewport"><img id="page-image" alt=""><div id="page-message"></div></div><script>' + script + '<' + '/script></body></html>';
+    }
+
+    function locResourceUrl(value) {
+      var raw = typeof value === 'string' ? safeUrl(value) : sourceUrl(value || {});
+      if (!raw) return '';
+      return raw.replace('/item/', '/resource/').replace(/\?.*$/, '').replace(/\/$/, '');
+    }
+
+    function buildLocReaderHtml(doc, title) {
+      var resourceUrl = locResourceUrl(doc && (doc.locUrl || doc.readerUrl));
+      var firstImage = safeUrl(doc && (doc.fullImage || doc.cover));
+      var script = [
+        'var resourceUrl = ' + JSON.stringify(resourceUrl) + ';',
+        'var firstImage = ' + JSON.stringify(firstImage) + ';',
+        'var readerTitle = ' + JSON.stringify(String(title || 'Reader')) + ';',
+        'var index = 1; var pageCount = 1; var zoom = 1; var pages = {};',
+        'var image = document.getElementById("page-image"); var status = document.getElementById("page-status"); var message = document.getElementById("page-message"); var previous = document.getElementById("page-prev"); var next = document.getElementById("page-next");',
+        'function urls(value, out) { out = out || []; if (!value || out.length > 30) return out; if (Array.isArray(value)) { value.forEach(function(item) { urls(item, out); }); return out; } if (typeof value === "string" && /^https?:\\/\\//i.test(value) && /(?:\\.jpe?g|\\.png|iiif|image|thumbnail|download)/i.test(value) && out.indexOf(value) < 0) out.push(value); if (value && typeof value === "object") Object.keys(value).forEach(function(key) { urls(value[key], out); }); return out; }',
+        'function imageFrom(data) { return urls(data, []).find(function(value) { return /(?:\\.jpe?g|\\.png|iiif|image)/i.test(value); }) || ""; }',
+        'function countFrom(data) { var values = [data && data.segments, data && data.resources, data && data.item && data.item.resources, data && data.pagination && data.pagination.total]; for (var i = 0; i < values.length; i += 1) { if (Array.isArray(values[i]) && values[i].length) return values[i].length; if (Number(values[i]) > 1) return Number(values[i]); } return 1; }',
+        'function render() { image.src = pages[index] || (index === 1 ? firstImage : ""); image.alt = readerTitle + ", page " + index; image.style.transform = "scale(" + zoom + ")"; image.style.maxWidth = zoom > 1 ? "none" : "100%"; status.textContent = index + " / " + pageCount; previous.disabled = index <= 1; next.disabled = index >= pageCount; }',
+        'function loadPage(page) { if (pages[page]) { index = page; message.classList.remove("show"); render(); return; } fetch(resourceUrl + "/?sp=" + page + "&fo=json").then(function(response) { if (!response.ok) throw new Error("page"); return response.json(); }).then(function(data) { var found = imageFrom(data); if (!found) throw new Error("image"); pages[page] = found; index = page; message.classList.remove("show"); render(); }).catch(function() { message.textContent = "This LOC page did not expose a scan image. Open the original issue from the header."; message.classList.add("show"); }); }',
+        'document.getElementById("page-title").textContent = readerTitle; previous.addEventListener("click", function() { if (index > 1) loadPage(index - 1); }); next.addEventListener("click", function() { if (index < pageCount) loadPage(index + 1); });',
+        'document.getElementById("page-zoom-out").addEventListener("click", function() { zoom = Math.max(0.6, zoom - 0.2); render(); }); document.getElementById("page-zoom-in").addEventListener("click", function() { zoom = Math.min(3, zoom + 0.2); render(); }); document.getElementById("page-fit").addEventListener("click", function() { zoom = 1; render(); });',
+        'pages[1] = firstImage; render(); fetch(resourceUrl + "?fo=json").then(function(response) { if (!response.ok) throw new Error("record"); return response.json(); }).then(function(data) { pageCount = Math.max(1, countFrom(data)); render(); }).catch(function() {});'
+      ].join('\n');
+      return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#101114;color:#f5f2ea;min-height:100%;font-family:system-ui,sans-serif;}body{min-height:100vh;display:flex;flex-direction:column;overflow:hidden;}.toolbar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#1b1d22;border-bottom:1px solid #343740;}.title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d3d0c7;}button{border:1px solid #484c58;background:#272a32;color:#fff;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:600;}button:disabled{opacity:.35;cursor:default;}#page-status{font-size:12px;color:#aaa;min-width:48px;text-align:center;}.viewport{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:18px;}#page-image{display:block;max-width:100%;max-height:calc(100vh - 76px);height:auto;object-fit:contain;transform-origin:center center;transition:transform .16s ease;}#page-message{display:none;max-width:420px;color:#bbb;text-align:center;line-height:1.5;padding:24px;}#page-message.show{display:block;}</style></head><body><div class="toolbar"><div class="title" id="page-title">Reader</div><button id="page-prev" type="button">‹</button><span id="page-status">—</span><button id="page-next" type="button">›</button><button id="page-zoom-out" type="button">−</button><button id="page-zoom-in" type="button">+</button><button id="page-fit" type="button">Fit</button></div><div class="viewport"><img id="page-image" alt=""><div id="page-message"></div></div><script>' + script + '<' + '/script></body></html>';
+    }
+
     function buildSourceNoticeHtml(doc, sourceLabel) {
       var title = escapeHtml(doc && doc.title || 'This item');
       var source = sourceUrl(doc && (doc.locUrl || doc.readerUrl || '')) || '';
@@ -4600,6 +4653,22 @@
         setReaderLoading(true, 'Opening scan', 'Loading the page manifest from ' + sourceLabel + '...');
         bindFrame(sourceLabel + ' · page viewer');
         frame.srcdoc = buildIiifReaderHtml(doc.iiifManifest, readerState.title);
+        scheduleReaderHint(token, 10000);
+        return;
+      }
+
+      if (doc && doc.source === 'comicbookplus' && (doc.viewerBase || doc.metadata && doc.metadata.viewerBase)) {
+        setReaderLoading(true, 'Opening comic', 'Loading the sequential scan from Comic Book Plus...');
+        bindFrame('Comic Book Plus · page viewer');
+        frame.srcdoc = buildComicBookPlusReaderHtml(doc.viewerBase || doc.metadata.viewerBase, readerState.title, doc.pages || doc.imagecount || doc.metadata && doc.metadata.pageCount);
+        scheduleReaderHint(token, 8000);
+        return;
+      }
+
+      if (doc && doc.source === 'loc' && locResourceUrl(doc.locUrl || doc.readerUrl)) {
+        setReaderLoading(true, 'Opening newspaper', 'Loading the issue pages from Library of Congress...');
+        bindFrame('Library of Congress · issue viewer');
+        frame.srcdoc = buildLocReaderHtml(doc, readerState.title);
         scheduleReaderHint(token, 10000);
         return;
       }

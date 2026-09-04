@@ -24,6 +24,7 @@ assert.equal(invalidSource.status, 400);
 
 const scope = rateLimitScope('/api/catalog', 'GET');
 assert.deepEqual(scope, ['catalog-search', 30]);
+assert.deepEqual(rateLimitScope('/api/media', 'GET'), ['media-proxy', 180]);
 const request = new Request('https://api.example/api/catalog', { headers: { 'CF-Connecting-IP': '198.51.100.10' } });
 let last;
 for (let index = 0; index < 31; index += 1) last = rateLimit(request, scope[0], scope[1], 1_000);
@@ -91,6 +92,8 @@ globalThis.fetch = async (url) => {
   if (target.includes('openlibrary.org/search.json')) return new Response(JSON.stringify({ numFound: 1, docs: [{ key: '/works/OL1W', title: 'Open Demo', author_name: ['Writer'], first_publish_year: 1922, cover_i: 123, ia: ['open-demo'], number_of_pages_median: 100 }] }), { headers: { 'Content-Type': 'application/json' } });
   if (target.includes('www.comics.org/api/series/name/')) return new Response(JSON.stringify({ count: 1, results: [{ id: 77, name: 'Demo Comics', publisher: 'Demo Press', year_began: 1940 }] }), { headers: { 'Content-Type': 'application/json' } });
   if (target.includes('api.dp.la/v2/items')) return new Response(JSON.stringify({ count: 1, docs: [{ id: 'demo-dpla', object: 'https://images.dp.la/demo.jpg', isShownAt: 'https://dp.la/item/demo-dpla', sourceResource: { title: ['Demo Periodical'], creator: ['Demo Publisher'], date: '1942', type: ['Magazine'] } }] }), { headers: { 'Content-Type': 'application/json' } });
+  if (target.includes('comicbookplus.com/?cbplus=latestuploads_l_s_0')) return new Response('<div itemscope itemtype="https://schema.org/Book"><meta itemprop="discussionUrl" content="https://comicbookplus.com/?dlid=77"><meta itemprop="thumbnailUrl" content="https://comicbookplus.com/viewer/aa/aabb/mediumthumb.jpg"><meta itemprop="url" content="https://comicbookplus.com/?dlid=77"><meta itemprop="genre" content="Comic Book"><meta itemprop="contributor" content="Demo Artist"><a itemprop="name">Demo Comic</a><meta itemprop="numberOfPages" content="12"><time itemprop="dateModified" datetime="1950-01-01">Jan 1, 1950</time></div>', { headers: { 'Content-Type': 'text/html' } });
+  if (target.includes('comicbookplus.com/viewer/aa/aabb/0.jpg')) return new Response(new Uint8Array([255, 216, 255, 217]), { headers: { 'Content-Type': 'image/jpeg' } });
   if (target.includes('api.europeana.eu/record/v2/search.json')) return new Response(JSON.stringify({ totalResults: 1, items: [{ id: '/demo/europeana', title: ['Demo Europeana'], dcCreator: ['Demo Publisher'], year: ['1943'], edmPreview: ['https://www.europeana.eu/demo.jpg'], guid: 'https://www.europeana.eu/en/item/demo/europeana' }] }), { headers: { 'Content-Type': 'application/json' } });
   throw new Error(`unexpected test fetch: ${target}`);
 };
@@ -103,8 +106,18 @@ try {
   assert.equal(catalog.status, 200);
   const catalogBody = await catalog.json();
   assert.equal(catalogBody.items.length, 5);
+  assert.ok(catalogBody.items.some((item) => item.source === 'comicbookplus' && item.readerUrl === 'https://comicbookplus.com/?dlid=77'));
   assert.equal(catalogBody.stale, false);
   await Promise.all(waits);
+
+  const mediaUrl = 'https://api.example/api/media?source=comicbookplus&url=' + encodeURIComponent('https://comicbookplus.com/viewer/aa/aabb/0.jpg');
+  const media = await worker.fetch(new Request(mediaUrl, { headers: { Origin: 'https://reader.example' } }), dbEnv, dbContext);
+  assert.equal(media.status, 200);
+  assert.equal(media.headers.get('Content-Type'), 'image/jpeg');
+  assert.equal((await media.arrayBuffer()).byteLength, 4);
+
+  const badMedia = await worker.fetch(new Request('https://api.example/api/media?source=comicbookplus&url=' + encodeURIComponent('https://evil.example/a.jpg')), dbEnv, dbContext);
+  assert.equal(badMedia.status, 400);
 
   const savedId = catalogBody.items[0].id;
   const libraryKey = 'abcdefghijklmnop';

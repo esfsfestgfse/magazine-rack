@@ -60,6 +60,33 @@ export async function fetchJson(url, env, source, options = {}) {
   }
 }
 
+export async function fetchText(url, env, source, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs || 8000);
+  try {
+    let response;
+    try {
+      response = await fetch(url, {
+        headers: { Accept: 'text/html,application/xhtml+xml', 'User-Agent': env.CATALOG_USER_AGENT || 'MagazineRack/1.0 public catalog client', ...(options.headers || {}) },
+        redirect: 'manual',
+        signal: controller.signal,
+      });
+    } catch {
+      throw new SourceError(source, 'unreachable');
+    }
+    if (response.status >= 300 && response.status < 400) throw new SourceError(source, 'redirect_rejected');
+    if (!response.ok) throw new SourceError(source, `upstream_${response.status}`, response.status >= 500 ? 502 : response.status);
+    const length = Number(response.headers.get('Content-Length'));
+    const maxBytes = options.maxBytes || 2_500_000;
+    if (Number.isFinite(length) && length > maxBytes) throw new SourceError(source, 'response_too_large');
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > maxBytes) throw new SourceError(source, 'response_too_large');
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function sourceFailure(error) {
   return error instanceof SourceError ? { code: error.code, status: error.status } : { code: 'unavailable', status: 502 };
 }

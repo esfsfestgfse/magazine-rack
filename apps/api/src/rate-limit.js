@@ -40,6 +40,7 @@ export function rateLimitScope(pathname, method) {
     return method === 'GET' ? ['library-read', 60] : ['library-write', 30];
   }
   if (pathname === '/api/catalog' || pathname === '/api/v1/catalog' || pathname === '/api/v1/catalog/search') return ['catalog-search', 30];
+  if (pathname === '/api/media' || pathname === '/api/v1/media') return ['media-proxy', 180];
   if (pathname.startsWith('/api/catalog/') || pathname.startsWith('/api/v1/catalog/')) return ['catalog-item', 60];
   return ['default', 60];
 }

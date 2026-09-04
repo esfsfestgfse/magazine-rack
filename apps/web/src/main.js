@@ -46,7 +46,7 @@ function safeUrl(value) { try { const url = new URL(value || '', window.location
 function idOf(doc) { return doc?.identifier || doc?.id || ''; }
 function titleOf(doc) { return doc?.title || 'Untitled issue'; }
 function yearOf(doc) { return String(doc?.date || doc?.year || '').slice(0, 10); }
-function sourceLabel(source = '') { return ({ ia: 'Internet Archive', archive: 'Internet Archive', loc: 'Library of Congress', locsearch: 'Library of Congress', openlibrary: 'Open Library', olsubjects: 'Open Library', europeana: 'Europeana', gbooks: 'Google Books', gcd: 'Grand Comics Database', dpla: 'Digital Public Library of America', xkcd: 'xkcd' }[source] || source || 'Public collection'); }
+function sourceLabel(source = '') { return ({ ia: 'Internet Archive', archive: 'Internet Archive', loc: 'Library of Congress', locsearch: 'Library of Congress', openlibrary: 'Open Library', olsubjects: 'Open Library', europeana: 'Europeana', comicbookplus: 'Comic Book Plus', gbooks: 'Google Books', gcd: 'Grand Comics Database', dpla: 'Digital Public Library of America', xkcd: 'xkcd' }[source] || source || 'Public collection'); }
 function sourceClass(source = '') { return `source-${String(source).replace(/[^a-z0-9]/gi, '').toLowerCase() || 'ia'}`; }
 function hashNumber(value = '') { return [...String(value)].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 7); }
 function normalizedDoc(doc = {}) { return { ...doc, identifier: idOf(doc), title: titleOf(doc), creator: Array.isArray(doc.creator) ? doc.creator[0] || '' : doc.creator || '', date: doc.date || doc.year || '', subject: Array.isArray(doc.subject) ? doc.subject : [], source: doc.source || 'ia', cover: doc.cover || '', sourceUrl: doc.sourceUrl || doc.locUrl || '' }; }
@@ -197,8 +197,8 @@ function searchView() { const docs = state.search.docs; return `<div class="view
 function setNotice(message) { state.notice = message; render(); window.clearTimeout(setNotice.timer); setNotice.timer = window.setTimeout(() => { state.notice = ''; render(); }, 4000); }
 function queueShelf(id, reset = false) { const current = rackState({ id }); if (current.loading || state.queue.some((item) => item.id === id) || (!reset && current.loaded && !current.hasMore)) return; state.queue.push({ id, reset }); pumpLoads(); }
 function pumpLoads() { while (state.activeLoads < MAX_ACTIVE_LOADS && state.queue.length) { const job = state.queue.shift(); loadShelf(job.id, job.reset); } }
-function backendShelfSource(shelf) { return hasConfiguredApi() && ['dpla', 'gcd', 'europeana'].includes(shelf?.source) ? shelf.source : ''; }
-function backendShelfQuery(shelf) { return shelf.source === 'dpla' ? shelf.dplaQuery : shelf.source === 'gcd' ? shelf.gcdName : shelf.euQuery; }
+function backendShelfSource(shelf) { return hasConfiguredApi() && ['dpla', 'gcd', 'europeana', 'comicbookplus'].includes(shelf?.source) ? shelf.source : ''; }
+function backendShelfQuery(shelf) { return shelf.source === 'dpla' ? shelf.dplaQuery : shelf.source === 'gcd' ? shelf.gcdName : shelf.source === 'comicbookplus' ? shelf.cbQuery : shelf.euQuery; }
 async function fetchShelfData(shelf, page, options) {
   const source = backendShelfSource(shelf);
   if (!source) return fetchShelfPage(shelf, page, options);

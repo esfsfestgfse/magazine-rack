@@ -374,20 +374,6 @@ export const SHELVES = [
     euTheme: ''
   },
   {
-    id: 'loc-photos',
-    title: 'LOC Pictures',
-    source: 'locsearch',
-    locPath: 'photos',
-    locQs: 'cartoon OR comic OR caricature'
-  },
-  {
-    id: 'loc-search-comics',
-    title: 'LOC Search',
-    source: 'locsearch',
-    locPath: 'search',
-    locQs: 'comic strip OR comic book'
-  },
-  {
     id: 'ia-folkscanomy',
     title: 'Folkscanomy',
     query: `mediatype:texts AND collection:(folkscanomy OR folkscanomy_miscellaneous) AND (subject:(comics OR "comic books" OR zine) OR title:(comic OR comics OR comix OR zine))${ADULT_EXCLUDE}`
@@ -398,13 +384,12 @@ export const SHELVES = [
     query: `mediatype:texts AND collection:comics AND (subject:("comic strip" OR "comic strips" OR funnies) OR title:("comic strip" OR funnies OR "katzenjammer" OR "little nemo"))${ADULT_EXCLUDE}`
   },
   {
-    id: 'dpla-periodicals',
-    title: 'DPLA Periodicals',
-    source: 'dpla',
-    newspaperDateMode: 'month-day',
-    newspaperOnly: false,
-    format: 'magazine',
-    dplaQuery: 'magazine OR periodical OR newspaper OR comic OR zine'
+    id: 'comicbookplus',
+    title: 'Comic Book Plus',
+    source: 'comicbookplus',
+    format: 'comic',
+    cbQuery: 'latest uploads',
+    description: 'Sequential public comic scans with in-app page turning'
   },
   {
     id: 'adult-mags',

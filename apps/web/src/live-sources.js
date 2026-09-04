@@ -202,7 +202,11 @@ export function normalizeDoc(raw = {}, fallbackSource = '') {
     cover: httpsUrl(raw.cover),
     fullImage: httpsUrl(raw.fullImage),
     locUrl: httpsUrl(raw.locUrl || raw.url || raw.link),
+    sourceUrl: httpsUrl(raw.sourceUrl),
+    readerUrl: httpsUrl(raw.readerUrl),
     iiifManifest: httpsUrl(raw.iiifManifest || raw.manifest || raw.iiif),
+    viewerBase: httpsUrl(raw.viewerBase || raw.metadata?.viewerBase),
+    metadata: raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : {},
     imagecount,
     pages
   };
@@ -217,6 +221,7 @@ export function sourceLabel(source = '') {
     openlibrary: 'Open Library',
     olsubjects: 'Open Library',
     europeana: 'Europeana',
+    comicbookplus: 'Comic Book Plus',
     gbooks: 'Google Books',
     gcd: 'Grand Comics Database',
     dpla: 'Digital Public Library of America'
@@ -271,6 +276,7 @@ function sourceOf(shelf = {}) {
   if (['google-books', 'googlebooks', 'google_books'].includes(source)) return 'gbooks';
   if (['grand-comics-database', 'grand_comics_database', 'comics.org'].includes(source)) return 'gcd';
   if (['digital-public-library-of-america', 'digital-public-library', 'dpla-api'].includes(source)) return 'dpla';
+  if (['comic-book-plus', 'comicbook-plus', 'cbplus'].includes(source)) return 'comicbookplus';
   if (['archive', 'internet-archive', 'internet_archive'].includes(source)) return 'ia';
   return source || (shelf.query || shelf.iaQuery ? 'ia' : 'ia');
 }
