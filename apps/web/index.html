@@ -1413,7 +1413,7 @@
           <div class="hero-kicker">The open stacks · a living index for curious people</div>
           <h1>Find your <em>next obsession.</em></h1>
           <p>Magazines, comics, newspapers, zines, and beautifully strange things gathered from public collections.</p>
-          <div class="hero-meta"><span><b>58</b>live shelves</span><span><b>11</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
+          <div class="hero-meta"><span><b>54</b>live shelves</span><span><b>6</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
         </div>
         <div class="hero-ticket"><span>Magazine Rack</span><strong>Read<br>widely.</strong><span>Free / public / curious</span></div>
       </div>
@@ -1554,6 +1554,7 @@
       <div class="reader-actions">
         <div class="reader-nav" aria-label="Issue navigation"><button type="button" id="reader-prev" title="Previous issue">‹</button><span id="reader-position">—</span><button type="button" id="reader-next" title="Next issue">›</button></div>
         <button type="button" class="primary" id="reader-open-ia" title="Open the original source"><span class="reader-action-icon">↗</span><span class="reader-action-label">Open source</span></button>
+        <button type="button" id="reader-openlibrary" title="Sign in at Open Library" hidden><span class="reader-action-icon">↗</span><span class="reader-action-label">Open Library sign in</span></button>
         <button type="button" id="reader-related" title="Find related items"><span class="reader-action-icon">✦</span><span class="reader-action-label">Related</span></button>
         <button type="button" id="reader-fs" title="Enter fullscreen"><span class="reader-action-icon">⛶</span><span class="reader-action-label">Fullscreen</span></button>
         <button type="button" id="reader-reload" title="Reload this reader"><span class="reader-action-icon">↻</span><span class="reader-action-label">Reload</span></button>
@@ -1681,7 +1682,7 @@
         title: 'Manga',
         format: 'comic',
         source: 'aggregate',
-        aggregateSources: ['ia', 'openlibrary', 'gbooks', 'europeana', 'dpla', 'gcd'],
+        aggregateSources: ['ia', 'openlibrary', 'europeana', 'dpla'],
         query: 'mediatype:texts AND (title:(manga OR manhwa OR manhua OR doujinshi OR tankobon OR tankōbon OR shonen OR shōnen OR shojo OR shoujo OR seinen OR josei OR "japanese comic" OR "japanese comics") OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels") OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*) OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))' + ADULT_EXCLUDE
       },
       {
@@ -1948,24 +1949,6 @@
         euTheme: ''
       },
       {
-        id: 'ol-subjects',
-        title: 'OL Subjects',
-        source: 'olsubjects',
-        olSubject: 'comics'
-      },
-      {
-        id: 'gbooks-comics',
-        title: 'Google Books PD',
-        source: 'gbooks',
-        gbQuery: 'comics OR "comic book" OR "comic strip"'
-      },
-      {
-        id: 'gbooks-mags',
-        title: 'Google Books Mags',
-        source: 'gbooks',
-        gbQuery: 'magazine OR periodical'
-      },
-      {
         id: 'loc-photos',
         title: 'LOC Pictures',
         source: 'locsearch',
@@ -1988,12 +1971,6 @@
         id: 'ia-strips',
         title: 'IA Strips',
         query: 'mediatype:texts AND collection:comics AND (subject:("comic strip" OR "comic strips" OR funnies) OR title:("comic strip" OR funnies OR "katzenjammer" OR "little nemo"))' + ADULT_EXCLUDE
-      },
-      {
-        id: 'gcd-series',
-        title: 'Comic Series',
-        source: 'gcd',
-        gcdName: 'comic'
       },
       {
         id: 'dpla-periodicals',
@@ -2087,6 +2064,8 @@
         locUrl: doc.locUrl || null,
         fullImage: doc.fullImage || null,
         iiifManifest: doc.iiifManifest || null,
+        accountSource: doc.accountSource || null,
+        openLibraryUrl: doc.openLibraryUrl || null,
         format: doc.format || '',
         addedAt: new Date().toISOString()
       });
@@ -2109,6 +2088,8 @@
         locUrl: entry.locUrl || null,
         fullImage: entry.fullImage || null,
         iiifManifest: entry.iiifManifest || null,
+        accountSource: entry.accountSource || null,
+        openLibraryUrl: entry.openLibraryUrl || null,
         cover: entry.cover || bestCoverUrl(entry),
         at: new Date().toISOString()
       });
@@ -2154,7 +2135,9 @@
           source: item.source || (item.iaId ? 'ia' : ''),
           locUrl: item.locUrl || null,
           fullImage: item.fullImage || null,
-          iiifManifest: item.iiifManifest || null
+          iiifManifest: item.iiifManifest || null,
+          accountSource: item.accountSource || null,
+          openLibraryUrl: item.openLibraryUrl || null
         };
         const card = createCoverCard(doc, history.map(function(old) { return { identifier: old.identifier || old.iaId, iaId: old.iaId, title: old.title, cover: old.cover, source: old.source, locUrl: old.locUrl, fullImage: old.fullImage, iiifManifest: old.iiifManifest }; }));
         var meta = document.createElement('div');
@@ -2772,6 +2755,7 @@
       var data = await res.json();
       var docs = (data.docs || []).map(function(d) {
         var iaId = (d.ia && d.ia[0]) ? d.ia[0] : null;
+        var openLibraryUrl = d.key ? ('https://openlibrary.org' + d.key) : null;
         return {
           source: iaId ? 'ia' : 'openlibrary',
           identifier: iaId || d.key,
@@ -2780,9 +2764,11 @@
           date: d.first_publish_year ? String(d.first_publish_year) : '',
           subject: d.subject || [],
           cover: d.cover_i ? ('https://covers.openlibrary.org/b/id/' + d.cover_i + '-M.jpg') : (iaId ? 'https://archive.org/services/img/' + iaId : null),
-          locUrl: d.key ? ('https://openlibrary.org' + d.key) : null
+          locUrl: openLibraryUrl,
+          openLibraryUrl: openLibraryUrl,
+          accountSource: iaId ? 'openlibrary' : null
         };
-      });
+      }).filter(function(doc) { return doc.source === 'ia'; });
       return { docs: shuffleDocs(docs), numFound: data.num_found || docs.length };
     }
 
@@ -3199,7 +3185,7 @@
       var wrap = document.getElementById('source-health');
       var summary = document.getElementById('source-health-summary');
       if (!wrap) return;
-      var sources = ['ia', 'openlibrary', 'gbooks', 'europeana', 'dpla', 'gcd', 'loc', 'multi'];
+      var sources = ['ia', 'openlibrary', 'europeana', 'dpla', 'loc', 'multi'];
       var ok = 0;
       var checked = 0;
       wrap.innerHTML = sources.map(function(source) {
@@ -3604,10 +3590,8 @@
       var feeds = [
         { source: 'ia', shelf: { id: 'manga', title: 'Manga', query: SHELVES.find(function(item) { return item.id === 'manga'; }).query } },
         { source: 'openlibrary', shelf: { id: 'manga-openlibrary', source: 'openlibrary', olQuery: 'subject:manga OR subject:manhwa OR subject:manhua OR title:manga OR title:manhwa' } },
-        { source: 'gbooks', shelf: { id: 'manga-gbooks', source: 'gbooks', gbQuery: 'manga OR manhwa OR manhua OR doujinshi' } },
         { source: 'europeana', shelf: { id: 'manga-europeana', source: 'europeana', euQuery: 'manga OR manhwa OR manhua OR doujinshi', euTheme: '' } },
-        { source: 'dpla', shelf: { id: 'manga-dpla', source: 'dpla', dplaQuery: 'manga OR manhwa OR manhua OR doujinshi' } },
-        { source: 'gcd', shelf: { id: 'manga-gcd', source: 'gcd', gcdName: 'manga' } }
+        { source: 'dpla', shelf: { id: 'manga-dpla', source: 'dpla', dplaQuery: 'manga OR manhwa OR manhua OR doujinshi' } }
       ];
       noteSourceHealth('multi', 'loading', 'Checking Manga feeds');
       var errors = [];
@@ -3622,7 +3606,7 @@
           } else {
             data = await fetchShelfPageRaw(feed.shelf, page, feedQuery, null);
           }
-          var docs = (data && data.docs || []).filter(function(doc) { return !doc.setup && doc.identifier !== 'gcd-info'; });
+          var docs = (data && data.docs || []).filter(function(doc) { return !doc.setup && doc.identifier !== 'gcd-info' && canReadDocument(doc); });
           noteSourceHealth(feed.source, docs.length ? (data.stale ? 'degraded' : 'ok') : 'degraded', docs.length ? docs.length + ' Manga records' : 'No Manga records', docs.length);
           return { data: data || {}, docs: docs };
         } catch (error) {
@@ -3640,7 +3624,7 @@
     async function fetchShelfPage(shelf, page, extraQuery, sortMode) {
       if (shelf && (shelf.id === 'manga' || shelf.source === 'aggregate')) return fetchMangaAggregatePage(shelf, page, extraQuery);
       var source = healthSourceFor(shelf);
-      var provider = ['openlibrary', 'gbooks', 'europeana', 'dpla', 'gcd'].indexOf(source) !== -1;
+      var provider = ['openlibrary', 'europeana', 'dpla'].indexOf(source) !== -1;
       noteSourceHealth(source, 'loading', 'Checking ' + (SOURCE_LABELS[source] || source));
       try {
         var result = await fetchShelfPageRaw(shelf, page, extraQuery, sortMode);
@@ -3723,6 +3707,7 @@
         const result = await fetchShelfPage(shelf, nextPage, state.extraQuery, state.sort);
         let docs = (result.docs || []).map(function(doc) { return normalizeIssue(doc, shelf); });
         docs = dedupeDocs(docs);
+        docs = docs.filter(canReadDocument);
         var mangaRack = shelf.id === 'manga' || isAdultShelfId(shelf.id);
         if (!mangaRack) docs = docs.filter(function(doc) { return !isMangaDoc(doc); });
         docs = docs.filter(function(doc) {
@@ -3751,7 +3736,8 @@
           state.mode = 'search';
           countEl.textContent = numFound ? (numFound.toLocaleString() + ' available' + (result.degraded ? ' · fallback' : '')) : '';
           const loaded = state.page * ROWS_PER_PAGE;
-          state.hasMore = loaded < numFound && docs.length > 0;
+          const sourcePageHadRows = Array.isArray(result.docs) && result.docs.length > 0;
+          state.hasMore = loaded < numFound && (docs.length > 0 || sourcePageHadRows);
           // Switch to scrape for subsequent loads on huge shelves
           if (numFound > 8000 && loaded >= 90) {
             state.useScrape = true;
@@ -3762,6 +3748,15 @@
         }
 
         if (docs.length === 0) {
+          // Some public catalogs return metadata rows without a renderable
+          // image. Skip a few such pages so a shelf can find actual material
+          // instead of presenting a misleading empty first page.
+          if (Array.isArray(result.docs) && result.docs.length && state.hasMore && (state.emptySkips || 0) < 6) {
+            state.emptySkips = (state.emptySkips || 0) + 1;
+            state.loading = false;
+            loadShelf(shelf, state.extraQuery, false);
+            return;
+          }
           if (reset && nextPage > 1 && state.mode !== 'scrape') {
             state.page = 0;
             state.loading = false;
@@ -4392,7 +4387,13 @@
 
     function canReadDocument(doc) {
       if (!doc) return false;
-      return Boolean(isValidIaId(doc.iaId || (doc.source === 'ia' ? doc.identifier : '')) || doc.fullImage || doc.cover || doc.locUrl || doc.iiifManifest);
+      var source = String(doc.source || '').toLowerCase();
+      if (source === 'ia') return Boolean(isValidIaId(doc.iaId || doc.identifier));
+      if (source === 'openlibrary' || source === 'olsubjects') return Boolean(isValidIaId(doc.iaId) || doc.fullImage || doc.cover || doc.iiifManifest);
+      if (['loc', 'locsearch', 'xkcd', 'europeana', 'wikidata', 'met', 'dpla'].indexOf(source) !== -1) {
+        return Boolean(doc.fullImage || doc.cover || doc.iiifManifest);
+      }
+      return false;
     }
 
     function updateReaderNavigation() {
@@ -4728,6 +4729,7 @@
       if (openLabel) openLabel.textContent = externalLabel;
       if (hintLabel) hintLabel.textContent = externalLabel;
       document.getElementById('reader-open-ia').title = externalLabel;
+      updateOpenLibraryAction(readerState.doc);
       document.getElementById('reader-hint-title').textContent = 'Taking a while?';
       document.getElementById('reader-hint-copy').textContent =
         'Some ' + sourceLabel + ' items block embedded reading. The original source is still available.';
@@ -4766,6 +4768,7 @@
         hintTimer: null, loadTimer: null, loadToken: nextToken,
         lastFocus: null, manualChromeHidden: false, queue: [], queueIndex: 0
       };
+      updateOpenLibraryAction(null);
       updateReaderNavigation();
       if (priorFocus && priorFocus.isConnected) {
         try { priorFocus.focus(); } catch (e) {}
@@ -4773,7 +4776,9 @@
     }
 
     function openExternalIa() {
-      if (readerState.iaId) {
+      if (readerState.doc && readerState.doc.accountSource === 'openlibrary' && readerState.doc.openLibraryUrl) {
+        window.open(readerState.doc.openLibraryUrl, '_blank');
+      } else if (readerState.iaId) {
         window.open('https://archive.org/details/' + encodeURIComponent(readerState.iaId), '_blank');
       } else if (readerState.doc && readerState.doc.locUrl) {
         window.open(readerState.doc.locUrl, '_blank');
@@ -4782,8 +4787,23 @@
       }
     }
 
+    function openOpenLibraryLogin() {
+      var popup = window.open('https://openlibrary.org/account/login', '_blank', 'noopener,noreferrer');
+      if (!popup) showToast('Allow pop-ups to sign in');
+      else showToast('Open Library sign-in opened');
+    }
+
+    function updateOpenLibraryAction(doc) {
+      var button = document.getElementById('reader-openlibrary');
+      if (!button) return;
+      var enabled = Boolean(doc && (doc.accountSource === 'openlibrary' || doc.source === 'openlibrary' || doc.source === 'olsubjects'));
+      button.hidden = !enabled;
+      button.title = enabled ? 'Sign in at Open Library' : '';
+    }
+
     document.getElementById('reader-close').addEventListener('click', closeReader);
     document.getElementById('reader-open-ia').addEventListener('click', openExternalIa);
+    document.getElementById('reader-openlibrary').addEventListener('click', openOpenLibraryLogin);
     document.getElementById('reader-hint-ia').addEventListener('click', openExternalIa);
     document.getElementById('reader-hint-dismiss').addEventListener('click', hideReaderHint);
     document.getElementById('reader-loading-retry').addEventListener('click', function() {

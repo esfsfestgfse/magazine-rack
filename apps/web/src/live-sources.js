@@ -644,9 +644,11 @@ async function fetchOpenLibraryPage(shelf, page, options) {
       cover,
       fullImage: iaId ? archiveCover(iaId) : cover,
       locUrl: item.key ? `https://openlibrary.org${item.key}` : null,
+      openLibraryUrl: item.key ? `https://openlibrary.org${item.key}` : null,
+      accountSource: iaId ? 'openlibrary' : null,
       pages: item.number_of_pages
     };
-  });
+  }).filter((doc) => doc.source === 'ia');
   return result(docs, { source: 'openlibrary', page, pageSize: size, numFound: numberValue(data?.num_found) || docs.length });
 }
 
@@ -668,7 +670,9 @@ async function fetchOpenLibrarySubjectsPage(shelf, page, options) {
       subject: item.subject || [subject],
       cover: item.cover_id ? `https://covers.openlibrary.org/b/id/${numberValue(item.cover_id)}-M.jpg` : archiveCover(iaId),
       fullImage: iaId ? archiveCover(iaId) : null,
-      locUrl: item.key ? `https://openlibrary.org${item.key}` : null
+      locUrl: item.key ? `https://openlibrary.org${item.key}` : null,
+      openLibraryUrl: item.key ? `https://openlibrary.org${item.key}` : null,
+      accountSource: iaId ? 'openlibrary' : null
     };
   });
   return result(docs, { source: 'olsubjects', page, pageSize: size, numFound: numberValue(data?.work_count) || docs.length });

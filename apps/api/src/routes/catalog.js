@@ -33,7 +33,7 @@ async function persist(env, items) {
 async function stored(env, query, genre, page, source) {
   if (!env.DB) return { items: [], total: 0 };
   const like = `%${query}%`; const offset = (page - 1) * 30; const sourceName = SOURCE_NAMES[source] || source || '';
-  const sourceClause = source ? ' AND (lower(source) = lower(?) OR lower(source) = lower(?))' : '';
+  const sourceClause = source ? ' AND (lower(source) = lower(?) OR lower(source) = lower(?))' : " AND lower(source) NOT IN ('gcd', 'grand comics database')";
   const values = source ? [query, like, like, like, genre, genre, source, sourceName, offset] : [query, like, like, like, genre, genre, offset];
   const countValues = source ? values.slice(0, 8) : values.slice(0, 6);
   const result = await env.DB.prepare(`SELECT id, source, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, last_seen_at FROM catalog_items WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${sourceClause} ORDER BY last_seen_at DESC LIMIT 30 OFFSET ?`).bind(...values).all();

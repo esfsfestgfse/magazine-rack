@@ -374,24 +374,6 @@ export const SHELVES = [
     euTheme: ''
   },
   {
-    id: 'ol-subjects',
-    title: 'OL Subjects',
-    source: 'olsubjects',
-    olSubject: 'comics'
-  },
-  {
-    id: 'gbooks-comics',
-    title: 'Google Books PD',
-    source: 'gbooks',
-    gbQuery: 'comics OR "comic book" OR "comic strip"'
-  },
-  {
-    id: 'gbooks-mags',
-    title: 'Google Books Mags',
-    source: 'gbooks',
-    gbQuery: 'magazine OR periodical'
-  },
-  {
     id: 'loc-photos',
     title: 'LOC Pictures',
     source: 'locsearch',
@@ -414,12 +396,6 @@ export const SHELVES = [
     id: 'ia-strips',
     title: 'IA Strips',
     query: `mediatype:texts AND collection:comics AND (subject:("comic strip" OR "comic strips" OR funnies) OR title:("comic strip" OR funnies OR "katzenjammer" OR "little nemo"))${ADULT_EXCLUDE}`
-  },
-  {
-    id: 'gcd-series',
-    title: 'Comic Series',
-    source: 'gcd',
-    gcdName: 'comic'
   },
   {
     id: 'dpla-periodicals',
