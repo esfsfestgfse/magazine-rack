@@ -4832,7 +4832,9 @@
       if (isValidIaId(iaId)) {
         setReaderLoading(true, 'Opening scan', 'Connecting to the Internet Archive viewer...');
         bindFrame('Internet Archive · embed');
-        frame.src = 'https://archive.org/embed/' + encodeURIComponent(iaId);
+        // Use Internet Archive's documented BookReader embed route. It keeps
+        // the provider's own lending/auth handshake in the embedded reader.
+        frame.src = 'https://archive.org/stream/' + encodeURIComponent(iaId) + '?ui=embed&wrapper=false';
         scheduleReaderHint(token);
         return;
       }
