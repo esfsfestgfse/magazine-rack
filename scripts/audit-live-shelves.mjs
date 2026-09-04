@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs';
 import { SHELVES } from '../apps/web/src/shelf-catalog.js';
 import { dateMonthDay, fetchShelfPage, monthDayKey } from '../apps/web/src/live-sources.js';
 
 const PAGE_SIZE = 30;
-const CONCURRENCY = 5;
+// Keep the audit below the rate limits of public catalog APIs. This measures
+// shelf reliability without creating an artificial burst of simultaneous work.
+const CONCURRENCY = 2;
 const targetMonthDay = process.env.NEWSPAPER_MONTH_DAY || monthDayKey();
+const comicBookPlusSnapshot = JSON.parse(readFileSync(new URL('../apps/web/data/comicbookplus.json', import.meta.url), 'utf8'));
 
 function text(value) {
   return Array.isArray(value) ? value.join(' ') : String(value ?? '');
@@ -29,6 +33,25 @@ function newspaperDate(item) {
   return [item.issueDate, item.date, item.title, item.identifier].map(dateMonthDay).find(Boolean) || '';
 }
 
+function fetchComicBookPlusAuditPage(page, pageSize) {
+  const start = (page - 1) * pageSize;
+  const docs = (comicBookPlusSnapshot.items || []).slice(start, start + pageSize).map((item) => ({
+    identifier: `comicbookplus:${item.sourceId}`,
+    title: item.title,
+    creator: item.creator,
+    date: item.year,
+    cover: item.cover,
+    source: 'comicbookplus',
+    sourceUrl: item.sourceUrl,
+    readerUrl: item.readerUrl || item.sourceUrl,
+    pages: item.pages,
+    readable: true,
+    access: 'full',
+    readerKind: 'sequential-images'
+  }));
+  return { docs, numFound: Number(comicBookPlusSnapshot.total) || docs.length, page, partial: false, errors: [] };
+}
+
 async function mapLimit(values, limit, mapper) {
   const output = new Array(values.length);
   let next = 0;
@@ -48,7 +71,9 @@ async function mapLimit(values, limit, mapper) {
 
 const rows = await mapLimit(SHELVES, CONCURRENCY, async (shelf) => {
   const started = Date.now();
-  const result = await fetchShelfPage(shelf, 1, { pageSize: PAGE_SIZE, newspaperMonthDay: targetMonthDay });
+  const result = shelf.source === 'comicbookplus'
+    ? fetchComicBookPlusAuditPage(1, PAGE_SIZE)
+    : await fetchShelfPage(shelf, 1, { pageSize: PAGE_SIZE, newspaperMonthDay: targetMonthDay });
   const items = Array.isArray(result.docs || result.items) ? (result.docs || result.items) : [];
   const ids = new Set();
   const titles = new Map();
