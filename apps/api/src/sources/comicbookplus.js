@@ -3,6 +3,28 @@ import { sourceItem } from './common.js';
 
 const BASE = 'https://comicbookplus.com';
 
+const FALLBACK_ITEMS = Object.freeze([
+  { sourceId: '102387', title: 'Silberpfeil Piccolo 25 - Im Goldenen Eber', creator: 'Neymar', pages: 36, viewerBase: 'https://comicbookplus.com/viewer/79/7941c56cccf7a0d46a16d4e0a9535f5d' },
+  { sourceId: '102386', title: 'Silberpfeil Piccolo 24 - Die blonde Tigerin', creator: 'Neymar', pages: 36, viewerBase: 'https://comicbookplus.com/viewer/31/31cee90b49e731984efc4f3d0e8cd69a' },
+  { sourceId: '102385', title: 'Silberpfeil Piccolo 23 - Wer ist E.G', creator: 'Neymar', pages: 36, viewerBase: 'https://comicbookplus.com/viewer/1c/1caa488547d0614591c47a1bcf22d48f' },
+  { sourceId: '102384', title: 'Animal Comics 13', creator: 'Pyramid', pages: 53, viewerBase: 'https://comicbookplus.com/viewer/39/396cdf21e2a66404e0584363efb3eeb5' },
+  { sourceId: '102383', title: 'Foxy Fagan Comics 3', creator: 'movielover', pages: 53, viewerBase: 'https://comicbookplus.com/viewer/ed/edf911434a44b29b66733222dcd65fb9' },
+  { sourceId: '102382', title: 'Silberpfeil Piccolo 22 - Die Desperados von Topeka', creator: 'Neymar', pages: 36, viewerBase: 'https://comicbookplus.com/viewer/80/80a2196cfef319f2e69ce1f48ce31833' },
+].map((entry) => sourceItem('comicbookplus', entry.sourceId, {
+  title: entry.title,
+  creator: entry.creator,
+  genre: 'Comics',
+  coverUrl: `${entry.viewerBase}/mediumthumb.jpg`,
+  sourceUrl: `${BASE}/?dlid=${entry.sourceId}`,
+  readerUrl: `${BASE}/?dlid=${entry.sourceId}`,
+  pageCount: entry.pages,
+  metadata: { viewerBase: entry.viewerBase, pageCount: entry.pages, provider: 'Comic Book Plus', fallback: true },
+})));
+
+function fallbackPage(page) {
+  return { total: FALLBACK_ITEMS.length, items: page === 1 ? FALLBACK_ITEMS : [], page, partial: true, stale: true };
+}
+
 function htmlText(value) {
   return String(value || '')
     .replace(/<[^>]+>/g, ' ')
@@ -68,14 +90,19 @@ function parseBooks(html) {
 export async function fetchComicBookPlus({ page = 1 }, env) {
   const currentPage = Math.max(1, Math.min(30, Number(page) || 1));
   const url = `${BASE}/?cbplus=latestuploads_l_s_${currentPage - 1}`;
-  const html = await fetchText(url, env, 'comicbookplus', {
-    headers: {
-      Referer: `${BASE}/`,
-      'Accept-Language': 'en-US,en;q=0.9',
-    },
-  });
+  let html;
+  try {
+    html = await fetchText(url, env, 'comicbookplus', {
+      headers: {
+        Referer: `${BASE}/`,
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+  } catch {
+    return fallbackPage(currentPage);
+  }
   const items = parseBooks(html);
-  return { total: 49_000, items, page: currentPage };
+  return items.length ? { total: 49_000, items, page: currentPage } : fallbackPage(currentPage);
 }
 
 export { parseBooks };
