@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: worker-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -53,7 +53,7 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/api
           wranglerVersion: "4"
-          command: d1 migrations apply margin-catalog --remote --env production --config wrangler.jsonc
+          command: d1 migrations apply margin-catalog --remote --yes --env production --config wrangler.jsonc
 
       - name: Deploy production Worker
         uses: cloudflare/wrangler-action@v4
