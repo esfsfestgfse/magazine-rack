@@ -1385,6 +1385,13 @@
     .reader-nav button { min-width:32px; padding-inline:8px; }
     .reader-nav span { min-width:48px; color:#9ca3af; font-size:.68rem; text-align:center; }
     .reader-nav button:disabled { opacity:.35; cursor:default; }
+    .openlibrary-btn { border-color:rgba(94,234,212,.28); color:var(--accent); }
+    .account-panel { display:grid; gap:14px; padding:4px 0 2px; }
+    .account-panel p { margin:0; color:var(--muted); line-height:1.55; }
+    .account-status { display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid var(--border); border-radius:7px; color:var(--text); background:rgba(255,255,255,.035); font-size:.76rem; }
+    .account-status i { width:8px; height:8px; border-radius:50%; background:#77808d; }
+    .account-status.opened i, .account-status.confirmed i { background:#5eead4; box-shadow:0 0 0 3px rgba(94,234,212,.12); }
+    .account-note { color:var(--muted); font-size:.7rem; line-height:1.5; }
     @media (max-width: 650px) { .source-pulse { margin-inline:12px; } .source-pulse-head span { display:none; } .reader-nav span { display:none; } }
   </style>
 </head>
@@ -1396,6 +1403,7 @@
         <button id="wall-btn" type="button" title="Cover wall mode">Wall</button>
         <button id="racks-btn" type="button" title="Show or hide racks">Racks</button>
         <button id="random-btn" type="button" title="Random issue">Random</button>
+        <button id="openlibrary-btn" class="openlibrary-btn" type="button" title="Open Library access">Open Library</button>
         <button id="debug-btn" type="button">Debug</button>
         <div class="header-stats" id="stats">0 saved</div>
       </div>
@@ -1554,7 +1562,7 @@
       <div class="reader-actions">
         <div class="reader-nav" aria-label="Issue navigation"><button type="button" id="reader-prev" title="Previous issue">‹</button><span id="reader-position">—</span><button type="button" id="reader-next" title="Next issue">›</button></div>
         <button type="button" class="primary" id="reader-open-ia" title="Open the original source"><span class="reader-action-icon">↗</span><span class="reader-action-label">Open source</span></button>
-        <button type="button" id="reader-openlibrary" title="Sign in at Open Library" hidden><span class="reader-action-icon">↗</span><span class="reader-action-label">Open Library sign in</span></button>
+        <button type="button" id="reader-openlibrary" title="Open Library access" hidden><span class="reader-action-icon">↗</span><span class="reader-action-label">Open Library access</span></button>
         <button type="button" id="reader-related" title="Find related items"><span class="reader-action-icon">✦</span><span class="reader-action-label">Related</span></button>
         <button type="button" id="reader-fs" title="Enter fullscreen"><span class="reader-action-icon">⛶</span><span class="reader-action-label">Fullscreen</span></button>
         <button type="button" id="reader-reload" title="Reload this reader"><span class="reader-action-icon">↻</span><span class="reader-action-label">Reload</span></button>
@@ -1988,10 +1996,13 @@
     const HISTORY_KEY = 'magazine-rack-history-v1';
     const FAVORITES_KEY = 'magazine-rack-favorites-v1';
     const PREFS_KEY = 'magazine-rack-prefs-v1';
+    const OPEN_LIBRARY_STATE_KEY = 'magazine-rack-openlibrary-v1';
     let library = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
     let favorites = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
     let prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{"wall":false,"hidden":{},"pinned":{}}');
+    let openLibraryConnection = 'not-started';
+    try { openLibraryConnection = localStorage.getItem(OPEN_LIBRARY_STATE_KEY) || 'not-started'; } catch (e) {}
     if (!Array.isArray(library)) library = [];
     if (!Array.isArray(history)) history = [];
     if (!Array.isArray(favorites)) favorites = [];
@@ -4504,6 +4515,7 @@
         xkcd: 'xkcd',
         europeana: 'Europeana',
         openlibrary: 'Open Library',
+        olsubjects: 'Open Library',
         wikidata: 'Wikidata',
         met: 'The Met',
         comicbookplus: 'Comic Book Plus',
@@ -4663,6 +4675,10 @@
       return raw.replace('/item/', '/resource/').replace(/\?.*$/, '').replace(/\/$/, '');
     }
 
+    function safeUrl(value) {
+      return sourceUrl(value);
+    }
+
     function buildLocReaderHtml(doc, title) {
       var resourceUrl = locResourceUrl(doc && (doc.locUrl || doc.readerUrl));
       var firstImage = safeUrl(doc && (doc.fullImage || doc.cover));
@@ -4682,6 +4698,23 @@
         'pages[1] = firstImage; render(); fetch(resourceUrl + "?fo=json").then(function(response) { if (!response.ok) throw new Error("record"); return response.json(); }).then(function(data) { pageCount = Math.max(1, countFrom(data)); render(); }).catch(function() {});'
       ].join('\n');
       return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;background:#101114;color:#f5f2ea;min-height:100%;font-family:system-ui,sans-serif;}body{min-height:100vh;display:flex;flex-direction:column;overflow:hidden;}.toolbar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#1b1d22;border-bottom:1px solid #343740;}.title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:#d3d0c7;}button{border:1px solid #484c58;background:#272a32;color:#fff;border-radius:5px;padding:6px 10px;cursor:pointer;font-weight:600;}button:disabled{opacity:.35;cursor:default;}#page-status{font-size:12px;color:#aaa;min-width:48px;text-align:center;}.viewport{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:18px;}#page-image{display:block;max-width:100%;max-height:calc(100vh - 76px);height:auto;object-fit:contain;transform-origin:center center;transition:transform .16s ease;}#page-message{display:none;max-width:420px;color:#bbb;text-align:center;line-height:1.5;padding:24px;}#page-message.show{display:block;}</style></head><body><div class="toolbar"><div class="title" id="page-title">Reader</div><button id="page-prev" type="button">‹</button><span id="page-status">—</span><button id="page-next" type="button">›</button><button id="page-zoom-out" type="button">−</button><button id="page-zoom-in" type="button">+</button><button id="page-fit" type="button">Fit</button></div><div class="viewport"><img id="page-image" alt=""><div id="page-message"></div></div><script>' + script + '<' + '/script></body></html>';
+    }
+
+    function buildOpenLibraryAccessHtml(doc, title) {
+      var itemUrl = sourceUrl(doc && (doc.openLibraryUrl || doc.locUrl || doc.readerUrl)) || '';
+      var cover = normalizeCoverUrl(bestCoverUrl(doc));
+      var coverHtml = cover
+        ? '<img src="' + escapeHtml(cover) + '" alt="" style="display:block;width:min(190px,55vw);max-height:270px;object-fit:contain;margin:0 auto 18px;border-radius:4px;box-shadow:0 12px 28px #0008;">'
+        : '';
+      var itemLink = itemUrl
+        ? '<a class="secondary" href="' + escapeHtml(itemUrl) + '" target="_blank" rel="noopener">Open this edition</a>'
+        : '';
+      return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
+        'html,body{margin:0;min-height:100%;background:#14161a;color:#eee;font-family:system-ui,sans-serif;}' +
+        'body{display:grid;place-items:center;padding:28px;box-sizing:border-box;text-align:center;}' +
+        'main{width:min(560px,100%);border:1px solid #3b3f48;border-radius:14px;padding:28px;background:linear-gradient(155deg,#242830,#191b20);box-shadow:0 18px 60px #0008;box-sizing:border-box;}' +
+        'p{color:#b9bdc7;line-height:1.55;margin:10px 0 0;}a{display:inline-block;margin:16px 6px 0;padding:11px 15px;border-radius:7px;background:#ff9f43;color:#17181c;text-decoration:none;font-weight:800;}a.secondary{background:#30343d;color:#f5f2ea;border:1px solid #545a68;}small{display:block;margin-top:18px;color:#858b98;line-height:1.5;}' +
+        '</style></head><body><main>' + coverHtml + '<div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#ffd166">OPEN LIBRARY ACCESS</div><h1 style="font-size:24px;line-height:1.15;margin:9px 0 0">' + escapeHtml(title || 'This edition') + '</h1><p>This edition needs Open Library access. Sign in in a separate secure tab, then return here and use Retry in the reader header.</p><a href="https://openlibrary.org/account/login" target="_blank" rel="noopener">Sign in at Open Library</a>' + itemLink + '<small>Your password stays on Open Library. Magazine Rack never receives or stores it.</small></main></body></html>';
     }
 
     function buildSourceNoticeHtml(doc, sourceLabel) {
@@ -4780,11 +4813,10 @@
         }
       }
 
-      if (doc && doc.source === 'openlibrary' && !isValidIaId(iaId) && doc.locUrl) {
-        setReaderLoading(true, 'Opening page', 'Loading the Open Library record...');
-        bindFrame('Open Library · page');
-        frame.src = doc.locUrl;
-        scheduleReaderHint(token);
+      if (doc && (doc.source === 'openlibrary' || doc.source === 'olsubjects') && !isValidIaId(iaId) && doc.locUrl) {
+        setReaderLoading(false);
+        bindFrame('Open Library · access panel');
+        frame.srcdoc = buildOpenLibraryAccessHtml(doc, readerState.title);
         return;
       }
 
@@ -4932,10 +4964,57 @@
       }
     }
 
+    function openLibraryConnectionLabel() {
+      if (openLibraryConnection === 'confirmed') return 'Signed-in session ready';
+      if (openLibraryConnection === 'opened') return 'Sign-in window opened';
+      return 'Not connected yet';
+    }
+
+    function setOpenLibraryConnection(status) {
+      openLibraryConnection = status || 'not-started';
+      try { localStorage.setItem(OPEN_LIBRARY_STATE_KEY, openLibraryConnection); } catch (e) {}
+      var button = document.getElementById('openlibrary-btn');
+      if (button) button.title = 'Open Library access · ' + openLibraryConnectionLabel();
+    }
+
+    function renderOpenLibraryPanel() {
+      document.getElementById('modal-title').textContent = 'Open Library access';
+      document.getElementById('modal-body').innerHTML =
+        '<div class="account-panel">' +
+          '<p>Sign in on Open Library while this rack stays open. Open Library uses your Internet Archive account for borrowing and restricted scans.</p>' +
+          '<div class="account-status ' + escapeHtml(openLibraryConnection) + '"><i></i><span>' + escapeHtml(openLibraryConnectionLabel()) + '</span></div>' +
+          '<div class="modal-actions">' +
+            '<button class="btn-primary" id="ol-login">Sign in at Open Library</button>' +
+            '<button class="btn-secondary" id="ol-books">Open My Books</button>' +
+            '<button class="btn-secondary" id="ol-confirm">I’m signed in · retry</button>' +
+          '</div>' +
+          '<div class="account-note">Your password stays on Open Library. Magazine Rack does not collect, transmit, or store Open Library credentials. Because browsers protect cross-site cookies, the rack cannot automatically inspect the Open Library session; use “I’m signed in · retry” after returning here.</div>' +
+        '</div>';
+      document.getElementById('modal').classList.add('open');
+      document.getElementById('ol-login').addEventListener('click', openOpenLibraryLogin);
+      document.getElementById('ol-books').addEventListener('click', function() {
+        window.open('https://openlibrary.org/account', '_blank', 'noopener,noreferrer');
+      });
+      document.getElementById('ol-confirm').addEventListener('click', function() {
+        setOpenLibraryConnection('confirmed');
+        closeModal();
+        if (document.getElementById('reader').classList.contains('open')) loadReaderContent();
+        showToast('Open Library session marked ready');
+      });
+    }
+
+    function openOpenLibraryPanel() {
+      renderOpenLibraryPanel();
+    }
+
     function openOpenLibraryLogin() {
       var popup = window.open('https://openlibrary.org/account/login', '_blank', 'noopener,noreferrer');
-      if (!popup) showToast('Allow pop-ups to sign in');
-      else showToast('Open Library sign-in opened');
+      if (!popup) {
+        showToast('Allow pop-ups to sign in');
+        return;
+      }
+      setOpenLibraryConnection('opened');
+      showToast('Open Library sign-in opened · return here when done');
     }
 
     function updateOpenLibraryAction(doc) {
@@ -4943,12 +5022,12 @@
       if (!button) return;
       var enabled = Boolean(doc && (doc.accountSource === 'openlibrary' || doc.source === 'openlibrary' || doc.source === 'olsubjects'));
       button.hidden = !enabled;
-      button.title = enabled ? 'Sign in at Open Library' : '';
+      button.title = enabled ? 'Open Library access' : '';
     }
 
     document.getElementById('reader-close').addEventListener('click', closeReader);
     document.getElementById('reader-open-ia').addEventListener('click', openExternalIa);
-    document.getElementById('reader-openlibrary').addEventListener('click', openOpenLibraryLogin);
+    document.getElementById('reader-openlibrary').addEventListener('click', openOpenLibraryPanel);
     document.getElementById('reader-hint-ia').addEventListener('click', openExternalIa);
     document.getElementById('reader-hint-dismiss').addEventListener('click', hideReaderHint);
     document.getElementById('reader-loading-retry').addEventListener('click', function() {
@@ -4961,6 +5040,8 @@
     document.getElementById('reader-next').addEventListener('click', function() {
       navigateReader(1);
     });
+
+    document.getElementById('openlibrary-btn').addEventListener('click', openOpenLibraryPanel);
 
     document.getElementById('reader-reload').addEventListener('click', function() {
       loadReaderContent();
