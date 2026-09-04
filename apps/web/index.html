@@ -5017,11 +5017,10 @@
     }
 
     function openOpenLibraryLogin() {
-      var popup = window.open('https://openlibrary.org/account/login', '_blank', 'noopener,noreferrer');
-      if (!popup) {
-        showToast('Allow pop-ups to sign in');
-        return;
-      }
+      // With noopener/noreferrer, browsers may intentionally return null from
+      // window.open even when the tab was created. Treating that return value
+      // as a failure produced a false "Allow pop-ups" message in the app.
+      window.open('https://openlibrary.org/account/login', '_blank', 'noopener,noreferrer');
       setOpenLibraryConnection('opened');
       showToast('Open Library sign-in opened · return here when done');
     }
