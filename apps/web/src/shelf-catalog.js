@@ -215,7 +215,7 @@ export const SHELVES = [
   {
     id: 'hotrod',
     title: 'Hot Rod',
-    query: `mediatype:texts AND (title:("hot rod magazine" OR "hot rod " OR "motor trend" OR "car and driver" OR "road and track" OR "rod and custom") OR subject:("hot rod" OR "automobile magazine")) AND (subject:magazine OR title:magazine OR collection:*magazine*)${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:("hot rod magazine" OR "hot rod" OR "car craft" OR "motor trend" OR "road and track" OR "road & track" OR "car and driver" OR "rod and custom" OR "street rodder" OR "popular hot rodding" OR "sports cars illustrated" OR "muscle car review" OR "mopar muscle" OR "custom rodder" OR "custom cars" OR "motor life" OR "speed age" OR "autocar" OR "automobile quarterly" OR "classic cars" OR "motor sports" OR "racecar engineering" OR "bmw car" OR "classic & sports car") OR subject:("hot rod" OR "automobile magazine")) AND (subject:magazine OR title:magazine OR collection:*magazine*)${ADULT_EXCLUDE}`
   },
   {
     id: 'aviation',
@@ -248,13 +248,6 @@ export const SHELVES = [
     newspaperDateMode: 'month-day',
     newspaperOnly: true,
     query: `mediatype:texts AND (collection:(newspapers) OR subject:newspapers) AND language:English${ADULT_EXCLUDE}`
-  },
-  {
-    id: 'funnies',
-    title: 'Funnies',
-    newspaperDateMode: 'month-day',
-    newspaperOnly: true,
-    query: `mediatype:texts AND (collection:(comics OR comicbooks) OR title:(comic OR comics OR funnies OR "comic news") OR subject:(comic OR comics OR funnies OR "comic strip")) AND NOT subject:(manga OR anime OR hentai OR "graphic novel")${ADULT_EXCLUDE}`
   },
   {
     id: 'chronam',
