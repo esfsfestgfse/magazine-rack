@@ -68,7 +68,12 @@ function parseBooks(html) {
 export async function fetchComicBookPlus({ page = 1 }, env) {
   const currentPage = Math.max(1, Math.min(30, Number(page) || 1));
   const url = `${BASE}/?cbplus=latestuploads_l_s_${currentPage - 1}`;
-  const html = await fetchText(url, env, 'comicbookplus');
+  const html = await fetchText(url, env, 'comicbookplus', {
+    headers: {
+      Referer: `${BASE}/`,
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+  });
   const items = parseBooks(html);
   return { total: 49_000, items, page: currentPage };
 }
