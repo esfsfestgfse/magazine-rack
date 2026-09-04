@@ -2748,7 +2748,6 @@
       if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) {
         q = extraQuery.trim() + ' ' + q;
       }
-      // Prefer items with IA identifiers so we can still read in-app
       var url = 'https://openlibrary.org/search.json?q=' + encodeURIComponent(q) +
         '&has_fulltext=true&fields=key,title,author_name,first_publish_year,cover_i,ia,public_scan_b,subject' +
         '&limit=' + ROWS_PER_PAGE + '&page=' + page;
@@ -2761,16 +2760,17 @@
         return {
           source: iaId ? 'ia' : 'openlibrary',
           identifier: iaId || d.key,
+          iaId: iaId || null,
           title: d.title || 'Untitled',
           creator: (d.author_name && d.author_name[0]) || 'Open Library',
           date: d.first_publish_year ? String(d.first_publish_year) : '',
           subject: d.subject || [],
           cover: d.cover_i ? ('https://covers.openlibrary.org/b/id/' + d.cover_i + '-M.jpg') : (iaId ? 'https://archive.org/services/img/' + iaId : null),
           locUrl: openLibraryUrl,
-          openLibraryUrl: openLibraryUrl,
-          accountSource: iaId ? 'openlibrary' : null
+          accountSource: 'openlibrary',
+          openLibraryUrl: openLibraryUrl
         };
-      }).filter(function(doc) { return doc.source === 'ia'; });
+      });
       return { docs: shuffleDocs(docs), numFound: data.num_found || docs.length };
     }
 
@@ -2969,12 +2969,15 @@
         return {
           source: iaId ? 'ia' : 'openlibrary',
           identifier: iaId || d.key,
+          iaId: iaId || null,
           title: d.title || 'Untitled',
           creator: (d.authors && d.authors[0] && d.authors[0].name) || 'Open Library',
           date: d.first_publish_year ? String(d.first_publish_year) : '',
           subject: d.subject || [sub],
           cover: d.cover_id ? ('https://covers.openlibrary.org/b/id/' + d.cover_id + '-M.jpg') : null,
-          locUrl: d.key ? ('https://openlibrary.org' + d.key) : null
+          locUrl: d.key ? ('https://openlibrary.org' + d.key) : null,
+          accountSource: 'openlibrary',
+          openLibraryUrl: d.key ? ('https://openlibrary.org' + d.key) : null
         };
       });
       return { docs: shuffleDocs(docs), numFound: data.work_count || docs.length };
@@ -3322,9 +3325,13 @@
       var docs = (data.items || []).map(function(item) {
         var sourceId = item.id || item.sourceId || item.identifier || item.title || 'catalog-item';
         var sourceUrlValue = item.sourceUrl || item.locUrl || null;
+        var metadata = item.metadata || {};
+        var iaId = metadata.iaId || null;
+        var itemSource = iaId ? 'ia' : (item.source || source);
         return {
-          source: item.source || source,
-          identifier: sourceId,
+          source: itemSource,
+          identifier: iaId || sourceId,
+          iaId: iaId,
           title: item.title || 'Untitled issue',
           creator: item.creator || item.sourceName || '',
           date: item.year || '',
@@ -3338,7 +3345,9 @@
           pages: item.pages || 0,
           viewerBase: item.metadata && item.metadata.viewerBase || null,
           description: item.description || '',
-          metadata: item.metadata || {},
+          metadata: metadata,
+          accountSource: item.source === 'openlibrary' ? 'openlibrary' : null,
+          openLibraryUrl: item.source === 'openlibrary' ? sourceUrlValue : null,
           _gcdIssueUrl: source === 'gcd' ? gcdIssueHint(item.metadata) : null
         };
       });
@@ -4463,7 +4472,7 @@
       if (!doc) return false;
       var source = String(doc.source || '').toLowerCase();
       if (source === 'ia') return Boolean(isValidIaId(doc.iaId || doc.identifier));
-      if (source === 'openlibrary' || source === 'olsubjects') return Boolean(isValidIaId(doc.iaId) || doc.fullImage || doc.cover || doc.iiifManifest);
+      if (source === 'openlibrary' || source === 'olsubjects') return Boolean(isValidIaId(doc.iaId) || doc.fullImage || doc.cover || doc.iiifManifest || doc.locUrl || doc.readerUrl);
       if (source === 'comicbookplus') return Boolean(doc.viewerBase || doc.metadata && doc.metadata.viewerBase || doc.fullImage || doc.cover);
       if (['loc', 'locsearch', 'xkcd', 'europeana', 'wikidata', 'met', 'dpla'].indexOf(source) !== -1) {
         return Boolean(doc.fullImage || doc.cover || doc.iiifManifest);
