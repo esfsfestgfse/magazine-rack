@@ -1,5 +1,5 @@
 import { fetchShelfPage, monthDayKey } from './live-sources.js';
-import { ADULT_EXCLUDE, SHELVES, isAdultDoc, isAdultShelfId } from './shelf-catalog.js';
+import { ADULT_EXCLUDE, SHELVES, isAdultDoc, isAdultShelfId, isMangaDoc } from './shelf-catalog.js';
 import { SEED_ITEMS } from './data.js';
 import { store } from './store.js';
 import { hasConfiguredApi, removeLibraryItem, saveLibraryItem, searchCatalog, syncLibrary } from './api.js';
@@ -213,7 +213,7 @@ async function loadShelf(id, reset = false) {
   const nextPage = reset ? 1 : current.page + 1;
   try {
     const result = await fetchShelfData(shelf, nextPage, { extraQuery: state.query, decade: state.decade, cursor: reset ? null : current.cursor, deep: current.mode === 'scrape', mode: current.mode, europeanaKey: store.getPrefs().europeanaKey, newspaperMonthDay: shelf.newspaperDateMode === 'month-day' ? monthDayKey() : '', pageSize: ROWS_PER_PAGE });
-    const incoming = (result?.docs || result?.items || []).map(normalizedDoc).filter((doc) => idOf(doc) && (isAdultShelfId(shelf.id) || !isAdultDoc(doc)));
+    const incoming = (result?.docs || result?.items || []).map(normalizedDoc).filter((doc) => idOf(doc) && (isAdultShelfId(shelf.id) || (!isAdultDoc(doc) && (shelf.id === 'manga' || !isMangaDoc(doc)))));
     const seen = new Set(reset ? [] : current.docs.map(idOf));
     const unique = incoming.filter((doc) => !seen.has(idOf(doc)));
     current.docs = reset ? unique : [...current.docs, ...unique]; current.page = nextPage; current.total = Number(result?.numFound ?? result?.total ?? current.docs.length) || current.docs.length; current.cursor = result?.nextCursor || null; current.mode = result?.mode || current.mode || 'search'; current.deepAvailable = Boolean(result?.deepAvailable); current.nextMode = result?.nextMode || null; if (current.nextMode && current.docs.length >= 90) current.mode = current.nextMode; current.hasMore = Boolean(current.cursor || (unique.length && current.docs.length < current.total)); current.loaded = true; current.fallback = false; current.error = result?.partial && !unique.length ? ((result?.errors || [])[0]?.message || 'This source did not respond') : '';

@@ -1,3 +1,5 @@
+import { MANGA_EXCLUDE } from './shelf-catalog.js';
+
 /*
  * Browser-side live source adapters for Magazine Rack.
  *
@@ -335,6 +337,9 @@ function iaQuery(shelf, options) {
     const monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(month) - 1];
     query = `${query} AND (identifier:*${month}${day}* OR title:("${monthName} ${Number(day)}"))`;
   }
+  const shelfId = String(shelf?.id || '');
+  const isRestricted = ['adult', 'adult-mags', 'adult-comics'].includes(shelfId);
+  if (shelfId !== 'manga' && shelfId !== 'search' && !isRestricted) query = `${query}${MANGA_EXCLUDE}`;
   return boundedQuery(query);
 }
 

@@ -1552,6 +1552,22 @@
       ' AND NOT (title:(playboy OR penthouse OR hustler OR "barely legal" OR gallery OR oui OR swank OR nudist OR erotic OR erotica OR milf OR housewives OR "readers wives" OR nude OR nudes OR naked OR sexy OR cheri OR cherri OR breasts OR babes OR "color climax" OR bondage OR porn OR pornography OR "high society" OR knave OR mayfair OR rustler OR razzle OR juggs OR voluptuous OR "gay comix" OR "adult comic" OR "adult comix" OR "sex comic" OR smut OR hentai OR "tijuana bible" OR fetish OR bdsm OR yaoi OR yuri OR "sex magazine" OR "adult magazine"))' +
       ' AND NOT (subject:(adult OR erotic OR erotica OR nudist OR pornography OR "men\'s magazine" OR "adult magazine" OR nude OR milf OR bondage OR "adult comics" OR "adult comix" OR sexual OR smut OR hentai))';
 
+    // Keep manga in one dedicated rack rather than mixing it into broad comic
+    // shelves. Adult manga remains in the restricted Adult Comics lane.
+    const MANGA_EXCLUDE =
+      ' AND NOT (title:(manga OR manhwa OR manhua OR doujinshi OR tankobon OR tankōbon OR shonen OR shōnen OR shojo OR shoujo OR seinen OR josei OR "japanese comic" OR "japanese comics")' +
+      ' OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels")' +
+      ' OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*)' +
+      ' OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))';
+
+    const MANGA_TITLE_WORDS = [
+      'manga','manhwa','manhua','doujinshi','tankobon','tankōbon','shonen','shōnen',
+      'shojo','shoujo','seinen','josei','japanese comic','japanese comics'
+    ];
+    const MANGA_SUBJECT_WORDS = [
+      'manga','manhwa','manhua','doujinshi','japanese comics','japanese graphic novels'
+    ];
+
     // Strong adult signals only — vague words like "sexual" were wiping Adventure/true crime
     const SEXUAL_TITLE_WORDS = [
       'playboy','penthouse','hustler','barely legal','swank','nudist','erotic',
@@ -1592,6 +1608,18 @@
       return KIDS_BLOCK.some(function(w) { return t.indexOf(w) !== -1; });
     }
 
+    function isMangaDoc(doc) {
+      var titleAndId = String((doc && doc.title) || '') + ' ' + String((doc && (doc.identifier || doc.id)) || '');
+      var subjects = Array.isArray(doc && doc.subject) ? doc.subject.join(' ') : String((doc && (doc.subject || doc.subjects)) || '');
+      var collections = Array.isArray(doc && doc.collection) ? doc.collection.join(' ') : String((doc && (doc.collection || doc.collections)) || '');
+      titleAndId = titleAndId.toLowerCase();
+      subjects = subjects.toLowerCase();
+      collections = collections.toLowerCase();
+      return MANGA_TITLE_WORDS.some(function(w) { return titleAndId.indexOf(w) !== -1; }) ||
+        MANGA_SUBJECT_WORDS.some(function(w) { return subjects.indexOf(w) !== -1; }) ||
+        ['manga','manhwa','manhua','doujinshi'].some(function(w) { return collections.indexOf(w) !== -1; });
+    }
+
     // Category logic:
     // - Mag shelves lean on collection:magazine_rack / subject:magazine
     // - Comic shelves lean on subject:comics / "comic books"
@@ -1609,6 +1637,12 @@
         title: 'Comics',
         // General comics — not locked to superhero/golden/underground niches
         query: 'mediatype:texts AND (subject:("comic books" OR comics) OR collection:(comics OR comicbooks)) AND NOT subject:(superhero OR "underground comics" OR "underground comix")' + ADULT_EXCLUDE
+      },
+      {
+        id: 'manga',
+        title: 'Manga',
+        format: 'comic',
+        query: 'mediatype:texts AND (title:(manga OR manhwa OR manhua OR doujinshi OR tankobon OR tankōbon OR shonen OR shōnen OR shojo OR shoujo OR seinen OR josei OR "japanese comic" OR "japanese comics") OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels") OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*) OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))' + ADULT_EXCLUDE
       },
       {
         id: 'pulp',
@@ -2094,7 +2128,7 @@
     function shelfFormat(shelf) {
       if (shelf && shelf.format) return formatKey(shelf.format) || shelf.format;
       var id = String((shelf && shelf.id) || '').toLowerCase();
-      if ((shelf && shelf.source === 'gcd') || /comic|funnies|superhero|golden|western|romance|horror|war-|funny|crime|jungle|sf-|xkcd|ol-comics|ia-strips/.test(id)) return 'comic';
+      if ((shelf && shelf.source === 'gcd') || /manga|comic|funnies|superhero|golden|western|romance|horror|war-|funny|crime|jungle|sf-|xkcd|ol-comics|ia-strips/.test(id)) return 'comic';
       if ((shelf && shelf.source === 'loc') || /newspaper|chronam|paper/.test(id)) return 'paper';
       if (/zine|fanzine|folkscanomy/.test(id)) return 'zine';
       return 'magazine';
@@ -3176,6 +3210,9 @@
         var newspaperName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][parseInt(newspaperMonth, 10) - 1];
         q = '(' + q + ') AND (identifier:*' + newspaperMonth + newspaperDay + '* OR title:("' + newspaperName + ' ' + parseInt(newspaperDay, 10) + '"))';
       }
+      var shelfId = String(shelf.id || '');
+      var restrictedShelf = ['adult', 'adult-mags', 'adult-comics'].indexOf(shelfId) !== -1;
+      if (shelfId !== 'manga' && shelfId !== 'search' && !restrictedShelf) q += MANGA_EXCLUDE;
 
       var sort = sortMode || 'downloads+desc';
       var state = shelfState[shelf.id] || {};
@@ -3255,7 +3292,9 @@
 
       try {
         const result = await fetchShelfPage(shelf, nextPage, state.extraQuery, state.sort);
-        const docs = (result.docs || []).map(function(doc) { return normalizeIssue(doc, shelf); });
+        let docs = (result.docs || []).map(function(doc) { return normalizeIssue(doc, shelf); });
+        var mangaRack = shelf.id === 'manga' || isAdultShelfId(shelf.id);
+        if (!mangaRack) docs = docs.filter(function(doc) { return !isMangaDoc(doc); });
         const numFound = result.numFound || 0;
 
         if (tailSpinner) tailSpinner.remove();

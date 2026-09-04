@@ -11,6 +11,19 @@ export const ADULT_EXCLUDE =
   ` AND NOT (title:(playboy OR penthouse OR hustler OR "barely legal" OR gallery OR oui OR swank OR nudist OR erotic OR erotica OR milf OR housewives OR "readers wives" OR nude OR nudes OR naked OR sexy OR cheri OR cherri OR breasts OR babes OR "color climax" OR bondage OR porn OR pornography OR "high society" OR knave OR mayfair OR rustler OR razzle OR juggs OR voluptuous OR "gay comix" OR "adult comic" OR "adult comix" OR "sex comic" OR smut OR hentai OR "tijuana bible" OR fetish OR bdsm OR yaoi OR yuri OR "sex magazine" OR "adult magazine"))` +
   ` AND NOT (subject:(adult OR erotic OR erotica OR nudist OR pornography OR "men's magazine" OR "adult magazine" OR nude OR milf OR bondage OR "adult comics" OR "adult comix" OR sexual OR smut OR hentai))`;
 
+/** Keep manga in its dedicated rack instead of mixing it into broad shelves. */
+export const MANGA_EXCLUDE =
+  ` AND NOT (title:(manga OR manhwa OR manhua OR doujinshi OR tankobon OR tankōbon OR shonen OR shōnen OR shojo OR shoujo OR seinen OR josei OR "japanese comic" OR "japanese comics")` +
+  ` OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels")` +
+  ` OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*)` +
+  ` OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))`;
+
+export const MANGA_QUERY =
+  `mediatype:texts AND (title:(manga OR manhwa OR manhua OR doujinshi OR tankobon OR tankōbon OR shonen OR shōnen OR shojo OR shoujo OR seinen OR josei OR "japanese comic" OR "japanese comics")` +
+  ` OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels")` +
+  ` OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*)` +
+  ` OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))${ADULT_EXCLUDE}`;
+
 /** Strong title/creator signals; deliberately do not match vague words such as "kid". */
 export const SEXUAL_TITLE_WORDS = [
   'playboy', 'penthouse', 'hustler', 'barely legal', 'swank', 'nudist', 'erotic',
@@ -34,6 +47,15 @@ export const KIDS_BLOCK = [
   'wimpy kid', 'diary of a wimpy', 'harry potter', 'dr seuss', 'seuss', 'berenstein',
   'berenstain', 'magic tree house', 'goosebumps', 'captain underpants', 'dog man',
   'children', 'kids book', 'juvenile', 'picture book'
+];
+
+export const MANGA_TITLE_WORDS = [
+  'manga', 'manhwa', 'manhua', 'doujinshi', 'tankobon', 'tankōbon', 'shonen',
+  'shōnen', 'shojo', 'shoujo', 'seinen', 'josei', 'japanese comic', 'japanese comics'
+];
+
+export const MANGA_SUBJECT_WORDS = [
+  'manga', 'manhwa', 'manhua', 'doujinshi', 'japanese comics', 'japanese graphic novels'
 ];
 
 const asText = (value) => Array.isArray(value)
@@ -62,6 +84,15 @@ export function isKidsDoc(doc = {}) {
   return isKidsTitle(doc.title);
 }
 
+export function isMangaDoc(doc = {}) {
+  const titleAndId = `${asText(doc.title)} ${asText(doc.identifier ?? doc.id)}`.toLowerCase();
+  const subjectText = asText(doc.subject ?? doc.subjects).toLowerCase();
+  const collectionText = asText(doc.collection ?? doc.collections).toLowerCase();
+  return MANGA_TITLE_WORDS.some((word) => titleAndId.includes(word)) ||
+    MANGA_SUBJECT_WORDS.some((word) => subjectText.includes(word)) ||
+    ['manga', 'manhwa', 'manhua', 'doujinshi'].some((word) => collectionText.includes(word));
+}
+
 /** Client-side defense-in-depth filter for every non-adult shelf. */
 export function isAdultDoc(doc = {}) {
   return isSexualContent(doc.title, doc.subject ?? doc.subjects, doc.creator);
@@ -81,6 +112,12 @@ export const SHELVES = [
     id: 'comics',
     title: 'Comics',
     query: `mediatype:texts AND (subject:("comic books" OR comics) OR collection:(comics OR comicbooks)) AND NOT subject:(superhero OR "underground comics" OR "underground comix")${ADULT_EXCLUDE}`
+  },
+  {
+    id: 'manga',
+    title: 'Manga',
+    format: 'comic',
+    query: MANGA_QUERY
   },
   {
     id: 'pulp',

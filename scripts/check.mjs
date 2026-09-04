@@ -44,7 +44,7 @@ for (const file of ['apps/web/index.html', 'apps/web/src/main.js', 'apps/api/src
 }
 
 console.log(`Magazine Rack checks passed (${required.length} required files present).`);
-if (SHELVES.length !== 57) throw new Error(`Shelf parity check failed: expected 57 shelves, found ${SHELVES.length}`);
+if (SHELVES.length !== 58 || !SHELVES.some((shelf) => shelf.id === 'manga')) throw new Error(`Shelf parity check failed: expected 58 shelves with a Manga rack, found ${SHELVES.length}`);
 if (ADULT_SHELF_IDS.length !== 2 || SHELVES.at(-2)?.id !== 'adult-mags' || SHELVES.at(-1)?.id !== 'adult-comics') {
   throw new Error('Shelf parity check failed: restricted shelves are not last');
 }
@@ -53,7 +53,7 @@ if (!liveSources.includes(".replace(/\\+/g, ' ')") || !liveSources.includes('she
   throw new Error('Live source checks failed: IA sort encoding or calendar-day filtering is missing');
 }
 const standalone = readFileSync(join(root, 'apps/web/index.html'), 'utf8');
-if (!standalone.includes('fetchConnectedShelfPage') || !standalone.includes('PUBLIC_CATALOG_API')) {
-  throw new Error('Standalone checks failed: connected source bridge is missing');
+if (!standalone.includes('fetchConnectedShelfPage') || !standalone.includes('PUBLIC_CATALOG_API') || !standalone.includes("id: 'manga'") || !standalone.includes('MANGA_EXCLUDE')) {
+  throw new Error('Standalone checks failed: connected source bridge or Manga routing is missing');
 }
-console.log('Shelf parity check passed (57 live shelves; restricted shelves last).');
+console.log('Shelf parity check passed (58 live shelves including Manga; restricted shelves last).');
