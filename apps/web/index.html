@@ -547,6 +547,9 @@
       min-width: 160px;
     }
 
+    .shelf-empty.shelf-error { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .shelf-retry { padding: 7px 11px; color: var(--accent2); border: 1px solid rgba(94,234,212,.4); border-radius: 4px; background: rgba(94,234,212,.08); font: 10px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
+
     .shelf.is-empty {
       display: none;
     }
@@ -1429,7 +1432,7 @@
           <div class="hero-kicker">The open stacks · a living index for curious people</div>
           <h1>Find your <em>next obsession.</em></h1>
           <p>Magazines, comics, newspapers, zines, and beautifully strange things gathered from public collections.</p>
-          <div class="hero-meta"><span><b>52</b>live shelves</span><span><b>6</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
+          <div class="hero-meta"><span><b>51</b>live shelves</span><span><b>6</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
         </div>
         <div class="hero-ticket"><span>Magazine Rack</span><strong>Read<br>widely.</strong><span>Free / public / curious</span></div>
       </div>
@@ -1884,15 +1887,6 @@
         newspaperDateMode: 'month-day',
         newspaperOnly: true,
         locQs: 'newspaper',
-        locExtra: 'dl=page'
-      },
-      {
-        id: 'chronam-funnies',
-        title: 'ChronAm Funnies',
-        source: 'loc',
-        newspaperDateMode: 'month-day',
-        newspaperOnly: true,
-        locQs: 'comic strip',
         locExtra: 'dl=page'
       },
       {
@@ -2593,6 +2587,9 @@
       return String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     }
 
+    var FEED_TIMEOUT_MS = 12000;
+    var IA_FEED_TIMEOUT_MS = 15000;
+
     function fetchWithTimeout(url, options, timeoutMs) {
       var controller = new AbortController();
       var timer = setTimeout(function() { controller.abort(); }, timeoutMs || 7000);
@@ -2748,7 +2745,7 @@
     async function fetchXkcdPage(page) {
       // Official XKCD has no CORS. Use the current CORS-enabled proxy; the
       // old GitHub mirror was removed and now returns 404 for every request.
-      var latestRes = await fetch('https://xkcd.now.sh/?comic=latest');
+      var latestRes = await fetchWithTimeout('https://xkcd.now.sh/?comic=latest', null, FEED_TIMEOUT_MS);
       if (!latestRes.ok) throw new Error('XKCD HTTP ' + latestRes.status);
       var latest = await latestRes.json();
       var max = latest.num || 3000;
@@ -2763,7 +2760,7 @@
       // fetch a batch (limit concurrency lightly)
       for (var j = 0; j < ids.length; j++) {
         try {
-          var r = await fetch('https://xkcd.now.sh/?comic=' + ids[j]);
+          var r = await fetchWithTimeout('https://xkcd.now.sh/?comic=' + ids[j], null, FEED_TIMEOUT_MS);
           if (!r.ok) continue;
           var c = await r.json();
           docs.push({
@@ -2791,7 +2788,7 @@
       var url = 'https://openlibrary.org/search.json?q=' + encodeURIComponent(q) +
         '&has_fulltext=true&fields=key,edition_key,title,author_name,first_publish_year,cover_i,ia,public_scan_b,subject,availability,number_of_pages_median' +
         '&limit=' + ROWS_PER_PAGE + '&page=' + page;
-      var res = await fetch(url);
+      var res = await fetchWithTimeout(url, null, FEED_TIMEOUT_MS);
       if (!res.ok) throw new Error('Open Library HTTP ' + res.status);
       var data = await res.json();
       var docs = (data.docs || []).map(function(d) {
@@ -2861,7 +2858,7 @@
         '&media=true&thumbnail=true&landingpage=true&profile=rich';
       if (shelf.euTheme) params += '&theme=' + encodeURIComponent(shelf.euTheme);
       var url = 'https://api.europeana.eu/record/v2/search.json?' + params;
-      var res = await fetch(url);
+      var res = await fetchWithTimeout(url, null, FEED_TIMEOUT_MS);
       if (!res.ok) throw new Error('Europeana HTTP ' + res.status);
       var data = await res.json();
       var items = data.items || [];
@@ -2894,7 +2891,7 @@
       var url = 'https://www.googleapis.com/books/v1/volumes?q=' + encodeURIComponent(q) +
         '&filter=free-ebooks&printType=all&maxResults=' + Math.min(40, ROWS_PER_PAGE) +
         '&startIndex=' + start;
-      var res = await fetch(url);
+      var res = await fetchWithTimeout(url, null, FEED_TIMEOUT_MS);
       if (!res.ok) {
         if (res.status === 429) {
           // Google Books' anonymous quota is tiny. Keep these shelves useful
@@ -2937,7 +2934,7 @@
       if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) qs = extraQuery.trim() + ' ' + qs;
       var url = 'https://www.loc.gov/' + path + '/?fo=json&c=' + ROWS_PER_PAGE + '&sp=' + page +
         '&q=' + encodeURIComponent(qs);
-      var res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      var res = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } }, FEED_TIMEOUT_MS);
       if (!res.ok) throw new Error('LOC search HTTP ' + res.status);
       var data = await res.json();
       var docs = mapLocResults(data.results || []).map(function(d) {
@@ -2952,7 +2949,7 @@
       var q = shelf.gutQuery || 'comics';
       if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) q = extraQuery.trim();
       var url = 'https://gutendex.com/books/?search=' + encodeURIComponent(q) + '&page=' + page;
-      var res = await fetch(url);
+      var res = await fetchWithTimeout(url, null, FEED_TIMEOUT_MS);
       if (!res.ok) throw new Error('Gutendex HTTP ' + res.status);
       var data = await res.json();
       var docs = (data.results || []).map(function(b) {
@@ -2977,7 +2974,7 @@
       var q = shelf.metQuery || 'cartoon';
       if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) q = extraQuery.trim();
       var searchUrl = 'https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=' + encodeURIComponent(q);
-      var res = await fetch(searchUrl);
+      var res = await fetchWithTimeout(searchUrl, null, FEED_TIMEOUT_MS);
       if (!res.ok) throw new Error('Met HTTP ' + res.status);
       var data = await res.json();
       var ids = data.objectIDs || [];
@@ -2986,7 +2983,7 @@
       var docs = [];
       for (var i = 0; i < slice.length; i++) {
         try {
-          var r2 = await fetch('https://collectionapi.metmuseum.org/public/collection/v1/objects/' + slice[i]);
+          var r2 = await fetchWithTimeout('https://collectionapi.metmuseum.org/public/collection/v1/objects/' + slice[i], null, FEED_TIMEOUT_MS);
           if (!r2.ok) continue;
           var o = await r2.json();
           docs.push({
@@ -3013,7 +3010,7 @@
       var offset = Math.max(0, (page - 1) * ROWS_PER_PAGE);
       var url = 'https://openlibrary.org/subjects/' + encodeURIComponent(sub) +
         '.json?limit=' + ROWS_PER_PAGE + '&offset=' + offset;
-      var res = await fetch(url);
+      var res = await fetchWithTimeout(url, null, FEED_TIMEOUT_MS);
       if (!res.ok) throw new Error('OL subjects HTTP ' + res.status);
       var data = await res.json();
       var works = data.works || [];
@@ -3052,7 +3049,7 @@
         ' SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }' +
         ' } LIMIT ' + ROWS_PER_PAGE + ' OFFSET ' + offset;
       var url = 'https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(sparql);
-      var res = await fetch(url, { headers: { 'Accept': 'application/sparql-results+json' } });
+      var res = await fetchWithTimeout(url, { headers: { 'Accept': 'application/sparql-results+json' } }, FEED_TIMEOUT_MS);
       if (!res.ok) throw new Error('Wikidata HTTP ' + res.status);
       var data = await res.json();
       var bindings = (data.results && data.results.bindings) ? data.results.bindings : [];
@@ -3080,7 +3077,7 @@
       var url = sourceUrl(issueUrl);
       if (!url) return null;
       try {
-        var res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        var res = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } }, FEED_TIMEOUT_MS);
         if (!res.ok) return null;
         var issue = await res.json();
         return imageUrlCandidates(issue.cover, issue.cover_image, issue.coverUrl, issue.image, issue.images, issue.resources)[0] || null;
@@ -3114,7 +3111,7 @@
         : (shelf.gcdName || 'Planet Comics');
       var url = 'https://www.comics.org/api/series/name/' + encodeURIComponent(name) + '/?format=json&page=' + page;
       try {
-        var res = await fetch(url);
+        var res = await fetchWithTimeout(url, null, FEED_TIMEOUT_MS);
         if (!res.ok) throw new Error('GCD HTTP ' + res.status);
         var data = await res.json();
         var rows = data.results || data || [];
@@ -3292,7 +3289,7 @@
       if (!comicBookPlusCatalogPromise) {
         if (window.location.protocol === 'file:') return Promise.reject(new Error('Hosted Comic Book Plus catalog is unavailable from file://'));
         var snapshotUrl = new URL('data/comicbookplus.json', document.baseURI);
-        comicBookPlusCatalogPromise = fetch(snapshotUrl.toString(), { cache: 'no-store' }).then(function(res) {
+        comicBookPlusCatalogPromise = fetchWithTimeout(snapshotUrl.toString(), { cache: 'no-store' }, FEED_TIMEOUT_MS).then(function(res) {
           if (!res.ok) throw new Error('Comic Book Plus snapshot HTTP ' + res.status);
           return res.json();
         }).then(function(data) {
@@ -3372,7 +3369,7 @@
       // an edge cache after a source recovers or a new fallback is published.
       url.searchParams.set('_', String(Math.floor(Date.now() / 60000)));
       if (shelf.newspaperDateMode === 'month-day') url.searchParams.set('newspaper_month_day', currentNewspaperMonthDay());
-      var res = await fetch(url.toString(), { cache: 'no-store', headers: { 'Accept': 'application/json' } });
+      var res = await fetchWithTimeout(url.toString(), { cache: 'no-store', headers: { 'Accept': 'application/json' } }, FEED_TIMEOUT_MS);
       if (!res.ok) throw new Error('Catalog API HTTP ' + res.status);
       var data = await res.json();
       var detail = data.sourceDetails && data.sourceDetails[source];
@@ -3422,7 +3419,7 @@
       params.set('page_size', String(ROWS_PER_PAGE));
       params.set('page', String(page));
       params.set('api_key', prefs.dplaKey);
-      var res = await fetch('https://api.dp.la/v2/items?' + params.toString(), { headers: { 'Accept': 'application/json' } });
+      var res = await fetchWithTimeout('https://api.dp.la/v2/items?' + params.toString(), { headers: { 'Accept': 'application/json' } }, FEED_TIMEOUT_MS);
       if (!res.ok) throw new Error('DPLA HTTP ' + res.status);
       var data = await res.json();
       var docs = (data.docs || data.items || []).map(function(item) {
@@ -3523,12 +3520,12 @@
       var attempt = 0;
       while (true) {
         attempt++;
-        var res = await fetch(url, {
+        var res = await fetchWithTimeout(url, {
           headers: {
             'Accept': 'application/json',
             // Browsers restrict User-Agent; still set Accept clearly
           }
-        });
+        }, IA_FEED_TIMEOUT_MS);
         if (res.status === 429) {
           var ra = parseInt(res.headers.get('Retry-After') || '2', 10);
           if (isNaN(ra) || ra < 1) ra = 2;
@@ -3965,9 +3962,14 @@
         var msg = (err && String(err.message || err).indexOf('429') !== -1)
           ? 'Rate limited · will ease up · pull again'
           : 'Failed to load · check connection';
+        state.hasMore = true;
         if (reset || track.querySelectorAll('.cover-card').length === 0) {
-          track.innerHTML = '<div class="shelf-empty">' + msg + '</div>';
-          setShelfEmpty(shelf.id, true);
+          track.innerHTML = '<div class="shelf-empty shelf-error">' + escapeHtml(msg) + '<button type="button" class="shelf-retry">Retry</button></div>';
+          setShelfEmpty(shelf.id, false);
+          track.querySelector('.shelf-retry').addEventListener('click', function(event) {
+            event.stopPropagation();
+            loadShelf(shelf, state.extraQuery || buildExtraQuery(), reset);
+          });
         }
         console.error(err);
       }
@@ -4569,6 +4571,15 @@
       var frame = document.getElementById('reader-frame');
       var data = event && event.data;
       if (!frame || event.source !== frame.contentWindow || !data || data.source !== 'magazine-rack-reader') return;
+      if (!document.getElementById('reader').classList.contains('open')) return;
+      if (data.type === 'ready') {
+        markReaderReady(readerState.loadToken, data.status || readerSourceLabel(readerState.doc) + ' · reader');
+        return;
+      }
+      if (data.type === 'error') {
+        markReaderError(readerState.loadToken, data.status || readerSourceLabel(readerState.doc) + ' unavailable', data.detail || 'The source could not load the requested pages.');
+        return;
+      }
       saveReaderProgress(readerState.doc, data.page, data.total);
     });
 
@@ -4725,7 +4736,8 @@
         '  status.textContent = (index + 1) + " / " + pages.length; window.parent.postMessage({source:"magazine-rack-reader",page:index + 1,total:pages.length},"*");',
         '  previous.disabled = index === 0; next.disabled = index >= pages.length - 1;',
         '}',
-        'function fail() { message.textContent = "Could not load this page manifest. Open the source from the reader header."; message.classList.add("show"); }',
+        'image.addEventListener("load", function() { window.parent.postMessage({source:"magazine-rack-reader",type:"ready",status:readerTitle+" · page viewer"},"*"); });',
+        'function fail() { message.textContent = "Could not load this page manifest. Open the source from the reader header."; message.classList.add("show"); window.parent.postMessage({source:"magazine-rack-reader",type:"error",status:"Scan unavailable",detail:"The page manifest could not be loaded."},"*"); }',
         'document.getElementById("page-title").textContent = readerTitle;',
         'previous.addEventListener("click", function() { if (index > 0) { index -= 1; zoom = 1; render(); } });',
         'next.addEventListener("click", function() { if (index < pages.length - 1) { index += 1; zoom = 1; render(); } });',
@@ -4769,8 +4781,8 @@
         'var next = document.getElementById("page-next");',
         'function updateStatus() { var readableTotal = Math.max(1, lastPage - firstPage + 1); pageStatus.textContent = (index - firstPage + 1) + " / " + readableTotal; previous.disabled = index <= firstPage; next.disabled = index >= lastPage; window.parent.postMessage({source:"magazine-rack-reader",page:index - firstPage + 1,total:readableTotal},"*"); }',
         'function render() { var pageUrl = viewerBase + "/" + index + ".jpg"; image.src = mediaBase + encodeURIComponent(pageUrl); image.alt = readerTitle + ", page " + (index - firstPage + 1); image.style.transform = "scale(" + zoom + ")"; image.style.maxWidth = zoom > 1 ? "none" : "100%"; updateStatus(); }',
-        'image.addEventListener("load", function() { message.classList.remove("show"); });',
-        'image.addEventListener("error", function() { message.textContent = "This scan page did not load. Open the original Comic Book Plus issue from the header."; message.classList.add("show"); });',
+        'image.addEventListener("load", function() { message.classList.remove("show"); window.parent.postMessage({source:"magazine-rack-reader",type:"ready",status:readerTitle+" · page viewer"},"*"); });',
+        'image.addEventListener("error", function() { message.textContent = "This scan page did not load. Open the original Comic Book Plus issue from the header."; message.classList.add("show"); window.parent.postMessage({source:"magazine-rack-reader",type:"error",status:"Comic Book Plus page unavailable",detail:"This scan page did not load."},"*"); });',
         'document.getElementById("page-title").textContent = readerTitle;',
         'previous.addEventListener("click", function() { if (index > firstPage) { index -= 1; zoom = 1; render(); } });',
         'next.addEventListener("click", function() { if (index < lastPage) { index += 1; zoom = 1; render(); } });',
@@ -4803,7 +4815,7 @@
         'var firstImage = ' + JSON.stringify(firstImage) + ';',
         'var readerTitle = ' + JSON.stringify(String(title || 'Reader')) + ';',
         'var startPage = ' + JSON.stringify(Math.max(1, Number(startPage) || 1)) + '; var index = 1; var pageCount = 1; var zoom = 1; var pages = {};',
-        'var image = document.getElementById("page-image"); var status = document.getElementById("page-status"); var message = document.getElementById("page-message"); var previous = document.getElementById("page-prev"); var next = document.getElementById("page-next");',
+        'var image = document.getElementById("page-image"); var status = document.getElementById("page-status"); var message = document.getElementById("page-message"); var previous = document.getElementById("page-prev"); var next = document.getElementById("page-next"); image.addEventListener("load", function() { window.parent.postMessage({source:"magazine-rack-reader",type:"ready",status:readerTitle+" · issue viewer"},"*"); }); image.addEventListener("error", function() { window.parent.postMessage({source:"magazine-rack-reader",type:"error",status:"Newspaper page unavailable",detail:"This LOC scan image did not load."},"*"); });',
         'function urls(value, out) { out = out || []; if (!value || out.length > 30) return out; if (Array.isArray(value)) { value.forEach(function(item) { urls(item, out); }); return out; } if (typeof value === "string" && /^https?:\\/\\//i.test(value) && /(?:\\.jpe?g|\\.png|iiif|image|thumbnail|download)/i.test(value) && out.indexOf(value) < 0) out.push(value); if (value && typeof value === "object") Object.keys(value).forEach(function(key) { urls(value[key], out); }); return out; }',
         'function imageFrom(data) { return urls(data, []).find(function(value) { return /(?:\\.jpe?g|\\.png|iiif|image)/i.test(value); }) || ""; }',
         'function countFrom(data) { var values = [data && data.segments, data && data.resources, data && data.item && data.item.resources, data && data.pagination && data.pagination.total]; for (var i = 0; i < values.length; i += 1) { if (Array.isArray(values[i]) && values[i].length) return values[i].length; if (Number(values[i]) > 1) return Number(values[i]); } return 1; }',
@@ -4862,10 +4874,17 @@
       try { frame.removeAttribute('srcdoc'); } catch (e) {}
       frame.src = 'about:blank';
       setReaderLoading(true, 'Opening reader', 'Connecting to ' + sourceLabel + '...');
+      readerState.loadTimer = setTimeout(function() {
+        markReaderError(token, sourceLabel + ' timed out', 'The embedded reader took too long to respond. Use Open source or Reload to try again.');
+      }, 22000);
 
-      function bindFrame(readyStatus) {
+      function bindFrame(readyStatus, waitForMessage) {
         frame.onload = function() {
           if (token !== readerState.loadToken) return;
+          if (waitForMessage) {
+            setReaderStatus(readyStatus + ' · loading pages');
+            return;
+          }
           markReaderReady(token, readyStatus);
         };
         frame.onerror = function() {
@@ -4876,7 +4895,7 @@
 
       if (doc && doc.iiifManifest) {
         setReaderLoading(true, 'Opening scan', 'Loading the page manifest from ' + sourceLabel + '...');
-        bindFrame(sourceLabel + ' · page viewer');
+        bindFrame(sourceLabel + ' · page viewer', true);
         frame.srcdoc = buildIiifReaderHtml(doc.iiifManifest, readerState.title, readerStartPage(doc));
         scheduleReaderHint(token, 10000);
         return;
@@ -4884,7 +4903,7 @@
 
       if (doc && doc.source === 'comicbookplus' && (doc.viewerBase || doc.metadata && doc.metadata.viewerBase)) {
         setReaderLoading(true, 'Opening comic', 'Loading the sequential scan from Comic Book Plus...');
-        bindFrame('Comic Book Plus · page viewer');
+        bindFrame('Comic Book Plus · page viewer', true);
         frame.srcdoc = buildComicBookPlusReaderHtml(doc.viewerBase || doc.metadata.viewerBase, readerState.title, doc.pages || doc.imagecount || doc.metadata && doc.metadata.pageCount, readerStartPage(doc));
         scheduleReaderHint(token, 8000);
         return;
@@ -4892,7 +4911,7 @@
 
       if (doc && doc.source === 'loc' && locResourceUrl(doc.locUrl || doc.readerUrl)) {
         setReaderLoading(true, 'Opening newspaper', 'Loading the issue pages from Library of Congress...');
-        bindFrame('Library of Congress · issue viewer');
+        bindFrame('Library of Congress · issue viewer', true);
         frame.srcdoc = buildLocReaderHtml(doc, readerState.title, readerStartPage(doc));
         scheduleReaderHint(token, 10000);
         return;
@@ -4930,6 +4949,7 @@
       }
 
       if (doc && (doc.source === 'openlibrary' || doc.source === 'olsubjects') && !isValidIaId(iaId) && doc.locUrl) {
+        clearReaderLoadTimer();
         setReaderLoading(false);
         bindFrame('Open Library · access panel');
         frame.srcdoc = buildOpenLibraryAccessHtml(doc, readerState.title);

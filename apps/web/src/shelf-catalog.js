@@ -296,15 +296,6 @@ export const SHELVES = [
     locExtra: 'dl=page'
   },
   {
-    id: 'chronam-funnies',
-    title: 'ChronAm Funnies',
-    source: 'loc',
-    newspaperDateMode: 'month-day',
-    newspaperOnly: true,
-    locQs: 'comic strip',
-    locExtra: 'dl=page'
-  },
-  {
     id: 'chronam-front',
     title: 'ChronAm Front',
     source: 'loc',
