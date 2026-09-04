@@ -48,6 +48,10 @@ export async function fetchEuropeana({ query, page, newspaperMonthDay }, env) {
         coverUrl: image,
         sourceUrl,
         readerUrl: sourceUrl,
+        access: image ? 'image-only' : 'catalog',
+        readable: Boolean(image),
+        readerKind: image ? 'image' : 'none',
+        coverQuality: image ? 3 : 0,
         metadata: record
       });
     }).filter(Boolean)

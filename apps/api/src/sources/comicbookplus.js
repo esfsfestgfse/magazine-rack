@@ -62,6 +62,10 @@ const FALLBACK_ITEMS = Object.freeze([
   sourceUrl: `${BASE}/?dlid=${entry.sourceId}`,
   readerUrl: `${BASE}/?dlid=${entry.sourceId}`,
   pageCount: entry.pages,
+  access: 'full',
+  readable: true,
+  readerKind: 'sequential-images',
+  coverQuality: 5,
   metadata: { viewerBase: entry.viewerBase, pageCount: entry.pages, provider: 'Comic Book Plus', fallback: true },
 })));
 
@@ -139,6 +143,10 @@ function parseBooks(html) {
       sourceUrl,
       readerUrl: sourceUrl,
       pageCount: pages,
+      access: 'full',
+      readable: true,
+      readerKind: 'sequential-images',
+      coverQuality: 5,
       metadata: { viewerBase, pageCount: pages, provider: 'Comic Book Plus' },
     });
   }).filter(Boolean);
@@ -175,6 +183,10 @@ export function parseSeriesBooks(html, seriesId = '') {
       sourceUrl,
       readerUrl: sourceUrl,
       pageCount: pages,
+      access: 'full',
+      readable: true,
+      readerKind: 'sequential-images',
+      coverQuality: 5,
       metadata: { viewerBase, pageCount: pages, provider: 'Comic Book Plus', seriesId: String(seriesId || '') },
     });
   }).filter(Boolean);

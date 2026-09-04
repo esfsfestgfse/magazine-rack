@@ -1,10 +1,10 @@
 {
-  "name": "Margin — a reading room",
-  "short_name": "Margin",
+  "name": "Magazine Rack",
+  "short_name": "MagRack",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#11100f",
   "theme_color": "#11100f",
-  "description": "A calm, considered reading room for public periodicals.",
+  "description": "A reading room for magazines, comics, newspapers, and zines.",
   "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
 }

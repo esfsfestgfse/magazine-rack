@@ -84,8 +84,8 @@ const mockDb = {
   },
   async batch(statements) {
     for (const statement of statements) {
-      const [id, source, source_id, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at] = statement.args;
-      catalogRows.set(id, { id, source, source_id, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at });
+      const [id, source, source_id, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights] = statement.args;
+      catalogRows.set(id, { id, source, source_id, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights });
     }
     return statements.map(() => ({ success: true }));
   },
@@ -109,6 +109,8 @@ try {
   const openLibrary = await fetchOpenLibrary({ query: 'demo', page: 1 }, env);
   assert.equal(openLibrary.items.length, 2);
   assert.equal(openLibrary.items[0].metadata.iaId, 'open-demo');
+  assert.equal(openLibrary.items[0].readerKind, 'ia-bookreader');
+  assert.equal(openLibrary.items[0].readable, true);
   assert.equal(openLibrary.items[1].readerUrl, 'https://openlibrary.org/works/OL2W');
 
   const waits = [];
@@ -120,6 +122,8 @@ try {
   assert.equal(catalogBody.items.length, 6);
   assert.ok(catalogBody.items.some((item) => item.source === 'comicbookplus' && item.readerUrl === 'https://comicbookplus.com/?dlid=77'));
   assert.ok(catalogBody.items.some((item) => item.source === 'openlibrary' && item.readerUrl === 'https://openlibrary.org/works/OL2W'));
+  assert.ok(catalogBody.items.every((item) => ['full', 'borrow', 'preview', 'image-only', 'catalog', 'unavailable'].includes(item.access)));
+  assert.ok(catalogBody.sourceDetails && catalogBody.sourceDetails.archive.status === 'ok');
   assert.equal(catalogBody.stale, false);
   await Promise.all(waits);
 

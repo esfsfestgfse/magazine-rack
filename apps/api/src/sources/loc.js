@@ -76,7 +76,7 @@ async function fetchLocMonthDay({ query, page, newspaperMonthDay }, env) {
       const url = locUrl(record.id);
       if (!url || !record.title) return null;
       const image = imageUrl(record.image_url, record.thumbnail_url, record.image, record.resources, record.files);
-      return sourceItem('loc', url, { title: record.title, creator: record.contributor, year: record.date, genre: 'Newspapers', description: record.description, coverUrl: image, sourceUrl: url, readerUrl: url, metadata: record });
+      return sourceItem('loc', url, { title: record.title, creator: record.contributor, year: record.date, genre: 'Newspapers', description: record.description, coverUrl: image, sourceUrl: url, readerUrl: url, access: image ? 'preview' : 'catalog', readable: Boolean(image), readerKind: image ? 'loc-resource' : 'none', coverQuality: image ? 3 : 0, metadata: record });
     }).filter(Boolean),
   };
 }
@@ -89,6 +89,6 @@ export async function fetchLoc({ query, page, newspaperMonthDay }, env) {
     const url = locUrl(record.id);
     if (!url || !record.title) return null;
     const image = imageUrl(record.image_url, record.thumbnail_url, record.image, record.resources, record.files);
-    return sourceItem('loc', url, { title: record.title, creator: record.contributor, year: record.date, genre: 'Newspapers', description: record.description, coverUrl: image, sourceUrl: url, readerUrl: url, metadata: record });
+    return sourceItem('loc', url, { title: record.title, creator: record.contributor, year: record.date, genre: 'Newspapers', description: record.description, coverUrl: image, sourceUrl: url, readerUrl: url, access: image ? 'preview' : 'catalog', readable: Boolean(image), readerKind: image ? 'loc-resource' : 'none', coverQuality: image ? 3 : 0, metadata: record });
   }).filter(Boolean) };
 }

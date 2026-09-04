@@ -2,7 +2,7 @@
 
 Magazine Rack is a discovery-first reading room for magazines, comics, newspapers, zines, and other periodicals available from public or host-authorized collections.
 
-This repository is a ground-up reconstruction. The legacy single-file app is reference material only; its interface and monolithic architecture are not carried forward.
+The current GitHub Pages release is the stable standalone shell in `apps/web/index.html`, backed by the Worker in `apps/api/`. The modular files in `apps/web/src/` are maintained as migration/test material and are not loaded by the deployed entrypoint until a build step is introduced and verified.
 
 ## Project layout
 

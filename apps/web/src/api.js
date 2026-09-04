@@ -16,7 +16,10 @@ const request = async (path, options = {}) => {
 
 export async function searchCatalog({ query = '', genre = '', source = '', page = 1, newspaperMonthDay = '' } = {}) {
   try { return await request(`/api/catalog?q=${encodeURIComponent(query)}&genre=${encodeURIComponent(genre)}&source=${encodeURIComponent(source)}&page=${page}&newspaper_month_day=${encodeURIComponent(newspaperMonthDay)}`); }
-  catch { const needle = query.trim().toLowerCase(); const results = SEED_ITEMS.filter((entry) => (!needle || `${entry.title} ${entry.creator} ${entry.genre}`.toLowerCase().includes(needle)) && (!genre || entry.genre === genre) && (!source || entry.source === source)); return { items: results, total: results.length, page: 1, source: 'demo' }; }
+  catch (error) {
+    if (hasConfiguredApi()) return { items: [], total: 0, page, pageSize: 30, source: 'api', stale: true, partial: true, error: error?.message || 'api_unavailable' };
+    const needle = query.trim().toLowerCase(); const results = SEED_ITEMS.filter((entry) => (!needle || `${entry.title} ${entry.creator} ${entry.genre}`.toLowerCase().includes(needle)) && (!genre || entry.genre === genre) && (!source || entry.source === source)); return { items: results, total: results.length, page: 1, source: 'demo', stale: true };
+  }
 }
 
 export async function getCatalogItem(id) {

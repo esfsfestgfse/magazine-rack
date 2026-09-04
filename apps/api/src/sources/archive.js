@@ -27,11 +27,12 @@ export async function fetchArchive({ query, page, genre, newspaperMonthDay }, en
   const lucene = term ? `(${term}) AND mediatype:texts` : 'mediatype:texts AND (collection:comics OR collection:magazine OR collection:periodicals)';
   const search = genreTerm ? `${lucene} AND (${genreTerm})` : lucene;
   const params = new URLSearchParams({ q: search, 'fl[]': 'identifier', output: 'json', rows: '30', page: String(page) });
-  for (const field of ['title', 'creator', 'date', 'publicdate', 'subject', 'description', 'imagecount']) params.append('fl[]', field);
+  for (const field of ['title', 'creator', 'date', 'publicdate', 'subject', 'description', 'imagecount', 'access-restricted-item']) params.append('fl[]', field);
   const data = await fetchJson(`https://archive.org/advancedsearch.php?${params}`, env, 'archive');
   const records = (data.response?.docs || []).filter((record) => !newspaperMonthDay || newspaperDate(record) === newspaperMonthDay);
   return { total: newspaperMonthDay ? records.length : Number(data.response?.numFound) || 0, items: records.map((record) => {
     const id = String(record.identifier || '').slice(0, 180);
-    return id && record.title ? sourceItem('archive', id, { title: record.title, creator: record.creator, year: record.date || record.publicdate, genre: inferGenre(`${record.title} ${record.subject || ''}`), description: record.description, coverUrl: `https://archive.org/services/img/${encodeURIComponent(id)}`, sourceUrl: `https://archive.org/details/${encodeURIComponent(id)}`, readerUrl: `https://archive.org/embed/${encodeURIComponent(id)}?ui=full`, pageCount: record.imagecount, metadata: record }) : null;
+    const restricted = /^(1|true|yes)$/i.test(String(record['access-restricted-item'] || ''));
+    return id && record.title ? sourceItem('archive', id, { title: record.title, creator: record.creator, year: record.date || record.publicdate, genre: inferGenre(`${record.title} ${record.subject || ''}`), description: record.description, coverUrl: `https://archive.org/services/img/${encodeURIComponent(id)}`, sourceUrl: `https://archive.org/details/${encodeURIComponent(id)}`, readerUrl: `https://archive.org/stream/${encodeURIComponent(id)}?ui=embed&wrapper=false`, pageCount: record.imagecount, access: restricted ? 'borrow' : 'full', readable: true, readerKind: 'ia-bookreader', coverQuality: 3, metadata: record }) : null;
   }).filter(Boolean) };
 }

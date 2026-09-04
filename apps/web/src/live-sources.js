@@ -630,28 +630,37 @@ async function fetchOpenLibraryPage(shelf, page, options) {
   const params = new URLSearchParams({
     q: query,
     has_fulltext: 'true',
-    fields: 'key,title,author_name,first_publish_year,cover_i,ia,public_scan_b,subject,number_of_pages',
+    fields: 'key,edition_key,title,author_name,first_publish_year,cover_i,ia,public_scan_b,subject,number_of_pages,availability',
     limit: String(size),
     page: String(page)
   });
   const data = await fetchJson(`https://openlibrary.org/search.json?${params}`, options);
   const docs = (data?.docs || []).map((item) => {
     const iaId = list(item.ia, 1)[0] || null;
+    const editionKey = item.edition_key?.find((value) => /^OL\d+M$/i.test(String(value))) || null;
+    const availability = item.availability || {};
+    const availabilityStatus = String(availability.status || '').toLowerCase();
+    const borrowable = availability.borrow_available === true || /borrow_available|full_access/.test(availabilityStatus);
     const cover = item.cover_i
       ? `https://covers.openlibrary.org/b/id/${numberValue(item.cover_i)}-M.jpg`
       : archiveCover(iaId);
     return {
       source: iaId ? 'ia' : 'openlibrary',
-      identifier: iaId || item.key,
+      identifier: iaId || editionKey || item.key,
       title: item.title || 'Untitled',
       creator: first(item.author_name) || 'Open Library',
       date: item.first_publish_year ? String(item.first_publish_year) : '',
       subject: item.subject || [],
       cover,
       fullImage: iaId ? archiveCover(iaId) : cover,
-      locUrl: item.key ? `https://openlibrary.org${item.key}` : null,
-      openLibraryUrl: item.key ? `https://openlibrary.org${item.key}` : null,
+      locUrl: editionKey ? `https://openlibrary.org/books/${editionKey}` : (item.key ? `https://openlibrary.org${item.key}` : null),
+      openLibraryUrl: editionKey ? `https://openlibrary.org/books/${editionKey}` : (item.key ? `https://openlibrary.org${item.key}` : null),
       accountSource: iaId ? 'openlibrary' : null,
+      readerUrl: iaId ? `https://archive.org/stream/${encodeURIComponent(iaId)}?ui=embed&wrapper=false` : null,
+      access: iaId ? (borrowable ? 'borrow' : 'preview') : (borrowable ? 'borrow' : 'catalog'),
+      readable: Boolean(iaId || borrowable),
+      readerKind: iaId ? 'ia-bookreader' : 'none',
+      availability,
       pages: item.number_of_pages
     };
   }).filter((doc) => doc.source === 'ia');
@@ -677,8 +686,8 @@ async function fetchOpenLibrarySubjectsPage(shelf, page, options) {
       cover: item.cover_id ? `https://covers.openlibrary.org/b/id/${numberValue(item.cover_id)}-M.jpg` : archiveCover(iaId),
       fullImage: iaId ? archiveCover(iaId) : null,
       locUrl: item.key ? `https://openlibrary.org${item.key}` : null,
-      openLibraryUrl: item.key ? `https://openlibrary.org${item.key}` : null,
-      accountSource: iaId ? 'openlibrary' : null
+       openLibraryUrl: item.key ? `https://openlibrary.org${item.key}` : null,
+       accountSource: iaId ? 'openlibrary' : null
     };
   });
   return result(docs, { source: 'olsubjects', page, pageSize: size, numFound: numberValue(data?.work_count) || docs.length });

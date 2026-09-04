@@ -51,8 +51,8 @@ function sourceClass(source = '') { return `source-${String(source).replace(/[^a
 function hashNumber(value = '') { return [...String(value)].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 7); }
 function normalizedDoc(doc = {}) { return { ...doc, identifier: idOf(doc), title: titleOf(doc), creator: Array.isArray(doc.creator) ? doc.creator[0] || '' : doc.creator || '', date: doc.date || doc.year || '', subject: Array.isArray(doc.subject) ? doc.subject : [], source: doc.source || 'ia', cover: doc.cover || '', sourceUrl: doc.sourceUrl || doc.locUrl || '' }; }
 function sourceUrl(doc) { const id = idOf(doc); return safeUrl(doc.sourceUrl || doc.locUrl || (doc.source === 'ia' && id ? `https://archive.org/details/${encodeURIComponent(id)}` : '') || (doc.source === 'openlibrary' && id ? `https://openlibrary.org/books/${encodeURIComponent(id)}` : '')) || '#'; }
-function readerUrl(doc) { const id = idOf(doc); return safeUrl(doc.readerUrl) || (doc.source === 'ia' && id ? `https://archive.org/embed/${encodeURIComponent(id)}?ui=full` : '') || (doc.source === 'openlibrary' && doc.iaId ? `https://archive.org/embed/${encodeURIComponent(doc.iaId)}?ui=full` : '') || sourceUrl(doc); }
-function isReadable(doc) { return Boolean(doc.readerUrl || (doc.source === 'ia' && idOf(doc) && !String(idOf(doc)).startsWith('seed-')) || doc.iaId || doc.fullImage || doc.locUrl); }
+function readerUrl(doc) { const id = idOf(doc); return safeUrl(doc.readerUrl) || (doc.source === 'ia' && id ? `https://archive.org/stream/${encodeURIComponent(id)}?ui=embed&wrapper=false` : '') || (doc.source === 'openlibrary' && doc.iaId ? `https://archive.org/stream/${encodeURIComponent(doc.iaId)}?ui=embed&wrapper=false` : '') || sourceUrl(doc); }
+function isReadable(doc) { if (!doc || doc.readable === false || ['catalog', 'image-only', 'unavailable'].includes(String(doc.access || '').toLowerCase())) return false; return Boolean(doc.readerUrl || (doc.source === 'ia' && idOf(doc) && !String(idOf(doc)).startsWith('seed-')) || doc.iaId || doc.fullImage || doc.locUrl); }
 function mergeSavedDoc(item) {
   if (!item) return null;
   const id = idOf(item);

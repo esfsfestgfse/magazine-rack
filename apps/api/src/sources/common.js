@@ -2,10 +2,17 @@ import { clean } from '../http.js';
 
 export const SOURCE_LABELS = Object.freeze({ archive: 'Internet Archive', loc: 'Library of Congress', openlibrary: 'Open Library', europeana: 'Europeana', comicbookplus: 'Comic Book Plus', gcd: 'Grand Comics Database', dpla: 'Digital Public Library of America' });
 
+export const ACCESS_LEVELS = Object.freeze(['full', 'borrow', 'preview', 'image-only', 'catalog', 'unavailable']);
+
+function accessLevel(value, fallback = 'catalog') {
+  const candidate = String(value || '').trim().toLowerCase();
+  return ACCESS_LEVELS.includes(candidate) ? candidate : fallback;
+}
+
 const URL_POLICIES = Object.freeze({
   archive: {
     source: [['archive.org', '/details/'], ['www.archive.org', '/details/']],
-    reader: [['archive.org', '/embed/'], ['www.archive.org', '/embed/']],
+    reader: [['archive.org', '/embed/'], ['archive.org', '/stream/'], ['www.archive.org', '/embed/'], ['www.archive.org', '/stream/']],
     cover: [['archive.org', '/services/img/'], ['www.archive.org', '/services/img/']],
   },
   loc: {
@@ -15,7 +22,7 @@ const URL_POLICIES = Object.freeze({
   },
   openlibrary: {
     source: [['openlibrary.org', '/'], ['www.openlibrary.org', '/']],
-    reader: [['openlibrary.org', '/'], ['www.openlibrary.org', '/'], ['archive.org', '/embed/'], ['www.archive.org', '/embed/']],
+    reader: [['openlibrary.org', '/'], ['www.openlibrary.org', '/'], ['archive.org', '/embed/'], ['archive.org', '/stream/'], ['www.archive.org', '/embed/'], ['www.archive.org', '/stream/']],
     cover: [['covers.openlibrary.org', '/b/id/']],
   },
   gcd: {
@@ -114,6 +121,12 @@ export function sourceItem(source, sourceId, fields) {
     sourceUrl,
     readerUrl: safeExternalUrl(fields.readerUrl || fields.sourceUrl, source, 'reader') || sourceUrl,
     pageCount: numberOrZero(fields.pageCount),
+    access: accessLevel(fields.access),
+    readable: fields.readable === true,
+    readerKind: clean(fields.readerKind || 'none', 40),
+    coverQuality: numberOrZero(fields.coverQuality),
+    availability: fields.availability && typeof fields.availability === 'object' ? metadataProjection(fields.availability) : {},
+    rights: clean(fields.rights, 240),
     observedAt: new Date().toISOString(),
     metadata: metadataProjection(fields.metadata),
   };

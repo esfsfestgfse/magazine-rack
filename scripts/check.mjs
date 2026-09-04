@@ -32,6 +32,7 @@ const required = [
   'apps/api/src/sources/europeana.js',
   'apps/api/wrangler.jsonc',
   'apps/api/migrations/0001_initial.sql',
+  'apps/api/migrations/0002_catalog_access.sql',
   '.github/workflows/ci.yml',
   '.github/workflows/pages.yml',
   '.github/workflows/worker-deploy.yml',
@@ -59,8 +60,11 @@ if (!liveSources.includes(".replace(/\\+/g, ' ')") || !liveSources.includes('she
   throw new Error('Live source checks failed: IA sort encoding or calendar-day filtering is missing');
 }
 const standalone = readFileSync(join(root, 'apps/web/index.html'), 'utf8');
-if (!standalone.includes('fetchConnectedShelfPage') || !standalone.includes('PUBLIC_CATALOG_API') || !standalone.includes("id: 'manga'") || !standalone.includes('MANGA_EXCLUDE')) {
+if (!standalone.includes('fetchConnectedShelfPage') || !standalone.includes('PUBLIC_CATALOG_API') || !standalone.includes("id: 'manga'") || !standalone.includes('MANGA_EXCLUDE') || !standalone.includes('ACCESS_LEVELS')) {
   throw new Error('Standalone checks failed: connected source bridge or Manga routing is missing');
+}
+if (/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(standalone) || !standalone.includes('<script src="config.js"></script>') || !standalone.includes("register('./sw.js')")) {
+  throw new Error('Standalone checks failed: the Pages release entrypoint or hosted shell worker is not canonical');
 }
 const comicBookPlusSnapshot = JSON.parse(readFileSync(join(root, 'apps/web/data/comicbookplus.json'), 'utf8'));
 if (comicBookPlusSnapshot.source !== 'comicbookplus' || comicBookPlusSnapshot.items.length <= 50 || comicBookPlusSnapshot.items.some((item) => !item.sourceId || !item.cover || !item.viewerBase)) {
