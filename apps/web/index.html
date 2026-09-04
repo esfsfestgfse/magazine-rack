@@ -4169,6 +4169,7 @@
         : doc.source === 'xkcd' ? 'XKCD'
         : doc.source === 'europeana' ? 'Europeana'
         : doc.source === 'openlibrary' ? 'Open Library'
+        : doc.source === 'comicbookplus' ? 'Comic Book Plus'
         : doc.source === 'gcd' ? 'Grand Comics Database'
         : doc.source === 'dpla' ? 'DPLA'
         : 'Internet Archive';
@@ -4565,21 +4566,27 @@
         'var viewerBase = ' + baseJson + ';',
         'var mediaBase = ' + mediaBaseJson + ';',
         'var readerTitle = ' + titleJson + ';',
-        'var pageCount = ' + countJson + ';',
-        'var index = 0; var zoom = 1;',
+        'var totalPages = ' + countJson + ';',
+        // Comic Book Plus exposes page 0 as the cover. Open the first
+        // interior scan so Read in App feels like opening the comic itself.
+        'var firstPage = totalPages > 1 ? 1 : 0; var lastPage = totalPages > 1 ? totalPages - 1 : 0;',
+        'var index = firstPage; var zoom = 1;',
         'var image = document.getElementById("page-image");',
-        'var status = document.getElementById("page-status");',
+        'var pageStatus = document.getElementById("page-status");',
         'var message = document.getElementById("page-message");',
         'var previous = document.getElementById("page-prev");',
         'var next = document.getElementById("page-next");',
-        'function render() { var pageUrl = viewerBase + "/" + index + ".jpg"; image.src = mediaBase + encodeURIComponent(pageUrl); image.alt = readerTitle + ", page " + (index + 1); image.style.transform = "scale(" + zoom + ")"; image.style.maxWidth = zoom > 1 ? "none" : "100%"; status.textContent = (index + 1) + " / " + pageCount; previous.disabled = index === 0; next.disabled = index >= pageCount - 1; }',
+        'function updateStatus() { var readableTotal = Math.max(1, lastPage - firstPage + 1); pageStatus.textContent = (index - firstPage + 1) + " / " + readableTotal; previous.disabled = index <= firstPage; next.disabled = index >= lastPage; }',
+        'function render() { var pageUrl = viewerBase + "/" + index + ".jpg"; image.src = mediaBase + encodeURIComponent(pageUrl); image.alt = readerTitle + ", page " + (index - firstPage + 1); image.style.transform = "scale(" + zoom + ")"; image.style.maxWidth = zoom > 1 ? "none" : "100%"; updateStatus(); }',
+        'image.addEventListener("load", function() { message.classList.remove("show"); });',
         'image.addEventListener("error", function() { message.textContent = "This scan page did not load. Open the original Comic Book Plus issue from the header."; message.classList.add("show"); });',
         'document.getElementById("page-title").textContent = readerTitle;',
-        'previous.addEventListener("click", function() { if (index > 0) { index -= 1; zoom = 1; message.classList.remove("show"); render(); } });',
-        'next.addEventListener("click", function() { if (index < pageCount - 1) { index += 1; zoom = 1; message.classList.remove("show"); render(); } });',
+        'previous.addEventListener("click", function() { if (index > firstPage) { index -= 1; zoom = 1; render(); } });',
+        'next.addEventListener("click", function() { if (index < lastPage) { index += 1; zoom = 1; render(); } });',
         'document.getElementById("page-zoom-out").addEventListener("click", function() { zoom = Math.max(0.6, zoom - 0.2); render(); });',
         'document.getElementById("page-zoom-in").addEventListener("click", function() { zoom = Math.min(3, zoom + 0.2); render(); });',
         'document.getElementById("page-fit").addEventListener("click", function() { zoom = 1; render(); });',
+        'document.addEventListener("keydown", function(event) { if (event.key === "ArrowLeft") previous.click(); if (event.key === "ArrowRight") next.click(); });',
         'render();'
       ].join('\n');
       return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
