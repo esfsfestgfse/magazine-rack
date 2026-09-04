@@ -35,7 +35,7 @@ The API token must be allowed to deploy Workers and apply migrations to the `mar
 
 ## Periodical source packs
 
-The rack is read-first: visible shelves only keep records with an in-app image, IIIF scan, sequential scan, or Internet Archive reading item. Catalog-only lanes such as GCD Comic Series, Open Library Subjects, and generic Google Books previews are not exposed as shelves. Newspaper racks are calendar-aware: they query the current month/day across representative historical years, so September 3 shows September 3 editions regardless of year. DPLA is not exposed as a shelf because its records were not consistently providing a usable in-app publication reader. LOC/ChronAm newspaper records use the source's issue/resource structure when available, with a source-page fallback.
+The rack is read-first: visible shelves only keep records with an in-app image, IIIF scan, sequential scan, or Internet Archive reading item. Catalog-only lanes such as GCD Comic Series, Open Library Subjects, generic Google Books previews, DPLA, and LOC/ChronAm are not exposed as primary shelves until their reader contracts are reliable. The remaining newspaper rack is calendar-aware: it queries the current month/day across representative historical years, so September 3 shows September 3 editions regardless of year.
 
 Comic Book Plus is included for comics because its public issue pages expose sequential scan images and page counts, allowing the app's in-app reader to turn pages instead of opening catalog metadata.
 

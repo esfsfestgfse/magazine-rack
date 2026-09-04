@@ -287,51 +287,6 @@ export const SHELVES = [
     query: `mediatype:texts AND (collection:(newspapers) OR subject:newspapers) AND language:English${ADULT_EXCLUDE}`
   },
   {
-    id: 'chronam',
-    title: 'ChronAm',
-    source: 'loc',
-    newspaperDateMode: 'month-day',
-    newspaperOnly: true,
-    locQs: 'newspaper',
-    locExtra: 'dl=page'
-  },
-  {
-    id: 'chronam-front',
-    title: 'ChronAm Front',
-    source: 'loc',
-    newspaperDateMode: 'month-day',
-    newspaperOnly: true,
-    locQs: 'front page',
-    locExtra: 'dl=page'
-  },
-  {
-    id: 'chronam-texas',
-    title: 'ChronAm Texas',
-    source: 'loc',
-    newspaperDateMode: 'month-day',
-    newspaperOnly: true,
-    locQs: 'texas',
-    locExtra: 'dl=page&location_state=texas'
-  },
-  {
-    id: 'chronam-ca',
-    title: 'ChronAm CA',
-    source: 'loc',
-    newspaperDateMode: 'month-day',
-    newspaperOnly: true,
-    locQs: 'california',
-    locExtra: 'dl=page&location_state=california'
-  },
-  {
-    id: 'chronam-ny',
-    title: 'ChronAm NY',
-    source: 'loc',
-    newspaperDateMode: 'month-day',
-    newspaperOnly: true,
-    locQs: 'new york',
-    locExtra: 'dl=page&location_state=new york'
-  },
-  {
     id: 'xkcd',
     title: 'XKCD',
     source: 'xkcd'

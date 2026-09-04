@@ -119,7 +119,7 @@ try {
   const catalog = await worker.fetch(new Request('https://api.example/api/catalog?q=demo'), dbEnv, dbContext);
   assert.equal(catalog.status, 200);
   const catalogBody = await catalog.json();
-  assert.equal(catalogBody.items.length, 6);
+  assert.equal(catalogBody.items.length, 5);
   assert.ok(catalogBody.items.some((item) => item.source === 'comicbookplus' && item.readerUrl === 'https://comicbookplus.com/?dlid=77'));
   assert.ok(catalogBody.items.some((item) => item.source === 'openlibrary' && item.readerUrl === 'https://openlibrary.org/works/OL2W'));
   assert.ok(catalogBody.items.every((item) => ['full', 'borrow', 'preview', 'image-only', 'catalog', 'unavailable'].includes(item.access)));

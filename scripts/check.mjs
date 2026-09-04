@@ -49,7 +49,7 @@ for (const file of ['apps/web/index.html', 'apps/web/src/main.js', 'apps/api/src
 }
 
 console.log(`Magazine Rack checks passed (${required.length} required files present).`);
-if (SHELVES.length !== 51 || !SHELVES.some((shelf) => shelf.id === 'manga')) throw new Error(`Shelf parity check failed: expected 51 shelves with a Manga rack, found ${SHELVES.length}`);
+if (SHELVES.length !== 46 || !SHELVES.some((shelf) => shelf.id === 'manga')) throw new Error(`Shelf parity check failed: expected 46 shelves with a Manga rack, found ${SHELVES.length}`);
 if (SHELVES.some((shelf) => ['gcd-series', 'ol-subjects', 'gbooks-comics', 'gbooks-mags', 'dpla-periodicals', 'loc-search-comics', 'loc-photos'].includes(shelf.id))) throw new Error('Shelf parity check failed: catalog-only or image-only racks are still exposed');
 if (!configuredSourceIds().includes('comicbookplus') || configuredSourceIds().includes('dpla')) throw new Error('Source registry check failed: Comic Book Plus must be active and DPLA must be removed');
 if (ADULT_SHELF_IDS.length !== 2 || SHELVES.at(-2)?.id !== 'adult-mags' || SHELVES.at(-1)?.id !== 'adult-comics') {
@@ -76,4 +76,4 @@ const comicBookPlusSnapshot = JSON.parse(readFileSync(join(root, 'apps/web/data/
 if (comicBookPlusSnapshot.source !== 'comicbookplus' || comicBookPlusSnapshot.items.length <= 50 || comicBookPlusSnapshot.items.some((item) => !item.sourceId || !item.cover || !item.viewerBase)) {
   throw new Error('Comic Book Plus snapshot check failed: expected more than 50 readable, covered issues');
 }
-console.log('Shelf parity check passed (51 readable shelves including Manga; restricted shelves last).');
+console.log('Shelf parity check passed (46 readable shelves including Manga; restricted shelves last).');
