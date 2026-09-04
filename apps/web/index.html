@@ -536,6 +536,17 @@
       overflow: hidden;
       max-width: 124px;
     }
+    .cover-issue-meta {
+      margin-top: 4px;
+      max-width: 124px;
+      overflow: hidden;
+      color: var(--accent2);
+      font: 0.56rem/1.2 "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.02em;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
 
     .cover-meta { display: none; }
 
@@ -1256,6 +1267,7 @@
     .cover-placeholder { padding: 13px; color: var(--card); background: repeating-linear-gradient(-24deg, #d24b3d 0 18px, #8b2d42 18px 36px, #2e5d67 36px 55px); font: 13px/.95 var(--display); letter-spacing: .04em; text-transform: uppercase; }
     .cover-badge { left: 7px; bottom: 7px; padding: 4px 6px; color: var(--bg); border: 0; border-radius: 2px; background: var(--accent3); font: 8px "SFMono-Regular", Consolas, monospace; }
     .cover-title { max-width: 158px; margin-top: 10px; color: #eee1d8; font-size: 12px; font-weight: 750; line-height: 1.2; }
+    .cover-issue-meta { max-width: 158px; color: var(--accent3); font-size: 8px; }
     .load-more-card { flex: 0 0 120px; min-width: 120px; height: 216px; border: 1px dashed rgba(94,234,212,.5); border-radius: 3px; background: rgba(94,234,212,.06); color: var(--accent2); font: 10px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
     .shelf-loading, .shelf-empty { min-width: 190px; padding: 35px 18px; color: var(--muted); font: 11px "SFMono-Regular", Consolas, monospace; }
     .spinner { border-color: rgba(255,255,255,.1); border-top-color: var(--accent); }
@@ -1339,6 +1351,7 @@
       .cover-card { flex-basis: 136px; width: 136px; min-width: 136px; }
       .cover-img-wrap { width: 136px; height: 186px; }
       .cover-title { max-width: 136px; font-size: 11px; }
+      .cover-issue-meta { max-width: 136px; font-size: 7px; }
       body.wall-mode .shelf-track { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-inline: 16px; }
       .filters, .lib-toolbar, .lib-grid { padding-inline: 16px; }
       .lib-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2224,6 +2237,11 @@
       item.issueDate = item.issueDate || item.date || '';
       item.volume = item.volume || item.vol || '';
       item.issue = item.issue || item.number || '';
+      var issueIdentityValue = issueIdentity(item);
+      item.series = item.series || issueIdentityValue.series;
+      item.seriesKey = item.seriesKey || issueIdentityValue.seriesKey;
+      item.issueLabel = item.issueLabel || issueIdentityValue.issueLabel;
+      item.issueNumber = item.issueNumber || issueIdentityValue.issueNumber;
       item.iiifManifest = item.iiifManifest || item.manifest || item.iiif || null;
       item.access = accessKey(item);
       item.readerKind = item.readerKind || (item.source === 'comicbookplus' ? 'sequential-images' : item.iiifManifest ? 'iiif' : item.source === 'loc' ? 'loc-resource' : item.source === 'ia' || item.iaId ? 'ia-bookreader' : 'none');
@@ -2398,11 +2416,39 @@
         .replace(/[^a-z0-9]+/g, ' ').trim();
     }
 
+    function issueIdentity(doc) {
+      var rawTitle = String(doc && doc.title || '').trim();
+      var publication = Array.isArray(doc && doc.publication) ? doc.publication[0] : (doc && (doc.publication || doc.series) || '');
+      var series = String(publication || rawTitle).trim();
+      var issue = String(doc && (doc.issue || doc.number || '') || '').trim();
+      var volume = String(doc && (doc.volume || doc.vol || '') || '').trim();
+      var explicit = rawTitle.match(/^(.*?)[\s,]*(?:#|no\.?|number|issue|vol\.?|volume)\s*([a-z0-9][a-z0-9.-]*)\s*$/i);
+      if (explicit) {
+        if (!publication) series = explicit[1].trim();
+        if (!issue && !volume) issue = explicit[2];
+      } else if (!publication && !issue && !volume && /(?:comic|comics|manga|magazine|annual|weekly|monthly|series)/i.test(rawTitle)) {
+        var suffix = rawTitle.match(/^(.+?)\s+(\d{1,3})\s*$/);
+        if (suffix) {
+          series = suffix[1].trim();
+          issue = suffix[2];
+        }
+      }
+      var issueValue = issue || volume;
+      var numeric = issueValue.match(/\d+(?:\.\d+)?/);
+      return {
+        series: series || rawTitle,
+        seriesKey: canonicalTitle(series || rawTitle),
+        issueLabel: issueValue ? (volume && !issue ? 'Vol. ' : 'No. ') + issueValue : '',
+        issueNumber: numeric ? Number(numeric[0]) : null
+      };
+    }
+
     function dedupeKey(doc) {
-      var title = canonicalTitle(doc && doc.title);
+      var identity = issueIdentity(doc);
+      var title = identity.seriesKey || canonicalTitle(doc && doc.title);
       var yearMatch = String((doc && (doc.date || doc.year || doc.issueDate)) || '').match(/\b(?:18|19|20)\d{2}\b/);
       var year = yearMatch ? yearMatch[0] : '';
-      var issue = canonicalTitle([doc && doc.volume, doc && doc.issue].filter(Boolean).join(' '));
+      var issue = canonicalTitle(identity.issueLabel);
       var creator = canonicalTitle(doc && doc.creator);
       if (!title) return 'id:' + itemKey(doc);
       return [title, year, issue, year ? '' : creator].join('|');
@@ -2464,6 +2510,7 @@
       var pages = doc.imagecount || doc.pages || '';
       var format = doc.format ? formatLabel(doc.format) : '';
       var badgeParts = [format, year, pages ? (pages + 'p') : '', accessLabel(doc)];
+      var issueLine = doc.issueLabel || (doc.series && canonicalTitle(doc.series) !== canonicalTitle(title) ? doc.series : '');
       var badge = badgeParts.some(Boolean)
         ? '<div class="cover-badge">' + escapeHtml(badgeParts.filter(Boolean).join(' · ')) + '</div>'
         : '';
@@ -2476,7 +2523,8 @@
           '<button type="button" class="cover-favorite ' + (isFavorite(id) ? 'active' : '') + '" aria-label="' + (isFavorite(id) ? 'Remove favorite' : 'Add favorite') + '">' + (isFavorite(id) ? '★' : '☆') + '</button>' +
           badge +
         '</div>' +
-           '<div class="cover-title">' + escapeHtml(title) + '</div>';
+           '<div class="cover-title">' + escapeHtml(title) + '</div>' +
+           (issueLine ? '<div class="cover-issue-meta">' + escapeHtml(issueLine) + '</div>' : '');
 
       bindCoverFallbacks(card);
       var favorite = card.querySelector('.cover-favorite');
@@ -4373,7 +4421,8 @@
       const subjects = Array.isArray(doc.subject) ? doc.subject.slice(0, 6) : [];
       const coverUrl = bestCoverUrl(doc);
       const already = library.find(b => b.iaId === id || b.identifier === id || b.locUrl === id);
-      const issueMeta = [doc.publication, doc.issueDate || year, doc.volume ? 'Vol. ' + doc.volume : '', doc.issue ? 'No. ' + doc.issue : '']
+      const seriesMeta = doc.series && canonicalTitle(doc.series) !== canonicalTitle(title) ? doc.series : '';
+      const issueMeta = [seriesMeta, doc.issueDate || year, doc.issueLabel || '', doc.issueLabel ? '' : (doc.volume ? 'Vol. ' + doc.volume : ''), doc.issueLabel ? '' : (doc.issue ? 'No. ' + doc.issue : '')]
         .filter(Boolean).join(' · ');
 
       const canRead = canReadDocument(doc);
@@ -4654,6 +4703,20 @@
       if (previous) { previous.disabled = !hasQueue || readerState.queueIndex <= 0; previous.title = previous.disabled ? 'No previous issue' : 'Previous issue'; }
       if (next) { next.disabled = !hasQueue || readerState.queueIndex >= queue.length - 1; next.title = next.disabled ? 'No next issue' : 'Next issue'; }
       if (position) position.textContent = queue.length ? (readerState.queueIndex + 1) + ' / ' + queue.length : '—';
+    }
+
+    function issueQueueFor(doc, docs) {
+      var all = (docs || []).filter(Boolean);
+      var current = issueIdentity(doc);
+      if (!current.seriesKey) return all;
+      var grouped = all.filter(function(item) { return issueIdentity(item).seriesKey === current.seriesKey; });
+      if (grouped.length < 2) return all;
+      return grouped.sort(function(a, b) {
+        var aIssue = issueIdentity(a).issueNumber;
+        var bIssue = issueIdentity(b).issueNumber;
+        if (aIssue !== null && bIssue !== null && aIssue !== bIssue) return aIssue - bIssue;
+        return String(a.title || '').localeCompare(String(b.title || ''));
+      });
     }
 
     function navigateReader(delta) {
@@ -5052,7 +5115,8 @@
         return;
       }
 
-      var navQueue = dedupeDocs((Array.isArray(contextDocs) && contextDocs.length ? contextDocs : [doc]).filter(Boolean)).filter(canReadDocument);
+      var allQueue = dedupeDocs((Array.isArray(contextDocs) && contextDocs.length ? contextDocs : [doc]).filter(Boolean)).filter(canReadDocument);
+      var navQueue = issueQueueFor(doc, allQueue);
       if (!navQueue.some(function(item) { return itemKey(item) === itemKey(doc) && itemKey(doc); })) navQueue.unshift(doc);
       var navIndex = Number.isInteger(requestedIndex) ? requestedIndex : navQueue.findIndex(function(item) { return itemKey(item) === itemKey(doc); });
       if (navIndex < 0) navIndex = 0;
