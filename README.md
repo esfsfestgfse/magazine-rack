@@ -24,6 +24,15 @@ pnpm run api:dev
 
 The web shell runs in demo mode until `apps/web/config.js` points it at a deployed API. The Worker includes bounded route-specific rate limits; production should also use a shared edge/API limiter for cross-isolate enforcement.
 
+### Production Worker deployment
+
+The GitHub Actions Worker workflow expects these two GitHub settings:
+
+- Repository or `cloudflare-production` environment secret: `CLOUDFLARE_API_TOKEN`
+- Repository or `cloudflare-production` environment variable: `CLOUDFLARE_ACCOUNT_ID`
+
+The API token must be allowed to deploy Workers and apply migrations to the `margin-catalog` D1 database. The workflow validates both names before installing Wrangler, then runs the production migration and deploy commands from `apps/api/wrangler.jsonc`.
+
 ## Periodical source packs
 
 The rack is read-first: visible shelves only keep records with an in-app image, IIIF scan, sequential scan, or Internet Archive reading item. Catalog-only lanes such as GCD Comic Series, Open Library Subjects, and generic Google Books previews are not exposed as shelves. Newspaper racks are calendar-aware: they query the current month/day across representative historical years, so September 3 shows September 3 editions regardless of year. DPLA is not exposed as a shelf because its records were not consistently providing a usable in-app publication reader. LOC/ChronAm newspaper records use the source's issue/resource structure when available, with a source-page fallback.
