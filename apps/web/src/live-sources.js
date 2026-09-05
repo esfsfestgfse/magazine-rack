@@ -676,8 +676,12 @@ async function fetchOpenLibraryPage(shelf, page, options) {
       ? `https://covers.openlibrary.org/b/id/${numberValue(item.cover_i)}-M.jpg`
       : archiveCover(iaId);
     return {
-      source: iaId ? 'ia' : 'openlibrary',
+      // Keep Open Library as the owning source even when an IA scan is
+      // attached. The IA id is still retained for preview fallback, while
+      // borrow-restricted editions must use the Open Library access flow.
+      source: 'openlibrary',
       identifier: iaId || editionKey || item.key,
+      iaId,
       title: item.title || 'Untitled',
       creator: first(item.author_name) || 'Open Library',
       date: item.first_publish_year ? String(item.first_publish_year) : '',
@@ -686,7 +690,7 @@ async function fetchOpenLibraryPage(shelf, page, options) {
       fullImage: iaId ? archiveCover(iaId) : cover,
       locUrl: editionKey ? `https://openlibrary.org/books/${editionKey}` : (item.key ? `https://openlibrary.org${item.key}` : null),
       openLibraryUrl: editionKey ? `https://openlibrary.org/books/${editionKey}` : (item.key ? `https://openlibrary.org${item.key}` : null),
-      accountSource: iaId ? 'openlibrary' : null,
+      accountSource: 'openlibrary',
       readerUrl: iaId ? `https://archive.org/stream/${encodeURIComponent(iaId)}?ui=embed&wrapper=false` : null,
       access: iaId ? (borrowable ? 'borrow' : 'preview') : (borrowable ? 'borrow' : 'catalog'),
       readable: Boolean(iaId || borrowable),
@@ -695,7 +699,7 @@ async function fetchOpenLibraryPage(shelf, page, options) {
       pages: item.number_of_pages,
       coverQuality: item.cover_i ? 5 : (iaId ? 2 : 0)
     };
-  }).filter((doc) => doc.source === 'ia');
+  }).filter((doc) => doc.readable !== false && (doc.iaId || doc.access === 'borrow'));
   return result(docs, { source: 'openlibrary', page, pageSize: size, numFound: numberValue(data?.num_found) || docs.length });
 }
 
@@ -709,8 +713,9 @@ async function fetchOpenLibrarySubjectsPage(shelf, page, options) {
   const docs = (data?.works || []).map((item) => {
     const iaId = list(item.ia, 1)[0] || null;
     return {
-      source: iaId ? 'ia' : 'openlibrary',
+      source: 'olsubjects',
       identifier: iaId || item.key,
+      iaId,
       title: item.title || 'Untitled',
       creator: item.authors?.[0]?.name || 'Open Library',
       date: item.first_publish_year ? String(item.first_publish_year) : '',
@@ -719,7 +724,7 @@ async function fetchOpenLibrarySubjectsPage(shelf, page, options) {
       fullImage: iaId ? archiveCover(iaId) : null,
       locUrl: item.key ? `https://openlibrary.org${item.key}` : null,
        openLibraryUrl: item.key ? `https://openlibrary.org${item.key}` : null,
-       accountSource: iaId ? 'openlibrary' : null,
+       accountSource: 'openlibrary',
        access: iaId ? 'preview' : 'catalog',
        readable: Boolean(iaId),
        readerKind: iaId ? 'ia-bookreader' : 'none',

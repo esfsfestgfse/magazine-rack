@@ -2898,7 +2898,10 @@
         var availabilityStatus = String(availability.status || '').toLowerCase();
         var borrowable = availability.borrow_available === true || /borrow_available|full_access/.test(availabilityStatus);
         return {
-          source: iaId ? 'ia' : 'openlibrary',
+          // Open Library remains the owning source even when an IA scan is
+          // attached. Borrow-restricted editions must enter the Open Library
+          // access flow rather than being presented as unrestricted IA items.
+          source: 'openlibrary',
           identifier: iaId || d.key,
           iaId: iaId || null,
           title: d.title || 'Untitled',
@@ -3479,7 +3482,10 @@
         var sourceUrlValue = item.sourceUrl || item.locUrl || null;
         var metadata = item.metadata || {};
         var iaId = metadata.iaId || null;
-        var itemSource = iaId ? 'ia' : (item.source || source);
+        // Preserve the provider identity when its record also carries an IA
+        // scan. Open Library borrow records need the access panel instead of
+        // being mistaken for unrestricted Internet Archive issues.
+        var itemSource = item.source || source;
         return {
           source: itemSource,
           identifier: iaId || sourceId,
@@ -5158,6 +5164,17 @@
       }
 
       if (doc && (doc.source === 'openlibrary' || doc.source === 'olsubjects') && !isValidIaId(iaId) && doc.locUrl) {
+        clearReaderLoadTimer();
+        setReaderLoading(false);
+        bindFrame('Open Library · access panel');
+        frame.srcdoc = buildOpenLibraryAccessHtml(doc, readerState.title);
+        return;
+      }
+
+      // Borrow-restricted Open Library editions may expose an IA identifier
+      // for preview, but that preview is not the user's borrowed copy. Keep
+      // the reader in-app and present the official Open Library handoff first.
+      if (doc && (doc.source === 'openlibrary' || doc.source === 'olsubjects') && accessKey(doc) === 'borrow') {
         clearReaderLoadTimer();
         setReaderLoading(false);
         bindFrame('Open Library · access panel');
