@@ -1584,7 +1584,7 @@
         <h2 id="reader-title">Reading...</h2>
       </div>
       <div class="reader-actions">
-        <div class="reader-nav" aria-label="Issue navigation"><button type="button" id="reader-prev" title="Previous issue">‹</button><span id="reader-position">—</span><button type="button" id="reader-next" title="Next issue">›</button></div>
+        <div class="reader-nav" aria-label="Reader navigation"><button type="button" id="reader-prev" title="Previous shelf item">‹</button><span id="reader-nav-kind">Shelf items</span><span id="reader-position">—</span><button type="button" id="reader-next" title="Next shelf item">›</button></div>
         <button type="button" class="primary" id="reader-open-ia" title="Open the original source"><span class="reader-action-icon">↗</span><span class="reader-action-label">Open source</span></button>
         <button type="button" id="reader-openlibrary" title="Open Library access" hidden><span class="reader-action-icon">↗</span><span class="reader-action-label">Open Library access</span></button>
         <button type="button" id="reader-related" title="Find related items"><span class="reader-action-icon">✦</span><span class="reader-action-label">Related</span></button>
@@ -4637,7 +4637,7 @@
     var readerState = {
       title: '', iaId: null, cover: null, doc: null,
       hintTimer: null, loadTimer: null, loadToken: 0,
-      lastFocus: null, manualChromeHidden: false, queue: [], queueIndex: 0
+      lastFocus: null, manualChromeHidden: false, queue: [], queueIndex: 0, queueIsSeries: false
     };
 
     var READER_PROGRESS_KEY = 'magazine-rack-reader-progress-v1';
@@ -4701,11 +4701,16 @@
     function updateReaderNavigation() {
       var previous = document.getElementById('reader-prev');
       var next = document.getElementById('reader-next');
+      var navigation = document.querySelector('.reader-nav');
+      var kind = document.getElementById('reader-nav-kind');
       var position = document.getElementById('reader-position');
       var queue = readerState.queue || [];
       var hasQueue = queue.length > 1;
-      if (previous) { previous.disabled = !hasQueue || readerState.queueIndex <= 0; previous.title = previous.disabled ? 'No previous issue' : 'Previous issue'; }
-      if (next) { next.disabled = !hasQueue || readerState.queueIndex >= queue.length - 1; next.title = next.disabled ? 'No next issue' : 'Next issue'; }
+      var noun = readerState.queueIsSeries ? 'issue' : 'shelf item';
+      if (navigation) navigation.setAttribute('aria-label', readerState.queueIsSeries ? 'Issue navigation' : 'Shelf item navigation');
+      if (kind) kind.textContent = readerState.queueIsSeries ? 'Issues' : 'Shelf items';
+      if (previous) { previous.disabled = !hasQueue || readerState.queueIndex <= 0; previous.title = previous.disabled ? 'No previous ' + noun : 'Previous ' + noun; }
+      if (next) { next.disabled = !hasQueue || readerState.queueIndex >= queue.length - 1; next.title = next.disabled ? 'No next ' + noun : 'Next ' + noun; }
       if (position) position.textContent = queue.length ? (readerState.queueIndex + 1) + ' / ' + queue.length : '—';
     }
 
@@ -4721,6 +4726,14 @@
         if (aIssue !== null && bIssue !== null && aIssue !== bIssue) return aIssue - bIssue;
         return String(a.title || '').localeCompare(String(b.title || ''));
       });
+    }
+
+    function isIssueSeriesQueue(doc, docs) {
+      var current = issueIdentity(doc);
+      if (!current.seriesKey) return false;
+      return (docs || []).filter(Boolean).filter(function(item) {
+        return issueIdentity(item).seriesKey === current.seriesKey;
+      }).length >= 2;
     }
 
     function navigateReader(delta) {
@@ -5131,6 +5144,7 @@
       }
 
       var allQueue = dedupeDocs((Array.isArray(contextDocs) && contextDocs.length ? contextDocs : [doc]).filter(Boolean)).filter(canReadDocument);
+      var queueIsSeries = isIssueSeriesQueue(doc, allQueue);
       var navQueue = issueQueueFor(doc, allQueue);
       if (!navQueue.some(function(item) { return itemKey(item) === itemKey(doc) && itemKey(doc); })) navQueue.unshift(doc);
       var navIndex = Number.isInteger(requestedIndex) ? requestedIndex : navQueue.findIndex(function(item) { return itemKey(item) === itemKey(doc); });
@@ -5149,7 +5163,8 @@
         lastFocus: active && active !== document.body && active.focus ? active : null,
         manualChromeHidden: false,
         queue: navQueue,
-        queueIndex: navIndex
+        queueIndex: navIndex,
+        queueIsSeries: queueIsSeries
       };
 
       pushHistory(Object.assign({}, doc || {}, {
@@ -5208,7 +5223,7 @@
       readerState = {
         title: '', iaId: null, cover: null, doc: null,
         hintTimer: null, loadTimer: null, loadToken: nextToken,
-        lastFocus: null, manualChromeHidden: false, queue: [], queueIndex: 0
+        lastFocus: null, manualChromeHidden: false, queue: [], queueIndex: 0, queueIsSeries: false
       };
       updateOpenLibraryAction(null);
       updateReaderNavigation();
