@@ -2467,12 +2467,21 @@
       return score;
     }
 
+    function dedupeRank(doc) {
+      var score = coverQuality(doc);
+      // A borrow contract is more useful than an equivalent IA preview. Do
+      // not let a title collision discard the Open Library access route.
+      var source = String(doc && doc.source || '').toLowerCase();
+      if ((source === 'openlibrary' || source === 'olsubjects') && accessKey(doc) === 'borrow') score += 100;
+      return score;
+    }
+
     function dedupeDocs(docs) {
       var winners = new Map();
       (docs || []).forEach(function(doc) {
         var key = dedupeKey(doc);
         var prior = winners.get(key);
-        if (!prior || coverQuality(doc) > coverQuality(prior)) winners.set(key, Object.assign({}, prior || {}, doc, {
+        if (!prior || dedupeRank(doc) > dedupeRank(prior)) winners.set(key, Object.assign({}, prior || {}, doc, {
           cover: bestCoverUrl(doc) || bestCoverUrl(prior) || null,
           fullImage: doc.fullImage || (prior && prior.fullImage) || null,
           locUrl: doc.locUrl || (prior && prior.locUrl) || null,
