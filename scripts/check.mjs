@@ -72,6 +72,9 @@ if (!standalone.includes('waitForMessage') || !standalone.includes('shelf-retry'
 if (!standalone.includes('page-slider') || !standalone.includes('touchstart') || !standalone.includes('issueQueueFor') || !standalone.includes('queueIsSeries') || !standalone.includes('reader-nav-kind') || !standalone.includes('font-size:1.15rem')) {
   throw new Error('Standalone checks failed: page scrubbing, touch navigation, issue navigation, reader navigation labeling, or mobile reader arrows are missing');
 }
+if (!standalone.includes('coverCandidateScore') || !standalone.includes('naturalWidth') || !standalone.includes('dedupeRank') || !standalone.includes('grid-template-columns: minmax(0, 1fr) auto') || !standalone.includes('overscroll-behavior-x: contain')) {
+  throw new Error('Standalone checks failed: cover quality fallback, duplicate ranking, or mobile reader layout safeguards are missing');
+}
 if (/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(standalone) || !standalone.includes('<script src="config.js"></script>') || !/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(standalone)) {
   throw new Error('Standalone checks failed: the Pages release entrypoint or hosted shell worker is not canonical');
 }

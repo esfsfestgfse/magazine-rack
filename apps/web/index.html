@@ -1366,17 +1366,22 @@
       .hero-meta b { font-size: 21px; }
       .hero-ticket { right: 28px; bottom: 27px; }
       .form-wrap { margin: 20px 12px; padding: 20px; }
-      .reader-header { align-items: flex-start; gap: 8px; padding: 10px; }
-      .reader-heading { padding-top: 4px; }
+      .reader-overlay { box-sizing: border-box; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+      .reader-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: start; gap: 8px; padding: 10px; }
+      .reader-heading { grid-column: 1; grid-row: 1; max-width: calc(100vw - 54px); padding-top: 4px; }
       .reader-kicker { font-size: 8px; }
       .reader-header h2 { max-width: 150px; font-size: 16px; line-height: 1; }
-      .reader-actions { gap: 4px; }
-      .reader-header button { width: 34px; height: 34px; padding: 0; font-size: 0; }
-      .reader-header button.primary { width: auto; padding-inline: 10px; font-size: 9px; }
+      .reader-actions { grid-column: 1 / -1; grid-row: 2; width: 100%; min-width: 0; gap: 4px; margin: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+      .reader-actions::-webkit-scrollbar { display: none; }
+      .reader-actions > button { flex: 0 0 34px; width: 34px; height: 34px; padding: 0; font-size: 0; }
+      .reader-actions > .reader-nav { flex: 0 0 auto; }
+      .reader-header button.primary { flex: 0 0 auto; width: auto; max-width: 118px; padding-inline: 10px; font-size: 9px; overflow: hidden; text-overflow: ellipsis; }
       .reader-header button .reader-action-icon { display: inline; font-size: 16px; line-height: 1; }
       .reader-header button.primary .reader-action-icon { display: none; }
       .reader-header button.primary .reader-action-label { display: inline; }
-      .reader-header .close-btn { width: 30px; padding: 0; font-size: 22px; }
+      .reader-header .close-btn { grid-column: 2; grid-row: 1; width: 30px; padding: 0; font-size: 22px; }
+      .reader-note { padding: 5px 8px; font-size: 8px; }
+      .reader-loading { padding: 16px; }
     }
   </style>
   <style id="v5-upgrades">
@@ -2353,6 +2358,21 @@
       return /^https:\/\//i.test(url) ? url : '';
     }
 
+    function coverCandidateScore(value) {
+      var url = normalizeCoverUrl(value);
+      if (!url) return -1000;
+      var lower = url.toLowerCase();
+      if (/(?:no[-_ ]?(?:cover|image)|missing[-_ ]?(?:cover|image)|placeholder|default[-_ ]?(?:cover|image)|spacer|transparent|pixel\.(?:gif|png))/i.test(lower)) return -1000;
+      var score = 50;
+      if (/covers\.openlibrary\.org\/b\/id\//i.test(lower)) score += 28;
+      if (/archive\.org\/services\/img\//i.test(lower)) score += 22;
+      if (/(?:iiif|\/full\/|\/max\/|large|master)/i.test(lower)) score += 18;
+      if (/(?:-l\.(?:jpe?g|png)|[_-](?:large|full)\.)/i.test(lower)) score += 8;
+      if (/(?:thumbnail|thumb|preview|small|_150px|_300px|edmpreview)/i.test(lower)) score -= 20;
+      if (/(?:\.gif|\.svg)(?:[?#]|$)/i.test(lower)) score -= 8;
+      return score;
+    }
+
     function sourceUrls(value, out, depth) {
       out = out || [];
       depth = depth || 0;
@@ -2386,24 +2406,31 @@
 
     function coverCandidates(doc) {
       var candidates = [];
-      function add(value) {
+      function add(value, priority) {
         var url = normalizeCoverUrl(value);
-        if (url && candidates.indexOf(url) === -1) candidates.push(url);
+        if (coverCandidateScore(url) < 0) return;
+        var score = coverCandidateScore(url) + (Number(priority) || 0);
+        var existing = candidates.find(function(entry) { return entry.url === url; });
+        if (existing) {
+          existing.score = Math.max(existing.score, score);
+          return;
+        }
+        candidates.push({ url: url, score: score, order: candidates.length });
       }
-      add(doc && doc.cover);
-      add(doc && doc.coverUrl);
-      add(doc && doc.fullImage);
+      add(doc && doc.cover, 6);
+      add(doc && doc.coverUrl, 5);
+      add(doc && doc.fullImage, 2);
       if (doc && (doc.source === 'openlibrary' || doc.source === 'olsubjects')) {
-        add(doc.openLibraryCover);
+        add(doc.openLibraryCover, 8);
       }
       var id = doc && (doc.identifier || doc.id || doc.iaId);
       if (id && (doc.source === 'ia' || doc.source === 'openlibrary' || doc.source === 'olsubjects' || doc.iaId)) {
-        add('https://archive.org/services/img/' + encodeURIComponent(String(doc.iaId || id)));
+        add('https://archive.org/services/img/' + encodeURIComponent(String(doc.iaId || id)), 1);
       }
-      if (doc && Array.isArray(doc.image_url)) doc.image_url.slice(0, 4).forEach(add);
+      if (doc && Array.isArray(doc.image_url)) doc.image_url.slice(0, 4).forEach(function(value) { add(value); });
       imageUrlCandidates(doc && doc.image_url, doc && doc.thumbnail_url, doc && doc.thumbnail, doc && doc.preview,
-        doc && doc.object, doc && doc.isShownBy, doc && doc.hasView, doc && doc.resources).slice(0, 6).forEach(add);
-      return candidates;
+        doc && doc.object, doc && doc.isShownBy, doc && doc.hasView, doc && doc.resources).slice(0, 6).forEach(function(value) { add(value); });
+      return candidates.sort(function(a, b) { return b.score - a.score || a.order - b.order; }).map(function(entry) { return entry.url; });
     }
 
     function bestCoverUrl(doc) {
@@ -2426,7 +2453,7 @@
       if (explicit) {
         if (!publication) series = explicit[1].trim();
         if (!issue && !volume) issue = explicit[2];
-      } else if (!publication && !issue && !volume && (String(doc && doc.source || '').toLowerCase() === 'comicbookplus' || /(?:comic|comics|manga|magazine|annual|weekly|monthly|series)/i.test(rawTitle))) {
+      } else if (!publication && !issue && !volume && (String(doc && doc.source || '').toLowerCase() === 'comicbookplus' || formatKey(doc && doc.format) === 'comic' || /(?:comic|comics|manga|magazine|annual|weekly|monthly|series)/i.test(rawTitle))) {
         // Comic Book Plus issue titles often omit an explicit "No." or
         // "Issue" marker (for example, "Lot-o'-Fun 867"). Treat the
         // provider's trailing number as an issue so its reader arrows stay
@@ -2450,16 +2477,27 @@
     function dedupeKey(doc) {
       var identity = issueIdentity(doc);
       var title = identity.seriesKey || canonicalTitle(doc && doc.title);
-      var yearMatch = String((doc && (doc.date || doc.year || doc.issueDate)) || '').match(/\b(?:18|19|20)\d{2}\b/);
-      var year = yearMatch ? yearMatch[0] : '';
+      var dateText = doc ? [doc.issueDate, doc.date, doc.year, doc.title].filter(Boolean).join(' ') : '';
+      var isoDate = dateText.match(/\b((?:18|19|20)\d{2})[-/.](\d{1,2})(?:[-/.](\d{1,2}))?\b/);
+      var namedDate = dateText.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+((?:18|19|20)\d{2})\b/i);
+      var yearMatch = dateText.match(/\b(?:18|19|20)\d{2}\b/);
+      var dateKey = '';
+      if (isoDate) dateKey = isoDate[1] + '-' + String(isoDate[2]).padStart(2, '0') + (isoDate[3] ? '-' + String(isoDate[3]).padStart(2, '0') : '');
+      else if (namedDate) dateKey = namedDate[3] + '-' + String(['january','february','march','april','may','june','july','august','september','october','november','december'].indexOf(namedDate[1].toLowerCase()) + 1).padStart(2, '0') + '-' + String(namedDate[2]).padStart(2, '0');
+      else dateKey = yearMatch ? yearMatch[0] : '';
       var issue = canonicalTitle(identity.issueLabel);
       var creator = canonicalTitle(doc && doc.creator);
       if (!title) return 'id:' + itemKey(doc);
-      return [title, year, issue, year ? '' : creator].join('|');
+      var genericTitle = /^(?:manga|magazine|comic|comics|periodical|newspaper|untitled|issue)$/i.test(title) || title.length < 5;
+      if (!issue && genericTitle) return [title, dateKey, creator, String(doc && doc.source || '').toLowerCase(), itemKey(doc)].join('|');
+      return [title, dateKey, issue, dateKey ? '' : creator].join('|');
     }
 
     function coverQuality(doc) {
-      var score = coverCandidates(doc).length ? 5 : 0;
+      var candidates = coverCandidates(doc);
+      var bestScore = candidates.length ? coverCandidateScore(candidates[0]) : 0;
+      var score = bestScore >= 80 ? 6 : bestScore >= 60 ? 5 : bestScore >= 40 ? 4 : candidates.length ? 2 : 0;
+      score = Math.max(score, Math.min(8, Number(doc && doc.coverQuality) || 0));
       if (doc && (doc.fullImage || doc.iiifManifest)) score += 2;
       if (doc && (doc.pages || doc.imagecount)) score += 1;
       if (doc && (doc.locUrl || doc.readerUrl)) score += 1;
@@ -2500,12 +2538,21 @@
       var image = card.querySelector('img[data-cover-fallbacks]');
       if (!image) return;
       var fallback = (image.getAttribute('data-cover-fallbacks') || '').split('|').filter(Boolean);
-      image.addEventListener('error', function() {
-        var next = fallback.shift();
-        if (next) { image.src = next; return; }
+      function showPlaceholder() {
         image.style.display = 'none';
         var placeholder = image.nextElementSibling;
         if (placeholder) placeholder.style.display = 'flex';
+      }
+      function tryNextCover() {
+        var next = fallback.shift();
+        if (next) { image.src = next; return; }
+        showPlaceholder();
+      }
+      image.addEventListener('error', tryNextCover);
+      image.addEventListener('load', function() {
+        // A few providers return a successful 1x1/placeholder response. It
+        // is technically a loaded image, but not a useful cover.
+        if (image.naturalWidth && image.naturalHeight && (image.naturalWidth < 80 || image.naturalHeight < 100)) tryNextCover();
       });
     }
 
@@ -3129,7 +3176,7 @@
       var docs = works.map(function(d) {
         var iaId = (d.ia && d.ia[0]) ? d.ia[0] : null;
         return {
-          source: iaId ? 'ia' : 'openlibrary',
+          source: 'olsubjects',
           identifier: iaId || d.key,
           iaId: iaId || null,
           title: d.title || 'Untitled',
