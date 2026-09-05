@@ -4813,6 +4813,51 @@
       }
     }
 
+    var iaReaderProbeCache = Object.create(null);
+
+    function archiveReaderProbeId(doc, fallback) {
+      var candidate = fallback || (doc && (doc.iaId || doc.identifier));
+      return isValidIaId(candidate) ? String(candidate).trim() : '';
+    }
+
+    function archiveFileCanRender(file) {
+      if (!file || file.private === true || String(file.private).toLowerCase() === 'true') return false;
+      var name = String(file.name || '').toLowerCase();
+      var format = String(file.format || '').toLowerCase();
+      if (!name && !format) return false;
+      if (/(?:^|\/)(?:__ia_thumb|item[_-]?image|metadata|cover)(?:[^/]*\.(?:jpe?g|png|gif|webp))?$/i.test(name)) return false;
+      if (/(?:thumbnail|thumb|preview|sample|scandata|djvu\.xml|\.txt$|\.torrent$|\.sqlite$|\.xml$)/i.test(name)) return false;
+      return /(?:pdf|djvu|jpeg|jpg|png|jp2|jpx|tiff)/i.test(format) ||
+        /\.(?:pdf|djvu|jpe?g|png|jp2|jpx|tiff)$/i.test(name);
+    }
+
+    async function probeArchiveReader(doc, fallback) {
+      var id = archiveReaderProbeId(doc, fallback);
+      if (!id) return { status: 'unknown' };
+      var cached = iaReaderProbeCache[id];
+      if (cached && cached.expiresAt > Date.now()) return cached.value;
+      var imageCount = Number(doc && (doc.imagecount || doc.pages || doc.pageCount) || 0);
+      if (imageCount > 0 || (doc && (doc.fullImage || doc.iiifManifest))) {
+        var known = { status: 'available', reason: 'record advertises pages' };
+        iaReaderProbeCache[id] = { value: known, expiresAt: Date.now() + 10 * 60 * 1000 };
+        return known;
+      }
+      try {
+        var res = await fetchWithTimeout('https://archive.org/metadata/' + encodeURIComponent(id), null, Math.min(FEED_TIMEOUT_MS, 5000));
+        if (!res.ok) return { status: 'unknown' };
+        var data = await res.json();
+        var files = Array.isArray(data.files) ? data.files : [];
+        var available = files.some(archiveFileCanRender);
+        var value = available
+          ? { status: 'available', reason: 'renderable scan file' }
+          : { status: 'unavailable', reason: 'no renderable scan file' };
+        iaReaderProbeCache[id] = { value: value, expiresAt: Date.now() + 10 * 60 * 1000 };
+        return value;
+      } catch (e) {
+        return { status: 'unknown' };
+      }
+    }
+
     function scheduleReaderHint(token, delay) {
       hideReaderHint();
       var doc = readerState.doc;
@@ -4985,18 +5030,20 @@
         '</style></head><body><main>' + coverHtml + '<div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#ffd166">OPEN LIBRARY ACCESS</div><h1 style="font-size:24px;line-height:1.15;margin:9px 0 0">' + escapeHtml(title || 'This edition') + '</h1><p>Sign in in a separate secure tab, then return here and use Retry in the reader header. If the edition is borrow-restricted, choose Borrow on the edition page first.</p><a href="https://openlibrary.org/account/login" target="_blank" rel="noopener">Sign in at Open Library</a>' + itemLink + '<small>Your password stays on Open Library. Magazine Rack never receives or stores it.</small></main></body></html>';
     }
 
-    function buildSourceNoticeHtml(doc, sourceLabel) {
+    function buildSourceNoticeHtml(doc, sourceLabel, message, note) {
       var title = escapeHtml(doc && doc.title || 'This item');
       var source = sourceUrl(doc && (doc.locUrl || doc.readerUrl || '')) || '';
       var sourceLink = source
         ? '<a href="' + escapeHtml(source) + '" target="_blank" rel="noopener">Open ' + escapeHtml(sourceLabel || 'source') + '</a>'
         : '';
+      var bodyMessage = escapeHtml(message || 'This collection does not allow its catalog page to be embedded here. The item is still available at its original public source.');
+      var bodyNote = escapeHtml(note || 'Use the source button in the reader header to open it in a full tab.');
       return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>' +
         'html,body{margin:0;min-height:100%;background:#14161a;color:#eee;font-family:system-ui,sans-serif;}' +
         'body{display:grid;place-items:center;padding:28px;box-sizing:border-box;text-align:center;}' +
         'main{max-width:560px;border:1px solid #3b3f48;border-radius:14px;padding:28px;background:linear-gradient(155deg,#242830,#191b20);box-shadow:0 18px 60px #0008;}' +
         'p{color:#b9bdc7;line-height:1.55;}a{display:inline-block;margin-top:10px;padding:11px 15px;border-radius:7px;background:#ff9f43;color:#17181c;text-decoration:none;font-weight:800;}small{display:block;margin-top:16px;color:#858b98;}' +
-        '</style></head><body><main><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#ffd166">' + escapeHtml(sourceLabel || 'Source') + '</div><h1 style="font-size:24px;line-height:1.15">' + title + '</h1><p>This collection does not allow its catalog page to be embedded here. The item is still available at its original public source.</p>' + sourceLink + '<small>Use the source button in the reader header to open it in a full tab.</small></main></body></html>';
+        '</style></head><body><main><div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#ffd166">' + escapeHtml(sourceLabel || 'Source') + '</div><h1 style="font-size:24px;line-height:1.15">' + title + '</h1><p>' + bodyMessage + '</p>' + sourceLink + '<small>' + bodyNote + '</small></main></body></html>';
     }
 
     function loadReaderContent() {
@@ -5097,12 +5144,32 @@
       }
 
       if (isValidIaId(iaId)) {
-        setReaderLoading(true, 'Opening scan', 'Connecting to the Internet Archive viewer...');
-        bindFrame('Internet Archive · embed');
-        // Use Internet Archive's documented BookReader embed route. It keeps
-        // the provider's own lending/auth handshake in the embedded reader.
-        frame.src = 'https://archive.org/stream/' + encodeURIComponent(iaId) + '?ui=embed&wrapper=false';
-        scheduleReaderHint(token);
+        setReaderLoading(true, 'Checking scan', 'Verifying that Internet Archive exposes a readable preview...');
+        probeArchiveReader(doc, iaId).then(function(probe) {
+          if (token !== readerState.loadToken) return;
+          if (probe.status === 'unavailable') {
+            clearReaderLoadTimer();
+            bindFrame('Internet Archive · no preview');
+            setReaderLoading(false);
+            setReaderStatus('Internet Archive · no preview');
+            frame.srcdoc = buildSourceNoticeHtml(doc, 'Internet Archive',
+              'This record does not expose a readable scan in the in-app reader.',
+              'Open the original item to review its files. If you have access through Open Library, use Access / borrow in the reader header.');
+            return;
+          }
+          setReaderLoading(true, 'Opening scan', 'Connecting to the Internet Archive viewer...');
+          bindFrame('Internet Archive · embed');
+          // Use Internet Archive's documented BookReader embed route. It keeps
+          // the provider's own lending/auth handshake in the embedded reader.
+          frame.src = 'https://archive.org/stream/' + encodeURIComponent(iaId) + '?ui=embed&wrapper=false';
+          scheduleReaderHint(token);
+        }).catch(function() {
+          if (token !== readerState.loadToken) return;
+          setReaderLoading(true, 'Opening scan', 'Connecting to the Internet Archive viewer...');
+          bindFrame('Internet Archive · embed');
+          frame.src = 'https://archive.org/stream/' + encodeURIComponent(iaId) + '?ui=embed&wrapper=false';
+          scheduleReaderHint(token);
+        });
         return;
       }
 

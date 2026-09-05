@@ -66,7 +66,7 @@ if (!standalone.includes('fetchConnectedShelfPage') || !standalone.includes('PUB
 if (standalone.includes("id: 'chronam-funnies'") || standalone.includes('ChronAm Funnies')) {
   throw new Error('Standalone checks failed: the removed ChronAm Funnies rack is still exposed');
 }
-if (!standalone.includes('waitForMessage') || !standalone.includes('shelf-retry') || !standalone.includes('FEED_TIMEOUT_MS')) {
+if (!standalone.includes('waitForMessage') || !standalone.includes('shelf-retry') || !standalone.includes('FEED_TIMEOUT_MS') || !standalone.includes('probeArchiveReader')) {
   throw new Error('Standalone checks failed: bounded feed loading or reader readiness handshakes are missing');
 }
 if (!standalone.includes('page-slider') || !standalone.includes('touchstart') || !standalone.includes('issueQueueFor') || !standalone.includes('queueIsSeries') || !standalone.includes('reader-nav-kind') || !standalone.includes('font-size:1.15rem')) {
