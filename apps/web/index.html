@@ -2426,8 +2426,12 @@
       if (explicit) {
         if (!publication) series = explicit[1].trim();
         if (!issue && !volume) issue = explicit[2];
-      } else if (!publication && !issue && !volume && /(?:comic|comics|manga|magazine|annual|weekly|monthly|series)/i.test(rawTitle)) {
-        var suffix = rawTitle.match(/^(.+?)\s+(\d{1,3})\s*$/);
+      } else if (!publication && !issue && !volume && (String(doc && doc.source || '').toLowerCase() === 'comicbookplus' || /(?:comic|comics|manga|magazine|annual|weekly|monthly|series)/i.test(rawTitle))) {
+        // Comic Book Plus issue titles often omit an explicit "No." or
+        // "Issue" marker (for example, "Lot-o'-Fun 867"). Treat the
+        // provider's trailing number as an issue so its reader arrows stay
+        // within the detected series.
+        var suffix = rawTitle.match(/^(.+?)\s+(\d{1,4})\s*$/);
         if (suffix) {
           series = suffix[1].trim();
           issue = suffix[2];
