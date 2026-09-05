@@ -3815,7 +3815,21 @@
       return Object.assign({}, filterNewspaperResult(shelf, result), {
         degraded: true,
         fallbackSource: shelf && shelf.source || 'provider',
-        docs: (result.docs || []).map(function(doc) { return Object.assign({}, doc, { fallback: true, fallbackFor: shelf && shelf.source || 'provider' }); })
+        docs: (result.docs || []).map(function(doc) {
+          var identifier = doc && (doc.identifier || doc.id);
+          return Object.assign({}, doc, {
+            // Keep the fallback's real provider identity. Without this, the
+            // connected shelf source (for example Europeana) overwrites the
+            // record during normalizeIssue and the IA reader contract is lost.
+            source: 'ia',
+            iaId: identifier || null,
+            readerKind: 'ia-bookreader',
+            readable: true,
+            access: 'full',
+            fallback: true,
+            fallbackFor: shelf && shelf.source || 'provider'
+          });
+        })
       });
     }
 
@@ -3862,12 +3876,16 @@
       try {
         var result = await fetchShelfPageRaw(shelf, page, extraQuery, sortMode);
         var docs = (result && result.docs || []).filter(function(doc) { return !doc.setup && doc.identifier !== 'gcd-info'; });
-        if (provider && !docs.length) {
+        // A provider can return a successful response full of catalog-only
+        // records. Those rows cannot populate a usable rack, so treat the
+        // response as empty and activate the resilient IA fallback.
+        var usableDocs = docs.filter(canReadDocument);
+        if (provider && !usableDocs.length) {
           var fallback = await fetchProviderFallbackPage(shelf, page, extraQuery, sortMode);
-          noteSourceHealth(source, 'degraded', 'Provider returned no records; showing Internet Archive fallback', fallback.docs.length);
+          noteSourceHealth(source, 'degraded', 'Provider returned no usable records; showing Internet Archive fallback', fallback.docs.length);
           return fallback;
         }
-        noteSourceHealth(source, result && (result.stale || result.degraded) ? 'degraded' : 'ok', result && result.stale ? 'Serving cached provider data' : docs.length + ' records', docs.length);
+        noteSourceHealth(source, result && (result.stale || result.degraded) ? 'degraded' : 'ok', result && result.stale ? 'Serving cached provider data' : usableDocs.length + ' usable records', usableDocs.length);
         return result;
       } catch (error) {
         if (provider) {
@@ -4691,7 +4709,10 @@
       var source = String(doc.source || '').toLowerCase();
       if (source === 'ia') return Boolean(isValidIaId(doc.iaId || doc.identifier));
       if (source === 'openlibrary' || source === 'olsubjects') return Boolean(isValidIaId(doc.iaId) || doc.access === 'borrow' || doc.fullImage || doc.cover);
-      if (source === 'comicbookplus') return Boolean(doc.viewerBase || doc.metadata && doc.metadata.viewerBase || doc.fullImage || doc.cover);
+      // Comic Book Plus covers are not readable by themselves. Require the
+      // provider's sequential viewer contract so a cover-only result cannot
+      // masquerade as a complete comic.
+      if (source === 'comicbookplus') return Boolean(doc.viewerBase || doc.metadata && doc.metadata.viewerBase);
       if (['loc', 'locsearch', 'xkcd', 'europeana', 'wikidata', 'met', 'dpla'].indexOf(source) !== -1) {
         return Boolean(doc.fullImage || doc.cover || doc.iiifManifest);
       }
