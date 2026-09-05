@@ -350,9 +350,14 @@ function newspaperMetadata(shelf, options) {
 }
 
 function filterNewspaperDocs(docs, metadata) {
-  if (metadata.newspaperDateMode !== 'month-day') return docs;
   const target = metadata.newspaperMonthDay || monthDayKey();
-  return docs.filter((doc) => (!metadata.newspaperOnly && !isNewspaperDoc(doc)) || [doc.title, doc.identifier, doc.issueDate, doc.date].map(dateMonthDay).find(Boolean) === target);
+  return docs.filter((doc) => {
+    const newspaper = isNewspaperDoc(doc);
+    // Keep the calendar-day rule consistent even when a general rack happens
+    // to receive newspaper material. Non-newspaper records remain untouched.
+    if (!newspaper) return !metadata.newspaperOnly;
+    return [doc.title, doc.identifier, doc.issueDate, doc.date].map(dateMonthDay).find(Boolean) === target;
+  });
 }
 
 function iaQuery(shelf, options) {

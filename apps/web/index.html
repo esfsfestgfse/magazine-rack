@@ -2596,10 +2596,13 @@
     }
 
     function filterNewspaperDocs(shelf, docs) {
-      if (!shelf || shelf.newspaperDateMode !== 'month-day') return docs;
       var target = currentNewspaperMonthDay();
       return docs.filter(function(doc) {
-        if (!shelf.newspaperOnly && !isNewspaperDocument(doc)) return true;
+        var newspaper = isNewspaperDocument(doc);
+        // Calendar-day filtering applies to every rack that receives a
+        // newspaper record, not only the dedicated Papers/Europeana racks.
+        // Ordinary magazines and comics remain eligible everywhere.
+        if (!newspaper) return !(shelf && shelf.newspaperOnly);
         return [doc && doc.title, doc && doc.identifier, doc && doc.issueDate, doc && doc.date].map(recordMonthDay).some(function(value) { return value === target; });
       });
     }
@@ -3963,6 +3966,7 @@
         state.partial = Boolean(result && result.partial);
         let docs = (result.docs || []).map(function(doc) { return normalizeIssue(doc, shelf); });
         docs = dedupeDocs(docs);
+        docs = filterNewspaperDocs(shelf, docs);
         docs = docs.filter(canReadDocument);
         var mangaRack = shelf.id === 'manga' || isAdultShelfId(shelf.id);
         if (!mangaRack) docs = docs.filter(function(doc) { return !isMangaDoc(doc); });
