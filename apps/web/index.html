@@ -4836,12 +4836,9 @@
       if (!id) return { status: 'unknown' };
       var cached = iaReaderProbeCache[id];
       if (cached && cached.expiresAt > Date.now()) return cached.value;
-      var imageCount = Number(doc && (doc.imagecount || doc.pages || doc.pageCount) || 0);
-      if (imageCount > 0 || (doc && (doc.fullImage || doc.iiifManifest))) {
-        var known = { status: 'available', reason: 'record advertises pages' };
-        iaReaderProbeCache[id] = { value: known, expiresAt: Date.now() + 10 * 60 * 1000 };
-        return known;
-      }
+      // Search metadata can contain an image count for a cover or an
+      // archive-only item. Inspect the actual file list before claiming that
+      // the BookReader can render the record.
       try {
         var res = await fetchWithTimeout('https://archive.org/metadata/' + encodeURIComponent(id), null, Math.min(FEED_TIMEOUT_MS, 5000));
         if (!res.ok) return { status: 'unknown' };
