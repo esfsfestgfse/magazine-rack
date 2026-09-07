@@ -4213,21 +4213,26 @@
         return eager.indexOf(s) === -1 && !(prefs.hidden && prefs.hidden[s.id]);
       });
       // Let the viewport-prioritized loads win first, then drain the remaining
-      // visible racks one at a time. This prevents a lower shelf from staying
-      // on "Waiting…" forever when IntersectionObserver misses a mobile layout
-      // transition or the user jumps directly to a shelf.
+      // visible racks with a small bounded pool. This prevents a lower shelf
+      // from staying on "Waiting…" forever when IntersectionObserver misses a
+      // mobile layout transition or the user jumps directly to a shelf, while
+      // avoiding the burst of requests that can trip provider rate limits.
       (async function() {
         await new Promise(function(resolve) { setTimeout(resolve, 1400); });
-        for (var i = 0; i < queue.length; i++) {
-          if (token !== backgroundShelfToken) return;
-          var shelf = queue[i];
-          var state = shelfState[shelf.id];
-          if (!state || state._kicked || (prefs.hidden && prefs.hidden[shelf.id])) continue;
-          state._kicked = true;
-          await loadShelf(shelf, extra, true);
-          attachInfiniteScroll(shelf.id);
-          await new Promise(function(resolve) { setTimeout(resolve, 350); });
+        var cursor = 0;
+        async function drain() {
+          while (token === backgroundShelfToken) {
+            var shelf = queue[cursor++];
+            if (!shelf) return;
+            var state = shelfState[shelf.id];
+            if (!state || state.loading || state.docs.length || (prefs.hidden && prefs.hidden[shelf.id])) continue;
+            state._kicked = true;
+            await loadShelf(shelf, extra, true);
+            attachInfiniteScroll(shelf.id);
+            await new Promise(function(resolve) { setTimeout(resolve, 250); });
+          }
         }
+        await Promise.all([drain(), drain(), drain()]);
       })();
     }
 
