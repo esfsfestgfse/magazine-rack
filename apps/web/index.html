@@ -4205,6 +4205,32 @@
     }
 
     var shelfObserver = null;
+    var backgroundShelfToken = 0;
+
+    function startBackgroundShelfPump(order, eager, extra) {
+      var token = ++backgroundShelfToken;
+      var queue = order.filter(function(s) {
+        return eager.indexOf(s) === -1 && !(prefs.hidden && prefs.hidden[s.id]);
+      });
+      // Let the viewport-prioritized loads win first, then drain the remaining
+      // visible racks one at a time. This prevents a lower shelf from staying
+      // on "Waiting…" forever when IntersectionObserver misses a mobile layout
+      // transition or the user jumps directly to a shelf.
+      (async function() {
+        await new Promise(function(resolve) { setTimeout(resolve, 1400); });
+        for (var i = 0; i < queue.length; i++) {
+          if (token !== backgroundShelfToken) return;
+          var shelf = queue[i];
+          var state = shelfState[shelf.id];
+          if (!state || state._kicked || (prefs.hidden && prefs.hidden[shelf.id])) continue;
+          state._kicked = true;
+          await loadShelf(shelf, extra, true);
+          attachInfiniteScroll(shelf.id);
+          await new Promise(function(resolve) { setTimeout(resolve, 350); });
+        }
+      })();
+    }
+
     function ensureShelfObserver() {
       if (shelfObserver || !('IntersectionObserver' in window)) return shelfObserver;
       shelfObserver = new IntersectionObserver(function(entries) {
@@ -4272,6 +4298,8 @@
           delay += 220;
         }
       });
+
+      startBackgroundShelfPump(order, eager, extra);
     }
 
     // Decade chips
