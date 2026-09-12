@@ -1414,6 +1414,12 @@
     .reader-nav button { min-width:32px; padding-inline:8px; font-size:1.15rem; line-height:1; }
     .reader-nav span { min-width:48px; color:#9ca3af; font-size:.68rem; text-align:center; }
     .reader-nav button:disabled { opacity:.35; cursor:default; }
+    .series-feature { display:flex; align-items:center; justify-content:space-between; gap:18px; max-width:1460px; margin:16px auto 0; padding:16px 18px; border:1px solid rgba(255,209,102,.28); border-radius:10px; background:linear-gradient(100deg,rgba(255,209,102,.12),rgba(240,79,120,.08) 52%,rgba(94,234,212,.08)); color:var(--text); text-decoration:none; }
+    .series-feature:hover { border-color:var(--accent3); transform:translateY(-1px); }
+    .series-feature-kicker { color:var(--accent3); font:10px "SFMono-Regular",Consolas,monospace; letter-spacing:.14em; text-transform:uppercase; }
+    .series-feature h2 { margin:4px 0 0; color:#fff5df; font:clamp(22px,3vw,34px)/.95 var(--display); text-transform:uppercase; }
+    .series-feature p { margin:6px 0 0; color:var(--muted); font-size:.78rem; }
+    .series-feature-cta { flex:0 0 auto; padding:10px 13px; border:1px solid rgba(255,209,102,.42); border-radius:5px; color:var(--bg); background:var(--accent3); font:10px "SFMono-Regular",Consolas,monospace; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
     .openlibrary-btn { border-color:rgba(94,234,212,.28); color:var(--accent); }
     .account-panel { display:grid; gap:14px; padding:4px 0 2px; }
     .account-panel p { margin:0; color:var(--muted); line-height:1.55; }
@@ -1422,6 +1428,7 @@
     .account-status.opened i, .account-status.confirmed i { background:#5eead4; box-shadow:0 0 0 3px rgba(94,234,212,.12); }
     .account-note { color:var(--muted); font-size:.7rem; line-height:1.5; }
     @media (max-width: 650px) { .source-pulse { margin-inline:12px; } .source-pulse-head span { display:none; } .reader-nav span { display:none; } }
+    @media (max-width: 520px) { .series-feature { align-items:flex-start; margin-inline:12px; padding:14px; } .series-feature p { max-width:190px; } .series-feature-cta { padding:8px 9px; font-size:8px; } }
   </style>
 </head>
 <body>
@@ -1450,7 +1457,7 @@
           <div class="hero-kicker">The open stacks · a living index for curious people</div>
           <h1>Find your <em>next obsession.</em></h1>
           <p>Magazines, comics, newspapers, zines, and beautifully strange things gathered from public collections.</p>
-          <div class="hero-meta"><span><b>46</b>live shelves</span><span><b>4</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
+          <div class="hero-meta"><span><b>47</b>live shelves</span><span><b>4</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
         </div>
         <div class="hero-ticket"><span>Magazine Rack</span><strong>Read<br>widely.</strong><span>Free / public / curious</span></div>
       </div>
@@ -1488,6 +1495,10 @@
         <button type="button" class="chip" data-format="paper">Papers</button>
         <button type="button" class="chip" data-format="zine">Zines</button>
       </div>
+      <a class="series-feature" href="#shelf-batman" aria-label="Open the Batman shelf">
+        <div><div class="series-feature-kicker">Character shelf · first edition</div><h2>Batman</h2><p>Detective Comics, Dark Knight, and Batman scans with readable in-app access.</p></div>
+        <span class="series-feature-cta">Open shelf →</span>
+      </a>
       <div class="chip-row" id="jump-chips" aria-label="Jump to shelf"></div>
       <div id="continue-wrap">
         <div class="shelf" id="shelf-continue">
@@ -1767,6 +1778,12 @@
         title: 'Superheroes',
         // Strong character / superhero anchors
         query: 'mediatype:texts AND (title:(batman OR superman OR "spider-man" OR spiderman OR "x-men" OR "x men" OR avengers OR "wonder woman" OR "captain america" OR "iron man" OR "green lantern" OR "justice league" OR "fantastic four" OR "amazing spider" OR daredevil OR "spider man" OR "green arrow" OR "flash gordon") OR subject:(superhero OR "super hero" OR "super-hero")) AND (subject:("comic books" OR comics) OR title:(comic OR comics))' + ADULT_EXCLUDE
+      },
+      {
+        id: 'batman',
+        title: 'Batman',
+        format: 'comic',
+        query: 'mediatype:texts AND (title:(batman OR "detective comics" OR "dark knight" OR "brave and the bold") OR subject:(batman OR "batman comics" OR "detective comics" OR "dark knight")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR batman))' + ADULT_EXCLUDE
       },
       {
         id: 'underground',

@@ -160,6 +160,12 @@ export const SHELVES = [
     query: `mediatype:texts AND (title:(batman OR superman OR "spider-man" OR spiderman OR "x-men" OR "x men" OR avengers OR "wonder woman" OR "captain america" OR "iron man" OR "green lantern" OR "justice league" OR "fantastic four" OR "amazing spider" OR daredevil OR "spider man" OR "green arrow" OR "flash gordon") OR subject:(superhero OR "super hero" OR "super-hero")) AND (subject:("comic books" OR comics) OR title:(comic OR comics))${ADULT_EXCLUDE}`
   },
   {
+    id: 'batman',
+    title: 'Batman',
+    format: 'comic',
+    query: `mediatype:texts AND (title:(batman OR "detective comics" OR "dark knight" OR "brave and the bold") OR subject:(batman OR "batman comics" OR "detective comics" OR "dark knight")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR batman))${ADULT_EXCLUDE}`
+  },
+  {
     id: 'underground',
     title: 'Indie',
     query: `mediatype:texts AND (subject:("underground comics" OR "underground comix" OR "indie comics" OR "alternative comics" OR "independent comics") OR title:("zap comix" OR "freak brothers" OR "love and rockets" OR "raw magazine" OR eightball OR "optic nerve" OR "hate comic" OR "eightball")) AND NOT (title:(sex OR erotic OR adult OR smut OR porn OR nude OR fetish OR bondage OR hentai OR yaoi OR "gay comix" OR "tijuana") OR subject:(adult OR erotic OR erotica OR "adult comics" OR "adult comix" OR pornography))${ADULT_EXCLUDE}`
