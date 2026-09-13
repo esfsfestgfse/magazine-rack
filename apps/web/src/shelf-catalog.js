@@ -170,7 +170,7 @@ export const SHELVES = [
     title: 'Spider-Man',
     format: 'comic',
     series: true,
-    query: `mediatype:texts AND (title:("spider-man" OR spiderman OR "amazing spider-man" OR "spectacular spider-man" OR "web of spider-man" OR "spider man") OR subject:("spider-man" OR spiderman OR "spider-man comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR spider)) AND NOT title:(manual OR "user manual" OR "user's manual")${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:("spider-man" OR spiderman OR "amazing spider-man" OR "spectacular spider-man" OR "web of spider-man" OR "spider man") OR subject:("spider-man" OR spiderman OR "spider-man comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR spider)) AND NOT title:(manual OR "user manual" OR "user's manual" OR "fighting crime")${ADULT_EXCLUDE}`
   },
   {
     id: 'superman',
@@ -184,14 +184,14 @@ export const SHELVES = [
     title: 'X-Men',
     format: 'comic',
     series: true,
-    query: `mediatype:texts AND (title:("x-men" OR "x men" OR "uncanny x-men" OR "new mutants" OR "x-men comics") OR subject:("x-men" OR "x men" OR "x-men comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR mutant)) AND NOT title:(auction OR "fighting crime")${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:("x-men" OR "x men" OR "uncanny x-men" OR "new mutants" OR "x-men comics") OR subject:("x-men" OR "x men" OR "x-men comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR mutant)) AND NOT title:(auction OR "fighting crime" OR advertisement OR "marvel fairy tales")${ADULT_EXCLUDE}`
   },
   {
     id: 'archie',
     title: 'Archie',
     format: 'comic',
     series: true,
-    query: `mediatype:texts AND (title:(archie OR "archie comics" OR "archie digest" OR veronica OR betty) OR subject:(archie OR "archie comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR archie)) AND NOT title:("comic dump" OR illustration OR vampirella OR "spire christian" OR "punisher meets" OR "yogi bear" OR knuckles OR "tmnt adventures")${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:(archie OR "archie comics" OR "archie digest" OR veronica OR betty) OR subject:(archie OR "archie comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR archie)) AND NOT title:("comic dump" OR illustration OR vampirella OR "spire christian" OR "punisher meets" OR "yogi bear" OR knuckles OR "tmnt adventures" OR yearbook OR biography OR military OR defense OR operational)${ADULT_EXCLUDE}`
   },
   {
     id: 'underground',
