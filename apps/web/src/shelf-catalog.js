@@ -166,6 +166,34 @@ export const SHELVES = [
     query: `mediatype:texts AND (title:(batman OR "detective comics" OR "dark knight" OR "brave and the bold") OR subject:(batman OR "batman comics" OR "detective comics" OR "dark knight")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR batman))${ADULT_EXCLUDE}`
   },
   {
+    id: 'spiderman',
+    title: 'Spider-Man',
+    format: 'comic',
+    series: true,
+    query: `mediatype:texts AND (title:("spider-man" OR spiderman OR "amazing spider-man" OR "spectacular spider-man" OR "web of spider-man" OR "spider man") OR subject:("spider-man" OR spiderman OR "spider-man comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR spider))${ADULT_EXCLUDE}`
+  },
+  {
+    id: 'superman',
+    title: 'Superman',
+    format: 'comic',
+    series: true,
+    query: `mediatype:texts AND (title:(superman OR "action comics" OR "man of steel" OR "superman comics") OR subject:(superman OR "superman comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR superman))${ADULT_EXCLUDE}`
+  },
+  {
+    id: 'xmen',
+    title: 'X-Men',
+    format: 'comic',
+    series: true,
+    query: `mediatype:texts AND (title:("x-men" OR "x men" OR "uncanny x-men" OR "new mutants" OR "x-men comics") OR subject:("x-men" OR "x men" OR "x-men comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR mutant))${ADULT_EXCLUDE}`
+  },
+  {
+    id: 'archie',
+    title: 'Archie',
+    format: 'comic',
+    series: true,
+    query: `mediatype:texts AND (title:(archie OR "archie comics" OR "archie digest" OR veronica OR betty) OR subject:(archie OR "archie comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR archie))${ADULT_EXCLUDE}`
+  },
+  {
     id: 'underground',
     title: 'Indie',
     query: `mediatype:texts AND (subject:("underground comics" OR "underground comix" OR "indie comics" OR "alternative comics" OR "independent comics") OR title:("zap comix" OR "freak brothers" OR "love and rockets" OR "raw magazine" OR eightball OR "optic nerve" OR "hate comic" OR "eightball")) AND NOT (title:(sex OR erotic OR adult OR smut OR porn OR nude OR fetish OR bondage OR hentai OR yaoi OR "gay comix" OR "tijuana") OR subject:(adult OR erotic OR erotica OR "adult comics" OR "adult comix" OR pornography))${ADULT_EXCLUDE}`
