@@ -1270,6 +1270,8 @@
     .cover-issue-meta { max-width: 158px; color: var(--accent3); font-size: 8px; }
     .shelf-see-all { padding:6px 8px; color:var(--accent); border:1px solid rgba(94,234,212,.25); border-radius:3px; background:rgba(94,234,212,.06); font:8px "SFMono-Regular",Consolas,monospace; text-transform:uppercase; }
     .shelf-see-all:hover { color:var(--bg); background:var(--accent); }
+    .shelf.secondary-shelf { opacity:.82; }
+    .shelf.secondary-shelf .shelf-title::after { content:'  /  SECONDARY SOURCE'; color:var(--accent3); font:8px "SFMono-Regular",Consolas,monospace; letter-spacing:.08em; vertical-align:middle; }
     .load-more-card { flex: 0 0 120px; min-width: 120px; height: 216px; border: 1px dashed rgba(94,234,212,.5); border-radius: 3px; background: rgba(94,234,212,.06); color: var(--accent2); font: 10px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
     .shelf-loading, .shelf-empty { min-width: 190px; padding: 35px 18px; color: var(--muted); font: 11px "SFMono-Regular", Consolas, monospace; }
     .spinner { border-color: rgba(255,255,255,.1); border-top-color: var(--accent); }
@@ -2009,6 +2011,7 @@
         id: 'europeana',
         title: 'Europeana',
         source: 'europeana',
+        secondary: true,
         newspaperDateMode: 'month-day',
         newspaperOnly: true,
         euQuery: 'newspaper',
@@ -2018,6 +2021,7 @@
         id: 'eu-comics',
         title: 'EU Comics',
         source: 'europeana',
+        secondary: true,
         euQuery: 'comic OR comics OR "bande dessinee" OR "comic strip"',
         euTheme: ''
       },
@@ -2264,6 +2268,7 @@
 
     const ROWS_PER_PAGE = 30;
     const shelfState = {}; // id -> { page, extraQuery, total, loading, hasMore, scrapeCursor, useScrape, mode }
+    var crossShelfIndex = Object.create(null);
 
     const shelvesEl = document.getElementById('shelves');
 
@@ -2432,7 +2437,7 @@
 
     function buildShelfSkeleton(shelf) {
       const div = document.createElement('div');
-      div.className = 'shelf' + (isAdultShelfId(shelf.id) ? ' adult-shelf' : '') + (shelfMatchesFormat(shelf) ? '' : ' is-filtered-rack');
+      div.className = 'shelf' + (isAdultShelfId(shelf.id) ? ' adult-shelf' : '') + (shelf.secondary ? ' secondary-shelf' : '') + (shelfMatchesFormat(shelf) ? '' : ' is-filtered-rack');
       div.id = 'shelf-' + shelf.id;
       div.setAttribute('data-format', shelfFormat(shelf));
       if (prefs.hidden[shelf.id]) div.classList.add('is-hidden-rack');
@@ -2733,6 +2738,7 @@
       var format = doc.format ? formatLabel(doc.format) : '';
       var badgeParts = [format, year, pages ? (pages + 'p') : '', accessLabel(doc)];
       var issueLine = doc.issueLabel || (doc.series && canonicalTitle(doc.series) !== canonicalTitle(title) ? doc.series : '');
+      if (doc.crossShelf) issueLine = (issueLine ? issueLine + ' · ' : '') + 'also in ' + doc.crossShelf;
       var badge = badgeParts.some(Boolean)
         ? '<div class="cover-badge">' + escapeHtml(badgeParts.filter(Boolean).join(' · ')) + '</div>'
         : '';
@@ -4270,6 +4276,12 @@
         });
 
         kept = rankIssueDocs(kept, shelf);
+        kept.forEach(function(doc) {
+          var crossKey = dedupeKey(doc);
+          var priorShelf = crossShelfIndex[crossKey];
+          if (priorShelf && priorShelf !== shelf.id) doc.crossShelf = (SHELVES.find(function(entry) { return entry.id === priorShelf; }) || {}).title || priorShelf;
+          else if (!priorShelf) crossShelfIndex[crossKey] = shelf.id;
+        });
         Array.prototype.push.apply(state.docs, kept);
 
         let added = 0;
@@ -4387,10 +4399,23 @@
             var shelf = queue[cursor++];
             if (!shelf) return;
             var state = shelfState[shelf.id];
-            if (!state || state.loading || state.docs.length || (prefs.hidden && prefs.hidden[shelf.id])) continue;
+            if (!state || (prefs.hidden && prefs.hidden[shelf.id])) continue;
+            // IntersectionObserver can kick a shelf at the same moment the
+            // background pump reaches it. Wait for that request instead of
+            // consuming the queue slot and leaving the shelf on Waiting….
+            if (state.loading) {
+              var waitCycles = 0;
+              while (state.loading && waitCycles++ < 30) await new Promise(function(resolve) { setTimeout(resolve, 500); });
+            }
+            if (state.loading || state.docs.length) continue;
             state._kicked = true;
+            state._backgroundAttempts = (state._backgroundAttempts || 0) + 1;
             await loadShelf(shelf, extra, true);
             attachInfiniteScroll(shelf.id);
+            if (!state.docs.length && state.error && state._backgroundAttempts < 3 && token === backgroundShelfToken) {
+              queue.push(shelf);
+              await new Promise(function(resolve) { setTimeout(resolve, 1200); });
+            }
             await new Promise(function(resolve) { setTimeout(resolve, 250); });
           }
         }
@@ -4417,6 +4442,7 @@
 
     function loadAllShelves() {
       const extra = buildExtraQuery();
+      crossShelfIndex = Object.create(null);
       var order = shelfPriorityList();
       // Also include hidden ones last so they exist if un-hidden mid-session
       SHELVES.forEach(function(s) {
@@ -4426,7 +4452,7 @@
 
       // Reset kick flags so a decade/search refresh reloads
       order.forEach(function(s) {
-        if (shelfState[s.id]) shelfState[s.id]._kicked = false;
+        if (shelfState[s.id]) { shelfState[s.id]._kicked = false; shelfState[s.id]._backgroundAttempts = 0; }
         var el = document.getElementById('shelf-' + s.id);
         if (el) el.setAttribute('data-shelf-id', s.id);
       });
@@ -5905,7 +5931,7 @@
     // PWA: register the hosted shell worker. Provider content and API
     // responses stay network-only so stale scans never masquerade as live.
     if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
-      navigator.serviceWorker.register('./sw.js?v=11').catch(function() {});
+      navigator.serviceWorker.register('./sw.js?v=12').catch(function() {});
     }
   </script>
 </body>

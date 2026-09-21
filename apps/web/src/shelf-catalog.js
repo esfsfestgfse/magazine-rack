@@ -341,6 +341,7 @@ export const SHELVES = [
     id: 'europeana',
     title: 'Europeana',
     source: 'europeana',
+    secondary: true,
     newspaperDateMode: 'month-day',
     newspaperOnly: true,
     euQuery: 'newspaper',
@@ -350,6 +351,7 @@ export const SHELVES = [
     id: 'eu-comics',
     title: 'EU Comics',
     source: 'europeana',
+    secondary: true,
     euQuery: 'comic OR comics OR "bande dessinee" OR "comic strip"',
     euTheme: ''
   },
