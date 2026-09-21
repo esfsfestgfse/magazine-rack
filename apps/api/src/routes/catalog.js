@@ -47,7 +47,7 @@ async function stored(env, query, genre, page, source) {
 }
 
 export async function handleCatalogSearch(request, env, ctx, requestId) {
-  const url = new URL(request.url); const query = clean(url.searchParams.get('q'), 600); const genre = clean(url.searchParams.get('genre'), 80); const source = clean(url.searchParams.get('source'), 30).toLowerCase(); const page = Math.max(1, Math.min(100, Number(url.searchParams.get('page')) || 1)); const newspaperMonthDay = clean(url.searchParams.get('newspaper_month_day'), 5);
+  const url = new URL(request.url); const query = clean(url.searchParams.get('q'), 1800); const genre = clean(url.searchParams.get('genre'), 80); const source = clean(url.searchParams.get('source'), 30).toLowerCase(); const page = Math.max(1, Math.min(100, Number(url.searchParams.get('page')) || 1)); const newspaperMonthDay = clean(url.searchParams.get('newspaper_month_day'), 5);
   if (newspaperMonthDay && !/^\d{2}-\d{2}$/.test(newspaperMonthDay)) return errorJson(request, env, 'invalid_newspaper_month_day', 400, requestId);
   if (source && !sourceAdapter(source)) return errorJson(request, env, 'invalid_source', 400, requestId);
   // Cache only healthy public catalog responses. Include the requesting

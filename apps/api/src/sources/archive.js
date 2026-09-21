@@ -31,7 +31,7 @@ export async function fetchArchive({ query, page, genre, newspaperMonthDay }, en
     .replace(/[^\w\s*?:()."+&|!{}\[\]\-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 600);
+    .slice(0, 1800);
   const genreTerm = String(genre || '').trim().replace(/[^a-z0-9 ]/gi, ' ').slice(0, 50);
   const lucene = term ? `(${term}) AND mediatype:texts` : 'mediatype:texts AND (collection:comics OR collection:magazine OR collection:periodicals)';
   const search = genreTerm ? `${lucene} AND (${genreTerm})` : lucene;
