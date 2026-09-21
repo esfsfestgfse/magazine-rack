@@ -22,7 +22,16 @@ function newspaperDate(record) {
 }
 
 export async function fetchArchive({ query, page, genre, newspaperMonthDay }, env) {
-  const term = String(query || '').trim().replace(/[+\-&|!(){}\[\]^"~*?:\\/]/g, ' ').slice(0, 120);
+  // Preserve the shelf's fielded Lucene query. Stripping operators here made
+  // precise racks (magazines, Batman, newspapers) degrade into broad word
+  // searches and return unrelated books. Keep the supported query grammar,
+  // remove control/unsupported characters, and cap the final length.
+  const term = String(query || '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/[^\w\s*?:()."+&|!{}\[\]\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 600);
   const genreTerm = String(genre || '').trim().replace(/[^a-z0-9 ]/gi, ' ').slice(0, 50);
   const lucene = term ? `(${term}) AND mediatype:texts` : 'mediatype:texts AND (collection:comics OR collection:magazine OR collection:periodicals)';
   const search = genreTerm ? `${lucene} AND (${genreTerm})` : lucene;
