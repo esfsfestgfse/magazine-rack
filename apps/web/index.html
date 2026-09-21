@@ -3798,9 +3798,11 @@
     // ===== Phase 1: IA request queue, cache, 429 backoff =====
     var IA_MAX_CONCURRENT = 5;
     var IA_CACHE_TTL_MS = 12 * 60 * 1000;
+    var IA_CIRCUIT_MS = 30 * 1000;
     var iaInFlight = 0;
     var iaQueue = [];
     var iaCache = {}; // key -> { exp, data }
+    var iaCircuitOpenUntil = 0;
 
     function iaCacheKey(kind, parts) {
       return kind + '|' + parts.join('|');
@@ -3849,22 +3851,33 @@
       opts = opts || {};
       var retries = opts.retries != null ? opts.retries : 3;
       var attempt = 0;
+      if (Date.now() < iaCircuitOpenUntil) throw new Error('Internet Archive temporarily unavailable; retrying shortly');
       while (true) {
         attempt++;
-        var res = await fetchWithTimeout(url, {
-          headers: {
-            'Accept': 'application/json',
-            // Browsers restrict User-Agent; still set Accept clearly
-          }
-        }, IA_FEED_TIMEOUT_MS);
+        var res;
+        try {
+          res = await fetchWithTimeout(url, {
+            headers: {
+              'Accept': 'application/json',
+              // Browsers restrict User-Agent; still set Accept clearly
+            }
+          }, IA_FEED_TIMEOUT_MS);
+        } catch (error) {
+          iaCircuitOpenUntil = Date.now() + IA_CIRCUIT_MS;
+          throw error;
+        }
         if (res.status === 429) {
+          iaCircuitOpenUntil = Date.now() + IA_CIRCUIT_MS;
           var ra = parseInt(res.headers.get('Retry-After') || '2', 10);
           if (isNaN(ra) || ra < 1) ra = 2;
           if (attempt > retries) throw new Error('IA HTTP 429');
           await new Promise(function(r) { setTimeout(r, ra * 1000); });
           continue;
         }
-        if (!res.ok) throw new Error('IA HTTP ' + res.status);
+        if (!res.ok) {
+          if (res.status >= 500) iaCircuitOpenUntil = Date.now() + IA_CIRCUIT_MS;
+          throw new Error('IA HTTP ' + res.status);
+        }
         return res.json();
       }
     }
@@ -4318,8 +4331,11 @@
       } catch (err) {
         state.error = String(err && err.message || err || 'Source request failed');
         if (tailSpinner) tailSpinner.remove();
-        var msg = (err && String(err.message || err).indexOf('429') !== -1)
+        var errText = String(err && err.message || err || '');
+        var msg = (errText.indexOf('429') !== -1)
           ? 'Rate limited · will ease up · pull again'
+          : (errText.indexOf('temporarily unavailable') !== -1 || errText.indexOf('Failed to fetch') !== -1 || errText.indexOf('timed out') !== -1)
+            ? 'Source temporarily unavailable · retry'
           : 'Failed to load · check connection';
         state.hasMore = true;
         if (reset || track.querySelectorAll('.cover-card').length === 0) {
