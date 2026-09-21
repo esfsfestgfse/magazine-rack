@@ -12,6 +12,7 @@ const SOURCE_NAMES = Object.freeze({
   gcd: 'Grand Comics Database',
   dpla: 'Digital Public Library of America'
 });
+const SOURCE_DEADLINE_MS = 5_000;
 
 function sourceKey(value) {
   const text = String(value || '').toLowerCase();
@@ -83,7 +84,10 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   const cached = cache ? await cache.match(cacheKey) : null;
   if (cached) return cacheResponseForRequest(cached, request, env);
   const sourceIds = source ? [source] : configuredSourceIds();
-  const responses = await Promise.allSettled(sourceIds.map((id) => sourceAdapter(id)({ query, genre, page, newspaperMonthDay }, env)));
+  const responses = await Promise.allSettled(sourceIds.map((id) => Promise.race([
+    sourceAdapter(id)({ query, genre, page, newspaperMonthDay }, env),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('source_timeout')), SOURCE_DEADLINE_MS)),
+  ])));
   const liveItems = responses.flatMap((result) => result.status === 'fulfilled' ? result.value.items || [] : []);
   const failed = responses.filter((result) => result.status === 'rejected' || result.value?.partial).length;
   let items = liveItems;
