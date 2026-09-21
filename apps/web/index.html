@@ -4401,13 +4401,10 @@
             var state = shelfState[shelf.id];
             if (!state || (prefs.hidden && prefs.hidden[shelf.id])) continue;
             // IntersectionObserver can kick a shelf at the same moment the
-            // background pump reaches it. Wait for that request instead of
-            // consuming the queue slot and leaving the shelf on Waiting….
-            if (state.loading) {
-              var waitCycles = 0;
-              while (state.loading && waitCycles++ < 30) await new Promise(function(resolve) { setTimeout(resolve, 500); });
-            }
-            if (state.loading || state.docs.length) continue;
+            // background pump reaches it. Requeue the busy shelf instead of
+            // blocking a worker and starving every lower shelf.
+            if (state.loading) { queue.push(shelf); await new Promise(function(resolve) { setTimeout(resolve, 180); }); continue; }
+            if (state.docs.length) continue;
             state._kicked = true;
             state._backgroundAttempts = (state._backgroundAttempts || 0) + 1;
             await loadShelf(shelf, extra, true);
