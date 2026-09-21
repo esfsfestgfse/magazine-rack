@@ -3590,6 +3590,32 @@
     }
 
     var PUBLIC_CATALOG_API = 'https://margin-api-production.tdy1990.workers.dev';
+    var CATALOG_MAX_CONCURRENT = 2;
+    var catalogInFlight = 0;
+    var catalogQueue = [];
+
+    function pumpCatalogQueue() {
+      while (catalogInFlight < CATALOG_MAX_CONCURRENT && catalogQueue.length) {
+        var job = catalogQueue.shift();
+        catalogInFlight++;
+        Promise.resolve().then(job.run).then(function(value) {
+          catalogInFlight--;
+          job.resolve(value);
+          pumpCatalogQueue();
+        }, function(error) {
+          catalogInFlight--;
+          job.reject(error);
+          pumpCatalogQueue();
+        });
+      }
+    }
+
+    function enqueueCatalog(run) {
+      return new Promise(function(resolve, reject) {
+        catalogQueue.push({ run: run, resolve: resolve, reject: reject });
+        pumpCatalogQueue();
+      });
+    }
 
     function catalogApiBase() {
       var configured = window.MR_CONFIG && window.MR_CONFIG.apiBaseUrl;
@@ -3703,7 +3729,9 @@
       // an edge cache after a source recovers or a new fallback is published.
       url.searchParams.set('_', String(Math.floor(Date.now() / 60000)));
       if (shelf.newspaperDateMode === 'month-day') url.searchParams.set('newspaper_month_day', currentNewspaperMonthDay());
-      var res = await fetchWithTimeout(url.toString(), { cache: 'no-store', headers: { 'Accept': 'application/json' } }, FEED_TIMEOUT_MS);
+      var res = await enqueueCatalog(function() {
+        return fetchWithTimeout(url.toString(), { cache: 'no-store', headers: { 'Accept': 'application/json' } }, FEED_TIMEOUT_MS);
+      });
       if (!res.ok) throw new Error('Catalog API HTTP ' + res.status);
       var data = await res.json();
       var detail = data.sourceDetails && data.sourceDetails[source];
