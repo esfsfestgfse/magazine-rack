@@ -55,8 +55,16 @@ async function stored(env, query, genre, page, source) {
   const values = source ? [query, like, like, like, genre, genre, source, sourceName, offset] : [query, like, like, like, genre, genre, offset];
   const countValues = source ? values.slice(0, 8) : values.slice(0, 6);
   const readableClause = ' AND readable = 1';
-  const result = await env.DB.prepare(`SELECT id, source, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights FROM catalog_items WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${readableClause}${sourceClause} ORDER BY cover_quality DESC, last_seen_at DESC LIMIT 30 OFFSET ?`).bind(...values).all();
-  const count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM catalog_items WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${readableClause}${sourceClause}`).bind(...countValues).first();
+  let result = await env.DB.prepare(`SELECT id, source, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights FROM catalog_items WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${readableClause}${sourceClause} ORDER BY cover_quality DESC, last_seen_at DESC LIMIT 30 OFFSET ?`).bind(...values).all();
+  let count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM catalog_items WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${readableClause}${sourceClause}`).bind(...countValues).first();
+
+  // The full Lucene shelf query is not a literal title search. If the live
+  // provider is down, use the last readable archive snapshot rather than
+  // returning an empty rack; the response is marked stale by the caller.
+  if (!(result.results || []).length && source === 'archive') {
+    result = await env.DB.prepare(`SELECT id, source, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights FROM catalog_items WHERE readable = 1 AND lower(source) IN ('archive', 'internet archive') ORDER BY cover_quality DESC, last_seen_at DESC LIMIT 30 OFFSET ?`).bind(offset).all();
+    count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM catalog_items WHERE readable = 1 AND lower(source) IN ('archive', 'internet archive')`).first();
+  }
   return { items: (result.results || []).map(dbItem), total: Number(count?.total) || 0 };
 }
 
