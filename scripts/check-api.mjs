@@ -25,11 +25,11 @@ const invalidSource = await worker.fetch(new Request('https://api.example/api/ca
 assert.equal(invalidSource.status, 400);
 
 const scope = rateLimitScope('/api/catalog', 'GET');
-assert.deepEqual(scope, ['catalog-search', 30]);
+assert.deepEqual(scope, ['catalog-search', 120]);
 assert.deepEqual(rateLimitScope('/api/media', 'GET'), ['media-proxy', 180]);
 const request = new Request('https://api.example/api/catalog', { headers: { 'CF-Connecting-IP': '198.51.100.10' } });
 let last;
-for (let index = 0; index < 31; index += 1) last = rateLimit(request, scope[0], scope[1], 1_000);
+for (let index = 0; index < 121; index += 1) last = rateLimit(request, scope[0], scope[1], 1_000);
 assert.equal(last.limited, true);
 assert.ok(last.retryAfter >= 1);
 
