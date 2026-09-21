@@ -3599,11 +3599,18 @@
     }
 
     function connectedSource(shelf) {
-      return shelf && (shelf.source === 'gcd' || shelf.source === 'europeana' || shelf.source === 'comicbookplus') ? shelf.source : '';
+      if (!shelf) return '';
+      if (shelf.source === 'gcd' || shelf.source === 'europeana' || shelf.source === 'comicbookplus') return shelf.source;
+      // Route ordinary Internet Archive shelves through the Worker too. It
+      // already owns retries, edge caching, and D1 stale-data fallback; direct
+      // browser fan-out was causing one IA outage to strand every lower rack.
+      if (!shelf.source && shelf.query) return 'archive';
+      return '';
     }
 
     function connectedQuery(shelf) {
       if (!shelf) return '';
+      if (shelf.source === 'archive' || (!shelf.source && shelf.query)) return shelf.query || '';
       if (shelf.source === 'comicbookplus') return shelf.cbQuery || 'latest uploads';
       if (shelf.source === 'dpla') return shelf.dplaQuery || '';
       if (shelf.source === 'gcd') return shelf.gcdName || 'comic';
@@ -3700,7 +3707,7 @@
       if (!res.ok) throw new Error('Catalog API HTTP ' + res.status);
       var data = await res.json();
       var detail = data.sourceDetails && data.sourceDetails[source];
-      if (detail) noteSourceHealth(source, detail.status === 'ok' ? 'ok' : detail.status === 'degraded' ? 'degraded' : 'error', (detail.count || 0) + ' records' + (detail.stale ? ' · stale' : ''), detail.count || 0);
+      if (detail) noteSourceHealth(source === 'archive' ? 'ia' : source, detail.status === 'ok' ? 'ok' : detail.status === 'degraded' ? 'degraded' : 'error', (detail.count || 0) + ' records' + (detail.stale ? ' · stale' : ''), detail.count || 0);
       var docs = (data.items || []).map(function(item) {
         var sourceId = item.id || item.sourceId || item.identifier || item.title || 'catalog-item';
         var sourceUrlValue = item.sourceUrl || item.locUrl || null;
