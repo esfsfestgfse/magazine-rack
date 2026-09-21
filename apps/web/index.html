@@ -3590,20 +3590,25 @@
     }
 
     var PUBLIC_CATALOG_API = 'https://margin-api-production.tdy1990.workers.dev';
-    var CATALOG_MAX_CONCURRENT = 2;
+    var CATALOG_MAX_CONCURRENT = 1;
+    var CATALOG_REQUEST_GAP_MS = 900;
     var catalogInFlight = 0;
     var catalogQueue = [];
+    var catalogLastFinishedAt = 0;
 
     function pumpCatalogQueue() {
       while (catalogInFlight < CATALOG_MAX_CONCURRENT && catalogQueue.length) {
         var job = catalogQueue.shift();
         catalogInFlight++;
-        Promise.resolve().then(job.run).then(function(value) {
+        var gap = Math.max(0, CATALOG_REQUEST_GAP_MS - (Date.now() - catalogLastFinishedAt));
+        Promise.resolve().then(function() { return new Promise(function(resolve) { setTimeout(resolve, gap); }); }).then(job.run).then(function(value) {
           catalogInFlight--;
+          catalogLastFinishedAt = Date.now();
           job.resolve(value);
           pumpCatalogQueue();
         }, function(error) {
           catalogInFlight--;
+          catalogLastFinishedAt = Date.now();
           job.reject(error);
           pumpCatalogQueue();
         });
