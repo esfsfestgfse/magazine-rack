@@ -18,6 +18,20 @@ function sourceKey(value) {
   return Object.entries(SOURCE_NAMES).find(([key, label]) => text === key || text === label.toLowerCase())?.[0] || String(value || '');
 }
 
+function cacheResponseForRequest(response, request, env) {
+  const headers = new Headers(response.headers);
+  const origin = request.headers.get('Origin');
+  const allowed = String(env.ALLOWED_ORIGIN || '').split(',').map((value) => value.trim()).filter(Boolean);
+  if (origin && allowed.includes(origin)) {
+    headers.set('Access-Control-Allow-Origin', origin);
+    headers.set('Access-Control-Allow-Credentials', 'false');
+  } else if (!origin) {
+    headers.delete('Access-Control-Allow-Origin');
+    headers.delete('Access-Control-Allow-Credentials');
+  }
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 function dbItem(row) {
   const source = sourceKey(row.source);
   let metadata = {};
@@ -50,18 +64,16 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   const url = new URL(request.url); const query = clean(url.searchParams.get('q'), 1800); const genre = clean(url.searchParams.get('genre'), 80); const source = clean(url.searchParams.get('source'), 30).toLowerCase(); const page = Math.max(1, Math.min(100, Number(url.searchParams.get('page')) || 1)); const newspaperMonthDay = clean(url.searchParams.get('newspaper_month_day'), 5);
   if (newspaperMonthDay && !/^\d{2}-\d{2}$/.test(newspaperMonthDay)) return errorJson(request, env, 'invalid_newspaper_month_day', 400, requestId);
   if (source && !sourceAdapter(source)) return errorJson(request, env, 'invalid_source', 400, requestId);
-  // Cache only healthy public catalog responses. Include the requesting
-  // origin in the cache key because CORS response headers vary by origin.
-  // Ignore the client's minute cache-buster so the Worker cache can actually
-  // absorb repeated shelf loads.
+  // Ignore the client's minute cache-buster so the Worker cache can absorb
+  // repeated shelf loads. CORS is applied after the cache lookup, allowing a
+  // successful smoke-test or another allowed origin to warm the same public
+  // catalog response for the Pages app during an upstream outage.
   const cacheKeyUrl = new URL(request.url);
   cacheKeyUrl.searchParams.delete('_');
-  const origin = request.headers.get('Origin');
-  if (origin) cacheKeyUrl.searchParams.set('__origin', origin);
   const cache = globalThis.caches?.default;
   const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' });
   const cached = cache ? await cache.match(cacheKey) : null;
-  if (cached) return cached;
+  if (cached) return cacheResponseForRequest(cached, request, env);
   const sourceIds = source ? [source] : configuredSourceIds();
   const responses = await Promise.allSettled(sourceIds.map((id) => sourceAdapter(id)({ query, genre, page, newspaperMonthDay }, env)));
   const liveItems = responses.flatMap((result) => result.status === 'fulfilled' ? result.value.items || [] : []);
