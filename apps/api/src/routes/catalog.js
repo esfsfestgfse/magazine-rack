@@ -14,6 +14,10 @@ const SOURCE_NAMES = Object.freeze({
 });
 const SOURCE_DEADLINE_MS = 5_000;
 
+function sourceDetailsFor(source, items, total, status, error) {
+  return { [source || 'archive']: { status, count: items.length, total: Number(total) || items.length, stale: status !== 'ok', ...(error ? { error } : {}) } };
+}
+
 function sourceKey(value) {
   const text = String(value || '').toLowerCase();
   return Object.entries(SOURCE_NAMES).find(([key, label]) => text === key || text === label.toLowerCase())?.[0] || String(value || '');
@@ -69,6 +73,17 @@ async function stored(env, query, genre, page, source) {
   return { items: (result.results || []).map(dbItem), total: Number(count?.total) || 0 };
 }
 
+async function refreshLiveSnapshot(env, query, genre, page, source, newspaperMonthDay) {
+  const sourceIds = source ? [source] : configuredSourceIds();
+  const responses = await Promise.allSettled(sourceIds.map((id) => Promise.race([
+    sourceAdapter(id)({ query, genre, page, newspaperMonthDay }, env),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('source_timeout')), SOURCE_DEADLINE_MS)),
+  ])));
+  const items = responses.flatMap((result) => result.status === 'fulfilled' ? result.value.items || [] : []);
+  if (items.length) await persist(env, items);
+  return { items, responses };
+}
+
 export async function handleCatalogSearch(request, env, ctx, requestId) {
   const url = new URL(request.url); const query = clean(url.searchParams.get('q'), 1800); const genre = clean(url.searchParams.get('genre'), 80); const source = clean(url.searchParams.get('source'), 30).toLowerCase(); const page = Math.max(1, Math.min(100, Number(url.searchParams.get('page')) || 1)); const newspaperMonthDay = clean(url.searchParams.get('newspaper_month_day'), 5);
   if (newspaperMonthDay && !/^\d{2}-\d{2}$/.test(newspaperMonthDay)) return errorJson(request, env, 'invalid_newspaper_month_day', 400, requestId);
@@ -83,6 +98,26 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' });
   const cached = cache ? await cache.match(cacheKey) : null;
   if (cached) return cacheResponseForRequest(cached, request, env);
+
+  // Return the last known-good shelf immediately. Provider refreshes happen
+  // after the response so a 429, timeout, or provider error cannot blank it.
+  let firstStored = { items: [], total: 0 };
+  try { firstStored = await stored(env, query, genre, page, source); }
+  catch (error) { console.error(JSON.stringify({ message: 'catalog_stored_read_failed', requestId, error: error instanceof Error ? error.message : String(error) })); }
+  if (firstStored.items.length) {
+    const staleResponse = json(request, env, {
+      items: firstStored.items.map(publicItem), total: firstStored.total, totalIsEstimate: true, page, pageSize: 30,
+      sources: { [source || 'archive']: 'stale' },
+      sourceDetails: sourceDetailsFor(source, firstStored.items, firstStored.total, 'degraded', 'serving_cached_snapshot'),
+      stale: true, partial: true, refresh: 'background'
+    }, { requestId, cacheControl: 'public, max-age=20, stale-while-revalidate=300' });
+    if (cache) ctx.waitUntil(cache.put(cacheKey, staleResponse.clone()).catch(() => {}));
+    ctx.waitUntil(refreshLiveSnapshot(env, query, genre, page, source, newspaperMonthDay).catch((error) => {
+      console.error(JSON.stringify({ message: 'catalog_background_refresh_failed', requestId, error: error instanceof Error ? error.message : String(error) }));
+    }));
+    return staleResponse;
+  }
+
   const sourceIds = source ? [source] : configuredSourceIds();
   const responses = await Promise.allSettled(sourceIds.map((id) => Promise.race([
     sourceAdapter(id)({ query, genre, page, newspaperMonthDay }, env),
