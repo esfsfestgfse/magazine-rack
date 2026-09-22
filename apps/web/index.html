@@ -2267,7 +2267,7 @@
     // Scroll near the end of any shelf → automatically loads the next page.
 
     const ROWS_PER_PAGE = 30;
-    const shelfState = {}; // id -> { page, extraQuery, total, loading, hasMore, scrapeCursor, useScrape, mode }
+    const shelfState = {}; // id -> { page, extraQuery, total, loading, requestToken, controller, hasMore, scrapeCursor, useScrape, mode }
     var crossShelfIndex = Object.create(null);
 
     const shelvesEl = document.getElementById('shelves');
@@ -2491,7 +2491,7 @@
 
     SHELVES.forEach(s => {
       shelvesEl.appendChild(buildShelfSkeleton(s));
-      shelfState[s.id] = { page: 0, extraQuery: '', total: 0, loading: false, hasMore: true, scrapeCursor: null, useScrape: false, mode: 'search', seenKeys: {}, docs: [] };
+      shelfState[s.id] = { page: 0, extraQuery: '', queryKey: '', total: 0, loading: false, requestToken: 0, controller: null, status: 'idle', hasMore: true, scrapeCursor: null, useScrape: false, mode: 'search', seenKeys: {}, docs: [] };
     });
     reorderShelvesByPin();
 
@@ -2890,6 +2890,12 @@
     function fetchWithTimeout(url, options, timeoutMs) {
       var controller = new AbortController();
       var timer = setTimeout(function() { controller.abort(); }, timeoutMs || 7000);
+      var externalSignal = options && options.signal;
+      var abortExternal = function() { controller.abort(); };
+      if (externalSignal) {
+        if (externalSignal.aborted) controller.abort();
+        else externalSignal.addEventListener('abort', abortExternal, { once: true });
+      }
       var requestOptions = Object.assign({}, options || {}, { signal: controller.signal });
       return fetch(url, requestOptions).finally(function() { clearTimeout(timer); });
     }
@@ -3590,8 +3596,8 @@
     }
 
     var PUBLIC_CATALOG_API = 'https://margin-api-production.tdy1990.workers.dev';
-    var CATALOG_MAX_CONCURRENT = 1;
-    var CATALOG_REQUEST_GAP_MS = 900;
+    var CATALOG_MAX_CONCURRENT = 3;
+    var CATALOG_REQUEST_GAP_MS = 250;
     var catalogInFlight = 0;
     var catalogQueue = [];
     var catalogLastFinishedAt = 0;
@@ -3599,6 +3605,10 @@
     function pumpCatalogQueue() {
       while (catalogInFlight < CATALOG_MAX_CONCURRENT && catalogQueue.length) {
         var job = catalogQueue.shift();
+        if (job.signal && job.signal.aborted) {
+          job.reject(new DOMException('Shelf request superseded', 'AbortError'));
+          continue;
+        }
         catalogInFlight++;
         var gap = Math.max(0, CATALOG_REQUEST_GAP_MS - (Date.now() - catalogLastFinishedAt));
         Promise.resolve().then(function() { return new Promise(function(resolve) { setTimeout(resolve, gap); }); }).then(job.run).then(function(value) {
@@ -3615,9 +3625,9 @@
       }
     }
 
-    function enqueueCatalog(run) {
+    function enqueueCatalog(run, signal) {
       return new Promise(function(resolve, reject) {
-        catalogQueue.push({ run: run, resolve: resolve, reject: reject });
+        catalogQueue.push({ run: run, signal: signal, resolve: resolve, reject: reject });
         pumpCatalogQueue();
       });
     }
@@ -3710,7 +3720,7 @@
       return null;
     }
 
-    async function fetchConnectedShelfPage(shelf, page, extraQuery) {
+    async function fetchConnectedShelfPage(shelf, page, extraQuery, signal) {
       var source = connectedSource(shelf);
       if (!source) return null;
       if (source === 'comicbookplus' && !(extraQuery && extraQuery.trim())) {
@@ -3735,8 +3745,8 @@
       url.searchParams.set('_', String(Math.floor(Date.now() / 60000)));
       if (shelf.newspaperDateMode === 'month-day') url.searchParams.set('newspaper_month_day', currentNewspaperMonthDay());
       var res = await enqueueCatalog(function() {
-        return fetchWithTimeout(url.toString(), { cache: 'no-store', headers: { 'Accept': 'application/json' } }, FEED_TIMEOUT_MS);
-      });
+        return fetchWithTimeout(url.toString(), { cache: 'no-store', headers: { 'Accept': 'application/json' }, signal: signal }, FEED_TIMEOUT_MS);
+      }, signal);
       if (!res.ok) throw new Error('Catalog API HTTP ' + res.status);
       var data = await res.json();
       var detail = data.sourceDetails && data.sourceDetails[source];
@@ -3992,11 +4002,11 @@
       });
     }
 
-    async function fetchShelfPageRaw(shelf, page, extraQuery, sortMode) {
+    async function fetchShelfPageRaw(shelf, page, extraQuery, sortMode, signal) {
 
       if (connectedSource(shelf)) {
         try {
-          return await fetchConnectedShelfPage(shelf, page, extraQuery);
+          return await fetchConnectedShelfPage(shelf, page, extraQuery, signal);
         } catch (connectedError) {
           // Keep a source-specific browser fallback for local/offline runs or
           // a temporary Worker outage; hosted Pages normally uses the Worker.
@@ -4154,13 +4164,13 @@
       return { docs: docs, numFound: total || docs.length, mode: 'search', partial: errors.length > 0, errors: errors };
     }
 
-    async function fetchShelfPage(shelf, page, extraQuery, sortMode) {
+    async function fetchShelfPage(shelf, page, extraQuery, sortMode, signal) {
       if (shelf && (shelf.id === 'manga' || shelf.source === 'aggregate')) return fetchMangaAggregatePage(shelf, page, extraQuery);
       var source = healthSourceFor(shelf);
       var provider = ['openlibrary', 'europeana', 'comicbookplus'].indexOf(source) !== -1;
       noteSourceHealth(source, 'loading', 'Checking ' + (SOURCE_LABELS[source] || source));
       try {
-        var result = await fetchShelfPageRaw(shelf, page, extraQuery, sortMode);
+        var result = await fetchShelfPageRaw(shelf, page, extraQuery, sortMode, signal);
         var docs = (result && result.docs || []).filter(function(doc) { return !doc.setup && doc.identifier !== 'gcd-info'; });
         // A provider can return a successful response full of catalog-only
         // records. Those rows cannot populate a usable rack, so treat the
@@ -4202,12 +4212,23 @@
     async function loadShelf(shelf, extraQuery, reset) {
       const state = shelfState[shelf.id];
       if (!state) return;
-      if (state.loading) return;
+      if (state.loading) {
+        if (!reset) return;
+        if (state.controller) state.controller.abort();
+      }
       if (!reset && !state.hasMore) return;
 
       const track = document.getElementById('track-' + shelf.id);
       const countEl = document.getElementById('count-' + shelf.id);
       if (!track || !countEl) return;
+
+      var requestToken = ++state.requestToken;
+      var controller = new AbortController();
+      state.controller = controller;
+      state.status = reset ? 'refreshing' : 'loading';
+      var nextQuery = (extraQuery == null ? buildExtraQuery() : extraQuery) || '';
+      var queryKey = shelf.id + '|' + nextQuery;
+      var preserveCachedRack = Boolean(reset && state.docs.length && state.queryKey === queryKey);
 
       if (reset) {
         // Variety: different sort + start a few pages in so the front of the
@@ -4217,19 +4238,36 @@
         // them at page 1 so a sparse snapshot is never mistaken for an empty
         // shelf; IA-only racks can still open at a varied page.
         state.page = shelf.newspaperDateMode === 'month-day' || connectedSource(shelf) ? 0 : Math.floor(Math.random() * 3); // date shelves must start at their targeted day
-        state.extraQuery = (extraQuery == null ? buildExtraQuery() : extraQuery) || '';
+        state.extraQuery = nextQuery;
+        state.queryKey = queryKey;
         state.total = 0;
         state.hasMore = true;
         state.emptySkips = 0;
         state.scrapeCursor = null;
         state.useScrape = false;
         state.mode = 'search';
-        state.seenKeys = {};
-        state.docs = [];
-        track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Loading...</div>';
+        if (!preserveCachedRack) {
+          state.seenKeys = {};
+          state.docs = [];
+          track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Loading...</div>';
+        } else {
+          track.querySelectorAll('.shelf-loading').forEach(function(el) { el.remove(); });
+          var cachedStatus = document.createElement('div');
+          cachedStatus.className = 'shelf-loading shelf-refreshing';
+          cachedStatus.textContent = 'Refreshing · showing saved issues';
+          track.prepend(cachedStatus);
+        }
       }
 
       state.loading = true;
+      function finishEarly(status) {
+        if (requestToken !== state.requestToken) return;
+        state.loading = false;
+        state.status = status || 'ready';
+        state.controller = null;
+        var notice = track.querySelector('.shelf-refreshing');
+        if (notice) notice.remove();
+      }
       const nextPage = state.page + 1;
 
       const oldMore = track.querySelector('[data-loadmore]');
@@ -4244,7 +4282,8 @@
       }
 
       try {
-        const result = await fetchShelfPage(shelf, nextPage, state.extraQuery, state.sort);
+        const result = await fetchShelfPage(shelf, nextPage, state.extraQuery, state.sort, controller.signal);
+        if (requestToken !== state.requestToken || controller.signal.aborted) return;
         state.error = '';
         state.partial = Boolean(result && result.partial);
         let docs = (result.docs || []).map(function(doc) { return normalizeIssue(doc, shelf); });
@@ -4296,13 +4335,13 @@
           // instead of presenting a misleading empty first page.
           if (Array.isArray(result.docs) && result.docs.length && state.hasMore && (state.emptySkips || 0) < 6) {
             state.emptySkips = (state.emptySkips || 0) + 1;
-            state.loading = false;
+            finishEarly('loading');
             loadShelf(shelf, state.extraQuery, false);
             return;
           }
           if (reset && nextPage > 1 && state.mode !== 'scrape') {
             state.page = 0;
-            state.loading = false;
+            finishEarly('loading');
             loadShelf(shelf, state.extraQuery, false);
             return;
           }
@@ -4311,7 +4350,7 @@
             track.innerHTML = '<div class="shelf-empty">No items found</div>';
             setShelfEmpty(shelf.id, true);
           }
-          state.loading = false;
+          finishEarly('empty');
           return;
         }
 
@@ -4346,7 +4385,7 @@
         if (added === 0 && state.hasMore) {
           state.emptySkips = (state.emptySkips || 0) + 1;
           if (state.emptySkips <= 6) {
-            state.loading = false;
+            finishEarly('loading');
             loadShelf(shelf, state.extraQuery, false);
             return;
           }
@@ -4357,7 +4396,7 @@
         if (added === 0 && !state.hasMore && track.querySelectorAll('.cover-card').length === 0) {
           track.innerHTML = '<div class="shelf-empty">No items found</div>';
           setShelfEmpty(shelf.id, true);
-          state.loading = false;
+          finishEarly('empty');
           return;
         }
 
@@ -4369,6 +4408,7 @@
           track.appendChild(createLoadMoreCard(shelf.id));
         }
       } catch (err) {
+        if (requestToken !== state.requestToken || (err && err.name === 'AbortError')) return;
         state.error = String(err && err.message || err || 'Source request failed');
         if (tailSpinner) tailSpinner.remove();
         var errText = String(err && err.message || err || '');
@@ -4389,7 +4429,13 @@
         console.error(err);
       }
 
-      state.loading = false;
+      if (requestToken === state.requestToken) {
+        state.loading = false;
+        state.status = state.error ? 'error' : 'ready';
+        state.controller = null;
+        var refreshNotice = track.querySelector('.shelf-refreshing');
+        if (refreshNotice) refreshNotice.remove();
+      }
     }
 
     function setShelfEmpty(shelfId, empty) {
