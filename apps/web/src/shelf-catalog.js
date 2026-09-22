@@ -60,6 +60,12 @@ export const MANGA_SUBJECT_WORDS = [
   'manga', 'manhwa', 'manhua', 'doujinshi', 'japanese comics', 'japanese graphic novels'
 ];
 
+export const MANGA_FALSE_POSITIVE_WORDS = [
+  'how to draw manga', 'creating manga', 'draw manga', 'manga action figures', 'manga profiles',
+  'manga guide', 'manga art', "a midsummer night's dream", 'meet the robinsons',
+  'romeo and juliet', 'john barrymore', 'avatar'
+];
+
 const asText = (value) => Array.isArray(value)
   ? value.filter(Boolean).join(' ')
   : String(value || '');
@@ -90,6 +96,7 @@ export function isMangaDoc(doc = {}) {
   const titleAndId = `${asText(doc.title)} ${asText(doc.identifier ?? doc.id)}`.toLowerCase();
   const subjectText = asText(doc.subject ?? doc.subjects).toLowerCase();
   const collectionText = asText(doc.collection ?? doc.collections).toLowerCase();
+  if (MANGA_FALSE_POSITIVE_WORDS.some((word) => titleAndId.includes(word))) return false;
   return MANGA_TITLE_WORDS.some((word) => titleAndId.includes(word)) ||
     MANGA_SUBJECT_WORDS.some((word) => subjectText.includes(word)) ||
     ['manga', 'manhwa', 'manhua', 'doujinshi'].some((word) => collectionText.includes(word));

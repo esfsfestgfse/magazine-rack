@@ -1704,6 +1704,11 @@
     const MANGA_SUBJECT_WORDS = [
       'manga','manhwa','manhua','doujinshi','japanese comics','japanese graphic novels'
     ];
+    const MANGA_FALSE_POSITIVE_WORDS = [
+      'how to draw manga','creating manga','draw manga','manga action figures','manga profiles',
+      'manga guide','manga art',"a midsummer night's dream",'meet the robinsons',
+      'romeo and juliet','john barrymore','avatar'
+    ];
 
     // Strong adult signals only — vague words like "sexual" were wiping Adventure/true crime
     const SEXUAL_TITLE_WORDS = [
@@ -1752,6 +1757,7 @@
       titleAndId = titleAndId.toLowerCase();
       subjects = subjects.toLowerCase();
       collections = collections.toLowerCase();
+      if (MANGA_FALSE_POSITIVE_WORDS.some(function(w) { return titleAndId.indexOf(w) !== -1; })) return false;
       return MANGA_TITLE_WORDS.some(function(w) { return titleAndId.indexOf(w) !== -1; }) ||
         MANGA_SUBJECT_WORDS.some(function(w) { return subjects.indexOf(w) !== -1; }) ||
         ['manga','manhwa','manhua','doujinshi'].some(function(w) { return collections.indexOf(w) !== -1; });
@@ -2008,7 +2014,7 @@
         id: 'openlib',
         title: 'Open Library',
         source: 'openlibrary',
-        olQuery: 'subject:magazines OR subject:periodicals OR subject:"comic books" OR subject:"graphic novels" OR title:magazine OR title:periodical OR title:"comic book"'
+        olQuery: 'subject:magazines OR subject:periodicals OR title:magazine OR title:periodical'
       },
       {
         id: 'ol-comics',
