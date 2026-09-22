@@ -330,7 +330,8 @@ export const SHELVES = [
   {
     id: 'xkcd',
     title: 'XKCD',
-    source: 'xkcd'
+    source: 'xkcd',
+    secondary: true
   },
   {
     id: 'openlib',

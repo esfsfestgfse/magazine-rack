@@ -45,14 +45,23 @@ export async function fetchArchive({ query, page, genre, newspaperMonthDay }, en
   const genreTerm = String(genre || '').trim().replace(/[^a-z0-9 ]/gi, ' ').slice(0, 50);
   const lucene = term ? `(${term}) AND mediatype:texts` : 'mediatype:texts AND (collection:comics OR collection:magazine OR collection:periodicals)';
   const search = genreTerm ? `${lucene} AND (${genreTerm})` : lucene;
-  const params = new URLSearchParams({ q: search, 'fl[]': 'identifier', output: 'json', rows: '30', page: String(page) });
+  const params = new URLSearchParams({ q: search, 'fl[]': 'identifier', output: 'json', rows: newspaperMonthDay ? '50' : '30', page: String(page) });
   // Collection membership is the useful taxonomy on IA's Magazine Rack
   // parent collection. Keep it in the cached metadata so child-collection
   // shelves remain precise after the first live refresh.
   for (const field of ['title', 'creator', 'date', 'publicdate', 'subject', 'description', 'collection', 'imagecount', 'access-restricted-item']) params.append('fl[]', field);
-  const data = await fetchJson(`https://archive.org/advancedsearch.php?${params}`, env, 'archive');
-  const records = (data.response?.docs || []).filter((record) => !newspaperMonthDay || newspaperDate(record) === newspaperMonthDay);
-  return { total: newspaperMonthDay ? records.length : Number(data.response?.numFound) || 0, items: records.map((record) => {
+  const pages = newspaperMonthDay
+    ? Array.from({ length: 6 }, (_, index) => Math.max(1, ((Math.max(1, Number(page) || 1) - 1) * 6) + index + 1))
+    : [Math.max(1, Number(page) || 1)];
+  const responses = await Promise.all(pages.map((pageNumber) => {
+    const pageParams = new URLSearchParams(params);
+    pageParams.set('page', String(pageNumber));
+    return fetchJson(`https://archive.org/advancedsearch.php?${pageParams}`, env, 'archive');
+  }));
+  const rawRecords = responses.flatMap((data) => data.response?.docs || []);
+  const uniqueRecords = [...new Map(rawRecords.map((record) => [String(record.identifier || ''), record])).values()];
+  const records = uniqueRecords.filter((record) => !newspaperMonthDay || newspaperDate(record) === newspaperMonthDay);
+  return { total: newspaperMonthDay ? records.length : Number(responses[0]?.response?.numFound) || 0, items: records.slice(0, 30).map((record) => {
     const id = String(record.identifier || '').slice(0, 180);
     const restricted = /^(1|true|yes)$/i.test(String(record['access-restricted-item'] || ''));
     return id && record.title ? sourceItem('archive', id, { title: record.title, creator: record.creator, year: record.date || record.publicdate, genre: inferGenre(`${record.title} ${record.subject || ''}`), description: record.description, coverUrl: `https://archive.org/services/img/${encodeURIComponent(id)}`, sourceUrl: `https://archive.org/details/${encodeURIComponent(id)}`, readerUrl: `https://archive.org/stream/${encodeURIComponent(id)}?ui=embed&wrapper=false`, pageCount: record.imagecount, access: restricted ? 'borrow' : 'full', readable: true, readerKind: 'ia-bookreader', coverQuality: archiveCoverQuality(record), metadata: record }) : null;
