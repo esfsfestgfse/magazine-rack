@@ -36,7 +36,10 @@ export async function fetchArchive({ query, page, genre, newspaperMonthDay }, en
   const lucene = term ? `(${term}) AND mediatype:texts` : 'mediatype:texts AND (collection:comics OR collection:magazine OR collection:periodicals)';
   const search = genreTerm ? `${lucene} AND (${genreTerm})` : lucene;
   const params = new URLSearchParams({ q: search, 'fl[]': 'identifier', output: 'json', rows: '30', page: String(page) });
-  for (const field of ['title', 'creator', 'date', 'publicdate', 'subject', 'description', 'imagecount', 'access-restricted-item']) params.append('fl[]', field);
+  // Collection membership is the useful taxonomy on IA's Magazine Rack
+  // parent collection. Keep it in the cached metadata so child-collection
+  // shelves remain precise after the first live refresh.
+  for (const field of ['title', 'creator', 'date', 'publicdate', 'subject', 'description', 'collection', 'imagecount', 'access-restricted-item']) params.append('fl[]', field);
   const data = await fetchJson(`https://archive.org/advancedsearch.php?${params}`, env, 'archive');
   const records = (data.response?.docs || []).filter((record) => !newspaperMonthDay || newspaperDate(record) === newspaperMonthDay);
   return { total: newspaperMonthDay ? records.length : Number(data.response?.numFound) || 0, items: records.map((record) => {

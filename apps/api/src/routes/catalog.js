@@ -46,6 +46,20 @@ function dbItem(row) {
   return { ...row, source, sourceName: SOURCE_NAMES[source] || row.source, coverUrl: row.cover_url, sourceUrl: row.source_url, readerUrl: row.reader_url, pageCount: row.page_count, lastSeenAt: row.last_seen_at, readable: Boolean(row.readable), readerKind: row.reader_kind || 'none', coverQuality: Number(row.cover_quality) || 0, rights: row.rights || '', availability, metadata };
 }
 
+function collectionTokens(query) {
+  const text = String(query || '');
+  const values = [];
+  const collect = (value) => {
+    String(value || '').split(/\s+OR\s+/i).forEach((token) => {
+      const cleaned = token.replace(/[()\"']/g, '').trim().toLowerCase();
+      if (/^[a-z0-9][a-z0-9_*.-]*$/.test(cleaned) && !cleaned.includes('*')) values.push(cleaned);
+    });
+  };
+  for (const match of text.matchAll(/collection:\(([^)]+)\)/gi)) collect(match[1]);
+  for (const match of text.matchAll(/collection:([^\s()]+)/gi)) collect(match[1]);
+  return [...new Set(values)].slice(0, 12);
+}
+
 async function persist(env, items) {
   if (!env.DB || !items.length) return;
   const timestamp = new Date().toISOString();
@@ -57,19 +71,17 @@ async function stored(env, query, genre, page, source) {
   if (!env.DB) return { items: [], total: 0 };
   const like = `%${query}%`; const offset = (page - 1) * 30; const sourceName = SOURCE_NAMES[source] || source || '';
   const sourceClause = source ? ' AND (lower(source) = lower(?) OR lower(source) = lower(?))' : " AND lower(source) NOT IN ('gcd', 'grand comics database')";
-  const values = source ? [query, like, like, like, genre, genre, source, sourceName, offset] : [query, like, like, like, genre, genre, offset];
-  const countValues = source ? values.slice(0, 8) : values.slice(0, 6);
+  const collectionClauseParts = collectionTokens(query).map(() => 'metadata_json LIKE ?');
+  const collectionClause = collectionClauseParts.length ? ` AND (${collectionClauseParts.join(' OR ')})` : '';
+  const collectionValues = collectionTokens(query).map((value) => `%${value}%`);
+  const baseValues = source ? [query, like, like, like, genre, genre, ...collectionValues, source, sourceName] : [query, like, like, like, genre, genre, ...collectionValues];
+  const values = [...baseValues, offset];
+  const countValues = baseValues;
   const readableClause = ' AND readable = 1';
-  let result = await env.DB.prepare(`SELECT id, source, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights FROM catalog_items WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${readableClause}${sourceClause} ORDER BY cover_quality DESC, last_seen_at DESC LIMIT 30 OFFSET ?`).bind(...values).all();
-  let count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM catalog_items WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${readableClause}${sourceClause}`).bind(...countValues).first();
-
-  // The full Lucene shelf query is not a literal title search. If the live
-  // provider is down, use the last readable archive snapshot rather than
-  // returning an empty rack; the response is marked stale by the caller.
-  if (!(result.results || []).length && source === 'archive') {
-    result = await env.DB.prepare(`SELECT id, source, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights FROM catalog_items WHERE readable = 1 AND lower(source) IN ('archive', 'internet archive') ORDER BY cover_quality DESC, last_seen_at DESC LIMIT 30 OFFSET ?`).bind(offset).all();
-    count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM catalog_items WHERE readable = 1 AND lower(source) IN ('archive', 'internet archive')`).first();
-  }
+  const where = ` WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${readableClause}${collectionClause}${sourceClause}`;
+  const select = `SELECT id, source, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights FROM catalog_items`;
+  const result = await env.DB.prepare(`${select}${where} ORDER BY cover_quality DESC, last_seen_at DESC LIMIT 30 OFFSET ?`).bind(...values).all();
+  const count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM catalog_items${where}`).bind(...countValues).first();
   return { items: (result.results || []).map(dbItem), total: Number(count?.total) || 0 };
 }
 

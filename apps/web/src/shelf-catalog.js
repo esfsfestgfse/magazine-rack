@@ -127,7 +127,7 @@ export const SHELVES = [
   {
     id: 'gaming',
     title: 'Gaming',
-    query: `mediatype:texts AND (collection:gamemagazines OR title:("nintendo power" OR gamepro OR "electronic gaming monthly" OR "pc gamer" OR "computer gaming world" OR "game informer" OR "mean machines" OR "computer and video games" OR "retro gamer" OR "official xbox magazine" OR "playstation official"))${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (collection:(gamemagazines OR videogamemagazines OR videogamemagazinesmisc) OR title:("nintendo power" OR gamepro OR "electronic gaming monthly" OR "pc gamer" OR "computer gaming world" OR "game informer" OR "mean machines" OR "computer and video games" OR "retro gamer" OR "official xbox magazine" OR "playstation official"))${ADULT_EXCLUDE}`
   },
   {
     id: 'scifi',
@@ -147,7 +147,7 @@ export const SHELVES = [
   {
     id: 'computer',
     title: 'Computing',
-    query: `mediatype:texts AND (title:("byte magazine" OR "pc magazine" OR macworld OR "computer shopper" OR "popular computing" OR "creative computing" OR "pc world" OR "computer world" OR "personal computer world" OR "personal computer news") OR subject:("computer magazine" OR "personal computing" OR "computer magazines"))${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (collection:(computermagazines OR computermagazinesmisc OR computernewsletters) OR title:("byte magazine" OR "pc magazine" OR macworld OR "computer shopper" OR "popular computing" OR "creative computing" OR "pc world" OR "computer world" OR "personal computer world" OR "personal computer news") OR subject:("computer magazine" OR "personal computing" OR "computer magazines"))${ADULT_EXCLUDE}`
   },
   {
     id: 'mens',
@@ -281,7 +281,7 @@ export const SHELVES = [
   {
     id: 'music',
     title: 'Music Press',
-    query: `mediatype:texts AND (title:("rolling stone" OR "billboard magazine" OR "spin magazine" OR creem OR "melody maker" OR "new musical express" OR "nme magazine" OR "hit parader" OR "circus magazine") OR (subject:("music magazine") AND (subject:magazine OR title:magazine)))${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (collection:(musicmagazines OR musicmagazinesmisc) OR title:("rolling stone" OR "billboard magazine" OR "spin magazine" OR creem OR "melody maker" OR "new musical express" OR "nme magazine" OR "hit parader" OR "circus magazine") OR (subject:("music magazine") AND (subject:magazine OR title:magazine)))${ADULT_EXCLUDE}`
   },
   {
     id: 'hotrod',
@@ -318,7 +318,7 @@ export const SHELVES = [
     title: 'Papers',
     newspaperDateMode: 'month-day',
     newspaperOnly: true,
-    query: `mediatype:texts AND (collection:(newspapers) OR subject:newspapers) AND language:English${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (collection:(newspapers OR newsmagazines OR periodicals) OR subject:newspapers) AND language:English${ADULT_EXCLUDE}`
   },
   {
     id: 'xkcd',
