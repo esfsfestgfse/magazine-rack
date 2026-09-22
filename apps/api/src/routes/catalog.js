@@ -69,12 +69,19 @@ async function persist(env, items) {
 
 async function stored(env, query, genre, page, source) {
   if (!env.DB) return { items: [], total: 0 };
-  const like = `%${query}%`; const offset = (page - 1) * 30; const sourceName = SOURCE_NAMES[source] || source || '';
+  const fieldedQuery = /(?:\b(?:collection|title|subject|identifier|mediatype|date|language|year):|[()])/i.test(String(query || ''));
+  const tokens = collectionTokens(query);
+  // A Lucene shelf expression is not a title search. Do not feed the full
+  // expression into SQLite LIKE (it can exceed SQLite's pattern complexity
+  // limit), and do not return an unfiltered snapshot for unsupported fields.
+  if (fieldedQuery && !tokens.length) return { items: [], total: 0 };
+  const textQuery = fieldedQuery ? '' : query;
+  const like = `%${textQuery}%`; const offset = (page - 1) * 30; const sourceName = SOURCE_NAMES[source] || source || '';
   const sourceClause = source ? ' AND (lower(source) = lower(?) OR lower(source) = lower(?))' : " AND lower(source) NOT IN ('gcd', 'grand comics database')";
-  const collectionClauseParts = collectionTokens(query).map(() => 'metadata_json LIKE ?');
+  const collectionClauseParts = tokens.map(() => 'metadata_json LIKE ?');
   const collectionClause = collectionClauseParts.length ? ` AND (${collectionClauseParts.join(' OR ')})` : '';
-  const collectionValues = collectionTokens(query).map((value) => `%${value}%`);
-  const baseValues = source ? [query, like, like, like, genre, genre, ...collectionValues, source, sourceName] : [query, like, like, like, genre, genre, ...collectionValues];
+  const collectionValues = tokens.map((value) => `%${value}%`);
+  const baseValues = source ? [textQuery, like, like, like, genre, genre, ...collectionValues, source, sourceName] : [textQuery, like, like, like, genre, genre, ...collectionValues];
   const values = [...baseValues, offset];
   const countValues = baseValues;
   const readableClause = ' AND readable = 1';
