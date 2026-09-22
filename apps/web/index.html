@@ -3759,7 +3759,11 @@
         // Preserve the provider identity when its record also carries an IA
         // scan. Open Library borrow records need the access panel instead of
         // being mistaken for unrestricted Internet Archive issues.
-        var itemSource = item.source || source;
+        // The Worker names Internet Archive records `archive`; the reader
+        // contract uses the historical frontend name `ia`. Canonicalize here
+        // before canReadDocument() evaluates the record, otherwise valid IA
+        // items arrive with counts but are discarded as an unknown source.
+        var itemSource = item.source === 'archive' ? 'ia' : (item.source || source);
         return {
           source: itemSource,
           identifier: iaId || sourceId,
@@ -5096,6 +5100,7 @@
       if (!doc) return false;
       if (doc.setup || doc.readable === false || ['catalog', 'unavailable'].indexOf(accessKey(doc)) !== -1) return false;
       var source = String(doc.source || '').toLowerCase();
+      if (source === 'archive') source = 'ia';
       if (source === 'ia') return Boolean(isValidIaId(doc.iaId || doc.identifier));
       if (source === 'openlibrary' || source === 'olsubjects') return Boolean(isValidIaId(doc.iaId) || doc.access === 'borrow' || doc.fullImage || doc.cover);
       // Comic Book Plus covers are not readable by themselves. Require the
