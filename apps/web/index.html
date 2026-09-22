@@ -2323,12 +2323,29 @@
       return !currentFormat || shelfFormat(shelf) === currentFormat;
     }
 
+    // Worker records use an internal `archive:...` key for stable catalog
+    // identity, while the reader needs the actual Internet Archive item ID.
+    // Prefer the provider URL when it is available so a catalog key can never
+    // turn into a dead `/details/archive%3A...` page.
+    function archiveIdFromUrl(value) {
+      var raw = String(value || '');
+      var match = raw.match(/(?:archive\.org)\/(?:details|stream)\/([^/?#]+)/i);
+      if (!match) return '';
+      try { return decodeURIComponent(match[1]); } catch (e) { return match[1]; }
+    }
+
     function normalizeIssue(doc, shelf) {
       var item = Object.assign({}, doc || {});
       // IA's search endpoints return bare records, while the other adapters
       // include an explicit source. Keep the shelf contract consistent so a
       // cover click can always resolve an Internet Archive reader.
       item.source = item.source || (shelf && shelf.source === 'aggregate' ? 'ia' : (shelf && shelf.source)) || 'ia';
+      if (item.source === 'archive') item.source = 'ia';
+      if (item.source === 'ia' && !item.iaId) {
+        item.iaId = archiveIdFromUrl(item.readerUrl || item.locUrl || item.openLibraryUrl) || null;
+      }
+      if (item.source === 'ia' && item.iaId && !isValidIaId(item.iaId)) item.iaId = null;
+      if (item.source === 'ia' && item.iaId) item.identifier = item.iaId;
       if (item.source === 'ia' && item.identifier && !item.locUrl) {
         item.locUrl = 'https://archive.org/details/' + encodeURIComponent(item.identifier);
       }
@@ -3755,7 +3772,8 @@
         var sourceId = item.id || item.sourceId || item.identifier || item.title || 'catalog-item';
         var sourceUrlValue = item.sourceUrl || item.locUrl || null;
         var metadata = item.metadata || {};
-        var iaId = metadata.iaId || null;
+        var readerUrlValue = item.readerUrl || null;
+        var iaId = metadata.iaId || (item.source === 'archive' ? archiveIdFromUrl(readerUrlValue || sourceUrlValue) : '') || null;
         // Preserve the provider identity when its record also carries an IA
         // scan. Open Library borrow records need the access panel instead of
         // being mistaken for unrestricted Internet Archive issues.
@@ -3777,7 +3795,7 @@
           cover: source === 'comicbookplus' ? comicBookPlusMediaUrl(item.cover) : (item.cover || null),
           fullImage: source === 'comicbookplus' ? comicBookPlusMediaUrl(item.cover) : (item.cover || null),
           locUrl: sourceUrlValue,
-          readerUrl: item.readerUrl || sourceUrlValue,
+          readerUrl: readerUrlValue || sourceUrlValue,
           pages: item.pages || 0,
           access: item.access || '',
           readable: item.readable !== false,
@@ -5164,6 +5182,7 @@
       if (!id) return false;
       id = String(id).trim();
       if (!id || /^https?:/i.test(id)) return false;
+      if (/^archive:/i.test(id)) return false;
       if (id.indexOf('/') !== -1) return false;
       if (id.indexOf('OL') === 0) return false;
       if (id.indexOf('xkcd-') === 0) return false;
@@ -5622,8 +5641,12 @@
       closeModal();
 
       var docSource = doc && doc.source ? String(doc.source).toLowerCase() : 'ia';
+      if (docSource === 'archive') docSource = 'ia';
       var canUseIa = !doc || docSource === 'ia' || docSource === 'openlibrary';
       var resolvedId = canUseIa && isValidIaId(iaId) ? iaId : null;
+      if (!resolvedId && canUseIa && doc) {
+        resolvedId = archiveIdFromUrl(doc.readerUrl || doc.locUrl || doc.openLibraryUrl) || null;
+      }
       if (canUseIa && doc && isValidIaId(doc.identifier)) resolvedId = doc.identifier;
       if (!isValidIaId(resolvedId)) resolvedId = null;
 
