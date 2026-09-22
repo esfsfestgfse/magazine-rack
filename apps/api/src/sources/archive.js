@@ -21,6 +21,13 @@ function newspaperDate(record) {
   return [record.title, record.identifier, record.date, record.publicdate].map(recordMonthDay).find(Boolean) || '';
 }
 
+function newspaperDateSearch(monthDay) {
+  const [month, day] = String(monthDay || '').split('-').map(Number);
+  const monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][month - 1];
+  if (!monthName || !day) return '';
+  return ` AND title:("${monthName} ${day}" OR "${monthName} ${String(day).padStart(2, '0')}" OR "${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}" OR "${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}" OR "${String(month).padStart(2, '0')}.${String(day).padStart(2, '0')}")`;
+}
+
 function archiveCoverQuality(record) {
   let score = 1;
   const pages = Number(record.imagecount) || 0;
@@ -44,7 +51,7 @@ export async function fetchArchive({ query, page, genre, newspaperMonthDay }, en
     .slice(0, 1800);
   const genreTerm = String(genre || '').trim().replace(/[^a-z0-9 ]/gi, ' ').slice(0, 50);
   const lucene = term ? `(${term}) AND mediatype:texts` : 'mediatype:texts AND (collection:comics OR collection:magazine OR collection:periodicals)';
-  const search = genreTerm ? `${lucene} AND (${genreTerm})` : lucene;
+  const search = (genreTerm ? `${lucene} AND (${genreTerm})` : lucene) + (newspaperMonthDay ? newspaperDateSearch(newspaperMonthDay) : '');
   const params = new URLSearchParams({ q: search, 'fl[]': 'identifier', output: 'json', rows: newspaperMonthDay ? '50' : '30', page: String(page) });
   // Collection membership is the useful taxonomy on IA's Magazine Rack
   // parent collection. Keep it in the cached metadata so child-collection
