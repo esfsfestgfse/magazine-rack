@@ -21,6 +21,16 @@ function newspaperDate(record) {
   return [record.title, record.identifier, record.date, record.publicdate].map(recordMonthDay).find(Boolean) || '';
 }
 
+function archiveCoverQuality(record) {
+  let score = 1;
+  const pages = Number(record.imagecount) || 0;
+  if (pages >= 4) score += 2;
+  if (pages >= 40) score += 1;
+  if (record.date || record.publicdate) score += 1;
+  if (record.subject || record.description) score += 1;
+  return Math.max(1, Math.min(5, score));
+}
+
 export async function fetchArchive({ query, page, genre, newspaperMonthDay }, env) {
   // Preserve the shelf's fielded Lucene query. Stripping operators here made
   // precise racks (magazines, Batman, newspapers) degrade into broad word
@@ -45,6 +55,6 @@ export async function fetchArchive({ query, page, genre, newspaperMonthDay }, en
   return { total: newspaperMonthDay ? records.length : Number(data.response?.numFound) || 0, items: records.map((record) => {
     const id = String(record.identifier || '').slice(0, 180);
     const restricted = /^(1|true|yes)$/i.test(String(record['access-restricted-item'] || ''));
-    return id && record.title ? sourceItem('archive', id, { title: record.title, creator: record.creator, year: record.date || record.publicdate, genre: inferGenre(`${record.title} ${record.subject || ''}`), description: record.description, coverUrl: `https://archive.org/services/img/${encodeURIComponent(id)}`, sourceUrl: `https://archive.org/details/${encodeURIComponent(id)}`, readerUrl: `https://archive.org/stream/${encodeURIComponent(id)}?ui=embed&wrapper=false`, pageCount: record.imagecount, access: restricted ? 'borrow' : 'full', readable: true, readerKind: 'ia-bookreader', coverQuality: 3, metadata: record }) : null;
+    return id && record.title ? sourceItem('archive', id, { title: record.title, creator: record.creator, year: record.date || record.publicdate, genre: inferGenre(`${record.title} ${record.subject || ''}`), description: record.description, coverUrl: `https://archive.org/services/img/${encodeURIComponent(id)}`, sourceUrl: `https://archive.org/details/${encodeURIComponent(id)}`, readerUrl: `https://archive.org/stream/${encodeURIComponent(id)}?ui=embed&wrapper=false`, pageCount: record.imagecount, access: restricted ? 'borrow' : 'full', readable: true, readerKind: 'ia-bookreader', coverQuality: archiveCoverQuality(record), metadata: record }) : null;
   }).filter(Boolean) };
 }

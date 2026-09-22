@@ -3559,13 +3559,8 @@
     const SOURCE_LABELS = {
       ia: 'Internet Archive',
       openlibrary: 'Open Library',
-      gbooks: 'Google Books',
       europeana: 'Europeana',
       comicbookplus: 'Comic Book Plus',
-      dpla: 'DPLA',
-      gcd: 'GCD',
-      loc: 'Library of Congress',
-      locsearch: 'LOC Search',
       xkcd: 'xkcd',
       multi: 'Multi-source'
     };
@@ -3756,6 +3751,9 @@
         else if (extraQuery.indexOf('date:') === -1) query = extraQuery.trim();
       }
       url.searchParams.set('q', query);
+      // Give the Worker a stable snapshot identity instead of caching only
+      // by the raw Lucene expression.
+      url.searchParams.set('shelf', shelf.id || 'archive');
       url.searchParams.set('page', String(page));
       // Avoid pinning a previous empty provider response in the browser or
       // an edge cache after a source recovers or a new fallback is published.

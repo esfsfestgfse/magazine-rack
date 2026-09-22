@@ -43,7 +43,17 @@ function dbItem(row) {
   try { metadata = row.metadata_json ? JSON.parse(row.metadata_json) : {}; } catch { metadata = {}; }
   let availability = {};
   try { availability = row.availability_json ? JSON.parse(row.availability_json) : {}; } catch { availability = {}; }
-  return { ...row, source, sourceName: SOURCE_NAMES[source] || row.source, coverUrl: row.cover_url, sourceUrl: row.source_url, readerUrl: row.reader_url, pageCount: row.page_count, lastSeenAt: row.last_seen_at, readable: Boolean(row.readable), readerKind: row.reader_kind || 'none', coverQuality: Number(row.cover_quality) || 0, rights: row.rights || '', availability, metadata };
+  return { ...row, source, sourceName: SOURCE_NAMES[source] || row.source, coverUrl: row.cover_url, sourceUrl: row.source_url, readerUrl: row.reader_url, pageCount: row.page_count, issueMonthDay: row.issue_month_day || '', lastSeenAt: row.last_seen_at, readable: Boolean(row.readable), readerKind: row.reader_kind || 'none', coverQuality: Number(row.cover_quality) || 0, rights: row.rights || '', availability, metadata };
+}
+
+function monthDay(value) {
+  const text = String(value || '');
+  const iso = text.match(/\b\d{4}[-/.](\d{1,2})[-/.](\d{1,2})\b/);
+  if (iso) return `${String(iso[1]).padStart(2, '0')}-${String(iso[2]).padStart(2, '0')}`;
+  const named = text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})/i);
+  if (!named) return '';
+  const month = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'].indexOf(named[1].toLowerCase()) + 1;
+  return `${String(month).padStart(2, '0')}-${String(named[2]).padStart(2, '0')}`;
 }
 
 function collectionTokens(query) {
@@ -63,11 +73,30 @@ function collectionTokens(query) {
 async function persist(env, items) {
   if (!env.DB || !items.length) return;
   const timestamp = new Date().toISOString();
-  const statements = items.slice(0, 90).map((item) => env.DB.prepare(`INSERT INTO catalog_items (id, source, source_id, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET source=excluded.source, title=excluded.title, creator=excluded.creator, year=excluded.year, genre=excluded.genre, description=excluded.description, cover_url=excluded.cover_url, source_url=excluded.source_url, reader_url=excluded.reader_url, page_count=excluded.page_count, metadata_json=excluded.metadata_json, last_seen_at=excluded.last_seen_at, access=excluded.access, readable=excluded.readable, reader_kind=excluded.reader_kind, cover_quality=excluded.cover_quality, availability_json=excluded.availability_json, rights=excluded.rights`).bind(item.id, item.source, item.sourceId, item.title, item.creator, item.year, item.genre, item.description, item.coverUrl, item.sourceUrl, item.readerUrl, item.pageCount, JSON.stringify(item.metadata || {}), timestamp, timestamp, item.access || 'catalog', item.readable === true ? 1 : 0, item.readerKind || 'none', Number(item.coverQuality) || 0, JSON.stringify(item.availability || {}), item.rights || ''));
-  await env.DB.batch(statements);
+  const catalogStatements = items.slice(0, 90).map((item) => env.DB.prepare(`INSERT INTO catalog_items (id, source, source_id, title, creator, year, issue_month_day, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET source=excluded.source, title=excluded.title, creator=excluded.creator, year=excluded.year, issue_month_day=excluded.issue_month_day, genre=excluded.genre, description=excluded.description, cover_url=excluded.cover_url, source_url=excluded.source_url, reader_url=excluded.reader_url, page_count=excluded.page_count, metadata_json=excluded.metadata_json, last_seen_at=excluded.last_seen_at, access=excluded.access, readable=excluded.readable, reader_kind=excluded.reader_kind, cover_quality=excluded.cover_quality, availability_json=excluded.availability_json, rights=excluded.rights`).bind(item.id, item.source, item.sourceId, item.title, item.creator, item.year, monthDay(item.metadata?.date || item.year || item.title), item.genre, item.description, item.coverUrl, item.sourceUrl, item.readerUrl, item.pageCount, JSON.stringify(item.metadata || {}), timestamp, timestamp, item.access || 'catalog', item.readable === true ? 1 : 0, item.readerKind || 'none', Number(item.coverQuality) || 0, JSON.stringify(item.availability || {}), item.rights || ''));
+  const collectionStatements = items.slice(0, 90).flatMap((item) => {
+    const raw = item.metadata?.collection;
+    const collections = Array.isArray(raw) ? raw : String(raw || '').split(',');
+    return collections.map((collection) => String(collection).trim().toLowerCase()).filter(Boolean).slice(0, 40).map((collection) => env.DB.prepare(`INSERT INTO catalog_collections (item_id, collection_id, collection_label, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(item_id, collection_id) DO UPDATE SET collection_label=excluded.collection_label, last_seen_at=excluded.last_seen_at`).bind(item.id, collection, collection, timestamp, timestamp));
+  });
+  await env.DB.batch([...catalogStatements, ...collectionStatements]);
 }
 
-async function stored(env, query, genre, page, source) {
+function snapshotKey(shelfId, source, query, page, newspaperMonthDay) {
+  return [shelfId || 'query', source || 'archive', page, newspaperMonthDay || '', query].join('|').slice(0, 900);
+}
+
+async function persistSnapshot(env, { shelfId, source, query, page, newspaperMonthDay, items, total, status = 'ok', error = '' }) {
+  if (!env.DB || !shelfId) return;
+  await env.DB.prepare(`INSERT INTO shelf_snapshots (snapshot_key, shelf_id, source, page, query, newspaper_month_day, total, items_json, status, error, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(snapshot_key) DO UPDATE SET total=excluded.total, items_json=excluded.items_json, status=excluded.status, error=excluded.error, fetched_at=excluded.fetched_at`).bind(snapshotKey(shelfId, source, query, page, newspaperMonthDay), shelfId, source || 'archive', page, query, newspaperMonthDay || null, Number(total) || 0, JSON.stringify(items || []), status, error || null, new Date().toISOString()).run();
+}
+
+async function persistSourceHealth(env, source, detail) {
+  if (!env.DB || !source) return;
+  await env.DB.prepare(`INSERT INTO source_health (source, status, total, item_count, error, checked_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(source) DO UPDATE SET status=excluded.status, total=excluded.total, item_count=excluded.item_count, error=excluded.error, checked_at=excluded.checked_at`).bind(source, detail.status || 'unknown', Number(detail.total) || 0, Number(detail.count) || 0, detail.error || (detail.errors || []).join('; ') || null, new Date().toISOString()).run();
+}
+
+async function stored(env, query, genre, page, source, newspaperMonthDay) {
   if (!env.DB) return { items: [], total: 0 };
   const fieldedQuery = /(?:\b(?:collection|title|subject|identifier|mediatype|date|language|year):|[()])/i.test(String(query || ''));
   const tokens = collectionTokens(query);
@@ -78,15 +107,17 @@ async function stored(env, query, genre, page, source) {
   const textQuery = fieldedQuery ? '' : query;
   const like = `%${textQuery}%`; const offset = (page - 1) * 30; const sourceName = SOURCE_NAMES[source] || source || '';
   const sourceClause = source ? ' AND (lower(source) = lower(?) OR lower(source) = lower(?))' : " AND lower(source) NOT IN ('gcd', 'grand comics database')";
-  const collectionClauseParts = tokens.map(() => 'metadata_json LIKE ?');
+  const dateClause = source === 'archive' && /^\d{2}-\d{2}$/.test(String(newspaperMonthDay || '')) ? ' AND issue_month_day = ?' : '';
+  const collectionClauseParts = tokens.map(() => 'EXISTS (SELECT 1 FROM catalog_collections cc WHERE cc.item_id = catalog_items.id AND cc.collection_id = ?)');
   const collectionClause = collectionClauseParts.length ? ` AND (${collectionClauseParts.join(' OR ')})` : '';
-  const collectionValues = tokens.map((value) => `%${value}%`);
-  const baseValues = source ? [textQuery, like, like, like, genre, genre, ...collectionValues, source, sourceName] : [textQuery, like, like, like, genre, genre, ...collectionValues];
+  const collectionValues = tokens;
+  const dateValues = dateClause ? [newspaperMonthDay] : [];
+  const baseValues = source ? [textQuery, like, like, like, genre, genre, ...collectionValues, ...dateValues, source, sourceName] : [textQuery, like, like, like, genre, genre, ...collectionValues, ...dateValues];
   const values = [...baseValues, offset];
   const countValues = baseValues;
   const readableClause = ' AND readable = 1';
-  const where = ` WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${readableClause}${collectionClause}${sourceClause}`;
-  const select = `SELECT id, source, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights FROM catalog_items`;
+  const where = ` WHERE (? = '' OR title LIKE ? OR creator LIKE ? OR description LIKE ?) AND (? = '' OR lower(genre) = lower(?))${readableClause}${collectionClause}${dateClause}${sourceClause}`;
+  const select = `SELECT id, source, title, creator, year, issue_month_day, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights FROM catalog_items`;
   const result = await env.DB.prepare(`${select}${where} ORDER BY cover_quality DESC, last_seen_at DESC LIMIT 30 OFFSET ?`).bind(...values).all();
   const count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM catalog_items${where}`).bind(...countValues).first();
   return { items: (result.results || []).map(dbItem), total: Number(count?.total) || 0 };
@@ -100,11 +131,12 @@ async function refreshLiveSnapshot(env, query, genre, page, source, newspaperMon
   ])));
   const items = responses.flatMap((result) => result.status === 'fulfilled' ? result.value.items || [] : []);
   if (items.length) await persist(env, items);
-  return { items, responses };
+  const total = responses.reduce((sum, result) => sum + (result.status === 'fulfilled' ? Number(result.value?.total) || 0 : 0), 0);
+  return { items, responses, total };
 }
 
 export async function handleCatalogSearch(request, env, ctx, requestId) {
-  const url = new URL(request.url); const query = clean(url.searchParams.get('q'), 1800); const genre = clean(url.searchParams.get('genre'), 80); const source = clean(url.searchParams.get('source'), 30).toLowerCase(); const page = Math.max(1, Math.min(100, Number(url.searchParams.get('page')) || 1)); const newspaperMonthDay = clean(url.searchParams.get('newspaper_month_day'), 5);
+  const url = new URL(request.url); const query = clean(url.searchParams.get('q'), 1800); const genre = clean(url.searchParams.get('genre'), 80); const source = clean(url.searchParams.get('source'), 30).toLowerCase(); const shelfId = clean(url.searchParams.get('shelf'), 80); const page = Math.max(1, Math.min(100, Number(url.searchParams.get('page')) || 1)); const newspaperMonthDay = clean(url.searchParams.get('newspaper_month_day'), 5);
   if (newspaperMonthDay && !/^\d{2}-\d{2}$/.test(newspaperMonthDay)) return errorJson(request, env, 'invalid_newspaper_month_day', 400, requestId);
   if (source && !sourceAdapter(source)) return errorJson(request, env, 'invalid_source', 400, requestId);
   // Ignore the client's minute cache-buster so the Worker cache can absorb
@@ -124,7 +156,7 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   // Return the last known-good shelf immediately. Provider refreshes happen
   // after the response so a 429, timeout, or provider error cannot blank it.
   let firstStored = { items: [], total: 0 };
-  try { firstStored = await stored(env, query, genre, page, source); }
+  try { firstStored = await stored(env, query, genre, page, source, newspaperMonthDay); }
   catch (error) { console.error(JSON.stringify({ message: 'catalog_stored_read_failed', requestId, error: error instanceof Error ? error.message : String(error) })); }
   // Child-collection Archive shelves are precise live feeds. Prefer the
   // live total for them; otherwise a small first-generation D1 snapshot can
@@ -138,7 +170,11 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
       sourceDetails: sourceDetailsFor(source, firstStored.items, firstStored.total, 'degraded', 'serving_cached_snapshot'),
       stale: true, partial: true, refresh: 'background'
     }, { requestId, cacheControl: 'public, max-age=20, stale-while-revalidate=300' });
-    ctx.waitUntil(refreshLiveSnapshot(env, query, genre, page, source, newspaperMonthDay).catch((error) => {
+    ctx.waitUntil(refreshLiveSnapshot(env, query, genre, page, source, newspaperMonthDay).then(async (refresh) => {
+      const details = Object.fromEntries((refresh.responses || []).map((result, index) => [source || configuredSourceIds()[index], result.status === 'fulfilled' ? { status: result.value?.partial ? 'degraded' : 'ok', total: result.value?.total, count: result.value?.items?.length } : { status: 'unavailable', error: sourceFailure(result.reason).code }]));
+      await Promise.all(Object.entries(details).map(([id, detail]) => persistSourceHealth(env, id, detail).catch(() => {})));
+      if (shelfId && refresh.items?.length) await persistSnapshot(env, { shelfId, source, query, page, newspaperMonthDay, items: refresh.items, total: refresh.total, status: 'ok' });
+    }).catch((error) => {
       console.error(JSON.stringify({ message: 'catalog_background_refresh_failed', requestId, error: error instanceof Error ? error.message : String(error) }));
     }));
     return staleResponse;
@@ -158,7 +194,7 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   // stored records whenever a live response is partial, while keeping live
   // records first so a recovered source wins naturally.
   if (env.DB && (failed > 0 || !items.length)) {
-    storedFallback = await stored(env, query, genre, page, source);
+    storedFallback = await stored(env, query, genre, page, source, newspaperMonthDay);
     const seen = new Set(items.map((item) => item.id));
     items = [...items, ...storedFallback.items.filter((item) => !seen.has(item.id))].slice(0, 30);
     if (!liveItems.length) total = storedFallback.total;
@@ -195,6 +231,8 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
     stale,
     partial: failed > 0,
   }, { requestId, cacheControl: 'public, max-age=120, stale-while-revalidate=600' });
+  ctx.waitUntil(Promise.all(Object.entries(sourceDetails).map(([id, detail]) => persistSourceHealth(env, id, detail).catch(() => {}))));
+  if (shelfId && items.length) ctx.waitUntil(persistSnapshot(env, { shelfId, source, query, page, newspaperMonthDay, items, total, status: stale ? 'degraded' : 'ok' }).catch(() => {}));
   if (cache && !failed && !stale) {
     ctx.waitUntil(cache.put(cacheKey, response.clone()).catch((error) => {
       console.error(JSON.stringify({ message: 'catalog_cache_put_failed', requestId, error: error instanceof Error ? error.message : String(error) }));

@@ -69,9 +69,7 @@ jobs:
             apps/web/config.js \
             apps/web/manifest.json \
             apps/web/icon.svg \
-            apps/web/sw.js \
-            apps/web/src/main.js \
-            apps/web/src/styles.css; do
+            apps/web/sw.js; do
             test -s "$file" || { echo "Missing or empty Pages asset: $file" >&2; exit 1; }
           done
           node --input-type=module <<'NODE'
@@ -84,10 +82,17 @@ jobs:
           if (!/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(html)) throw new Error('apps/web/index.html is missing the hosted shell worker');
           NODE
 
+      - name: Build canonical standalone artifact
+        run: |
+          rm -rf dist
+          mkdir -p dist/data
+          cp apps/web/index.html apps/web/config.js apps/web/manifest.json apps/web/icon.svg apps/web/sw.js dist/
+          cp -R apps/web/data/. dist/data/
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/web
+          path: dist
 
   deploy:
     name: Publish Pages artifact

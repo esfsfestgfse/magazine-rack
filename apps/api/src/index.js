@@ -50,6 +50,21 @@ export default {
           requestId: id,
         }, { requestId: id, cacheControl: 'no-store' });
       }
+      if (url.pathname === '/api/v1/diagnostics') {
+        let health = [];
+        let snapshots = 0;
+        let collections = 0;
+        if (env.DB) {
+          try {
+            health = (await env.DB.prepare('SELECT source, status, total, item_count, error, checked_at FROM source_health ORDER BY source').all()).results || [];
+            snapshots = Number((await env.DB.prepare('SELECT COUNT(*) AS total FROM shelf_snapshots').first())?.total) || 0;
+            collections = Number((await env.DB.prepare('SELECT COUNT(*) AS total FROM catalog_collections').first())?.total) || 0;
+          } catch (error) {
+            console.error(JSON.stringify({ message: 'diagnostics_read_failed', requestId, error: error instanceof Error ? error.message : String(error) }));
+          }
+        }
+        return json(request, env, { ok: true, service: 'magazine-rack-api', environment: env.ENVIRONMENT || 'development', sources: health, snapshotCount: snapshots, collectionMembershipCount: collections, checkedAt: now(), requestId: id }, { requestId: id, cacheControl: 'no-store' });
+      }
       if (request.method === 'GET' && catalogSearchPaths.has(url.pathname)) return await handleCatalogSearch(request, env, ctx, id);
       if (request.method === 'GET' && mediaPaths.has(url.pathname)) return await handleMedia(request, env, ctx, id);
       if (request.method === 'GET' && itemPrefixes.some((prefix) => url.pathname.startsWith(prefix))) {

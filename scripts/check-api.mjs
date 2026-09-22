@@ -12,6 +12,10 @@ const health = await worker.fetch(new Request('https://api.example/health'), env
 assert.equal(health.status, 200);
 assert.equal((await health.json()).ok, true);
 
+const diagnostics = await worker.fetch(new Request('https://api.example/api/v1/diagnostics'), env, context);
+assert.equal(diagnostics.status, 200);
+assert.equal((await diagnostics.json()).ok, true);
+
 const disallowed = await worker.fetch(new Request('https://api.example/health', { headers: { Origin: 'https://evil.example' } }), env, context);
 assert.equal(disallowed.headers.get('Access-Control-Allow-Origin'), null);
 
