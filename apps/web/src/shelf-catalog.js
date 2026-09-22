@@ -161,7 +161,7 @@ export const SHELVES = [
   {
     id: 'mens',
     title: 'Adventure',
-    query: `mediatype:texts AND (title:("true detective" OR argosy OR "saga magazine" OR "man's life" OR "true adventures") OR subject:("true detective" OR "true crime" OR "men's adventure")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:argosy) AND NOT title:(book OR handbook OR guide OR cookbook OR directory OR dissertation OR thesis OR report OR law OR legal OR corruption OR "identity theft" OR "case closed" OR novel)${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:("true detective" OR argosy OR "saga magazine" OR "man's life" OR "true adventures") OR subject:("true detective" OR "true crime" OR "men's adventure")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:argosy) AND NOT collection:(internetarchivebooks OR printdisabled OR inlibrary) AND NOT title:(book OR handbook OR guide OR cookbook OR directory OR dissertation OR thesis OR report OR law OR legal OR corruption OR "identity theft" OR "case closed" OR "rolling stone" OR "israel argosy" OR "conrad argosy" OR novel)${ADULT_EXCLUDE}`
   },
   {
     id: 'superhero',
