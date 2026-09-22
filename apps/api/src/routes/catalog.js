@@ -126,7 +126,12 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   let firstStored = { items: [], total: 0 };
   try { firstStored = await stored(env, query, genre, page, source); }
   catch (error) { console.error(JSON.stringify({ message: 'catalog_stored_read_failed', requestId, error: error instanceof Error ? error.message : String(error) })); }
-  if (firstStored.items.length) {
+  // Child-collection Archive shelves are precise live feeds. Prefer the
+  // live total for them; otherwise a small first-generation D1 snapshot can
+  // hide tens of thousands of matching issues. The live branch below still
+  // merges this snapshot if Archive is unavailable.
+  const preferLiveArchiveTaxonomy = source === 'archive' && collectionTokens(query).length > 0;
+  if (firstStored.items.length && !preferLiveArchiveTaxonomy) {
     const staleResponse = json(request, env, {
       items: firstStored.items.map(publicItem), total: firstStored.total, totalIsEstimate: true, page, pageSize: 30,
       sources: { [source || 'archive']: 'stale' },
