@@ -1486,7 +1486,7 @@
           <div class="hero-kicker">The open stacks · a living index for curious people</div>
           <h1>Find your <em>next obsession.</em></h1>
           <p>Magazines, comics, newspapers, zines, and beautifully strange things gathered from public collections.</p>
-          <div class="hero-meta"><span><b>51</b>live shelves</span><span><b>4</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
+          <div class="hero-meta"><span><b>52</b>live shelves</span><span><b>4</b>source feeds</span><span><b>∞</b>rabbit holes</span></div>
         </div>
         <div class="hero-ticket"><span>Magazine Rack</span><strong>Read<br>widely.</strong><span>Free / public / curious</span></div>
       </div>
@@ -1960,6 +1960,11 @@
         id: 'hotrod',
         title: 'Hot Rod',
         query: 'mediatype:texts AND (title:("hot rod magazine" OR "hot rod" OR "car craft" OR "motor trend" OR "road and track" OR "road & track" OR "car and driver" OR "rod and custom" OR "street rodder" OR "popular hot rodding" OR "sports cars illustrated" OR "muscle car review" OR "mopar muscle" OR "custom rodder" OR "custom cars" OR "motor life" OR "speed age" OR "autocar" OR "automobile quarterly" OR "classic cars" OR "motor sports" OR "racecar engineering" OR "bmw car" OR "classic & sports car") OR subject:("hot rod" OR "automobile magazine")) AND (subject:magazine OR title:magazine OR collection:*magazine*)' + ADULT_EXCLUDE
+      },
+      {
+        id: 'trains',
+        title: 'Train Magazines',
+        query: 'mediatype:texts AND (title:("trains magazine" OR "railfan" OR "railfan and railroad" OR "model railroader" OR "railway age" OR "railway world" OR "railway gazette" OR "railroad gazette" OR "locomotive magazine" OR "modern railroads" OR "railway journal" OR "railroad magazine") OR subject:("railroad magazines" OR "railway magazines" OR "railroad magazine" OR "railway magazine")) AND NOT title:(manual OR timetable OR catalog OR "annual report" OR prospectus OR song)' + ADULT_EXCLUDE
       },
       {
         id: 'aviation',

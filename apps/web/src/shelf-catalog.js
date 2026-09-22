@@ -291,6 +291,11 @@ export const SHELVES = [
     query: `mediatype:texts AND (title:("hot rod magazine" OR "hot rod" OR "car craft" OR "motor trend" OR "road and track" OR "road & track" OR "car and driver" OR "rod and custom" OR "street rodder" OR "popular hot rodding" OR "sports cars illustrated" OR "muscle car review" OR "mopar muscle" OR "custom rodder" OR "custom cars" OR "motor life" OR "speed age" OR "autocar" OR "automobile quarterly" OR "classic cars" OR "motor sports" OR "racecar engineering" OR "bmw car" OR "classic & sports car") OR subject:("hot rod" OR "automobile magazine")) AND (subject:magazine OR title:magazine OR collection:*magazine*)${ADULT_EXCLUDE}`
   },
   {
+    id: 'trains',
+    title: 'Train Magazines',
+    query: `mediatype:texts AND (title:("trains magazine" OR "railfan" OR "railfan and railroad" OR "model railroader" OR "railway age" OR "railway world" OR "railway gazette" OR "railroad gazette" OR "locomotive magazine" OR "modern railroads" OR "railway journal" OR "railroad magazine") OR subject:("railroad magazines" OR "railway magazines" OR "railroad magazine" OR "railway magazine")) AND NOT title:(manual OR timetable OR catalog OR "annual report" OR prospectus OR song)${ADULT_EXCLUDE}`
+  },
+  {
     id: 'aviation',
     title: 'Aviation',
     query: `mediatype:texts AND (title:("flying magazine" OR "aviation week" OR "air classics" OR "air progress" OR "aeroplane magazine" OR "flight international" OR "airforce magazine" OR "popular aviation") OR subject:("aviation magazine" OR "flying magazine" OR aviation)) AND (title:magazine OR subject:magazine OR collection:magazine_rack)${ADULT_EXCLUDE}`
