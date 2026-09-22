@@ -115,7 +115,7 @@ export const SHELVES = [
   {
     id: 'magazine-rack',
     title: 'Magazines',
-    query: `mediatype:texts AND collection:magazine_rack AND NOT subject:("comic books" OR comics OR superhero)${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND collection:magazine_rack AND NOT subject:("comic books" OR comics OR superhero OR newspapers OR newsletter OR bulletin OR "annual reports" OR catalogs OR directories OR textbooks) AND NOT title:(newspaper OR "peace news" OR bulletin OR newsletter OR "annual report" OR catalog OR catalogue OR directory OR proceedings OR cookbook OR textbook OR "official bulletin")${ADULT_EXCLUDE}`
   },
   {
     id: 'comics',
@@ -161,7 +161,7 @@ export const SHELVES = [
   {
     id: 'mens',
     title: 'Adventure',
-    query: `mediatype:texts AND (title:("true detective" OR argosy OR "saga magazine" OR "man's life" OR "true adventures") OR subject:("true detective" OR "true crime" OR "men's adventure"))${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:("true detective" OR argosy OR "saga magazine" OR "man's life" OR "true adventures") OR subject:("true detective" OR "true crime" OR "men's adventure")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:argosy) AND NOT title:(book OR handbook OR guide OR cookbook OR directory OR dissertation OR thesis OR report OR law OR legal OR corruption OR "identity theft" OR "case closed" OR novel)${ADULT_EXCLUDE}`
   },
   {
     id: 'superhero',
@@ -344,7 +344,7 @@ export const SHELVES = [
     id: 'openlib',
     title: 'Open Library',
     source: 'openlibrary',
-    olQuery: 'subject:magazines OR subject:periodicals OR subject:"comic books" OR subject:"graphic novels" OR title:magazine OR title:periodical OR title:"comic book"'
+    olQuery: '(subject:magazines OR subject:periodicals OR title:magazine OR title:periodical) AND NOT (subject:"comic books" OR subject:"graphic novels" OR subject:novels OR subject:fiction OR title:"how to start a magazine" OR title:"magazine writer")'
   },
   {
     id: 'ol-comics',
@@ -391,7 +391,7 @@ export const SHELVES = [
   {
     id: 'adult-mags',
     title: 'Adult Mags',
-    query: `mediatype:texts AND (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR milf OR cheri OR "color climax" OR "adult magazine" OR "high society" OR knave OR mayfair OR gallery OR oui) OR subject:("adult magazine" OR "men's magazine" OR nudist OR milf OR erotica)) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana"))`
+    query: `mediatype:texts AND (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR "color climax" OR "adult magazine" OR "high society" OR knave OR mayfair OR gallery OR oui OR "club international" OR "men only" OR cavalier OR playgirl) OR subject:("adult magazine" OR "men's magazine" OR nudist OR erotica)) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana" OR cheri OR "jointly administered" OR "legal proceedings" OR "annual report"))`
   },
   {
     id: 'adult-comics',

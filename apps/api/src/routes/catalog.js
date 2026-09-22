@@ -2,6 +2,7 @@ import { clean, errorJson, isValidCatalogId, json } from '../http.js';
 import { publicItem } from './items.js';
 import { sourceAdapter, configuredSourceIds } from '../sources/registry.js';
 import { sourceFailure } from '../sources/request.js';
+import { measureShelf } from '../audit.js';
 
 const SOURCE_NAMES = Object.freeze({
   archive: 'Internet Archive',
@@ -96,6 +97,14 @@ async function persistSourceHealth(env, source, detail) {
   await env.DB.prepare(`INSERT INTO source_health (source, status, total, item_count, error, checked_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(source) DO UPDATE SET status=excluded.status, total=excluded.total, item_count=excluded.item_count, error=excluded.error, checked_at=excluded.checked_at`).bind(source, detail.status || 'unknown', Number(detail.total) || 0, Number(detail.count) || 0, detail.error || (detail.errors || []).join('; ') || null, new Date().toISOString()).run();
 }
 
+async function persistShelfAudit(env, { shelfId, source, page, items, total, status }) {
+  if (!env.DB || !shelfId) return;
+  const audit = measureShelf(items, total, status);
+  const measuredAt = new Date().toISOString();
+  const auditKey = `${shelfId}|${source || 'archive'}|${page}`.slice(0, 240);
+  await env.DB.prepare(`INSERT INTO shelf_audits (audit_key, shelf_id, source, page, population, sample_count, readable_count, cover_count, duplicate_count, readable_rate, cover_rate, status, measured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(audit_key) DO UPDATE SET population=excluded.population, sample_count=excluded.sample_count, readable_count=excluded.readable_count, cover_count=excluded.cover_count, duplicate_count=excluded.duplicate_count, readable_rate=excluded.readable_rate, cover_rate=excluded.cover_rate, status=excluded.status, measured_at=excluded.measured_at`).bind(auditKey, shelfId, source || 'archive', page, audit.population, audit.sampleCount, audit.readableCount, audit.coverCount, audit.duplicateCount, audit.readableRate, audit.coverRate, audit.status, measuredAt).run();
+}
+
 async function stored(env, query, genre, page, source, newspaperMonthDay) {
   if (!env.DB) return { items: [], total: 0 };
   const fieldedQuery = /(?:\b(?:collection|title|subject|identifier|mediatype|date|language|year):|[()])/i.test(String(query || ''));
@@ -177,6 +186,7 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
     }).catch((error) => {
       console.error(JSON.stringify({ message: 'catalog_background_refresh_failed', requestId, error: error instanceof Error ? error.message : String(error) }));
     }));
+    ctx.waitUntil(persistShelfAudit(env, { shelfId, source, page, items: firstStored.items, total: firstStored.total, status: 'degraded' }).catch(() => {}));
     return staleResponse;
   }
 
@@ -232,6 +242,7 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
     partial: failed > 0,
   }, { requestId, cacheControl: 'public, max-age=120, stale-while-revalidate=600' });
   ctx.waitUntil(Promise.all(Object.entries(sourceDetails).map(([id, detail]) => persistSourceHealth(env, id, detail).catch(() => {}))));
+  if (shelfId) ctx.waitUntil(persistShelfAudit(env, { shelfId, source, page, items, total, status: stale ? 'degraded' : (items.length ? 'ok' : 'unavailable') }).catch(() => {}));
   if (shelfId && items.length) ctx.waitUntil(persistSnapshot(env, { shelfId, source, query, page, newspaperMonthDay, items, total, status: stale ? 'degraded' : 'ok' }).catch(() => {}));
   if (cache && !failed && !stale) {
     ctx.waitUntil(cache.put(cacheKey, response.clone()).catch((error) => {

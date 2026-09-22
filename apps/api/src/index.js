@@ -54,16 +54,18 @@ export default {
         let health = [];
         let snapshots = 0;
         let collections = 0;
+        let shelfAudits = [];
         if (env.DB) {
           try {
             health = (await env.DB.prepare('SELECT source, status, total, item_count, error, checked_at FROM source_health ORDER BY source').all()).results || [];
             snapshots = Number((await env.DB.prepare('SELECT COUNT(*) AS total FROM shelf_snapshots').first())?.total) || 0;
             collections = Number((await env.DB.prepare('SELECT COUNT(*) AS total FROM catalog_collections').first())?.total) || 0;
+            shelfAudits = (await env.DB.prepare('SELECT shelf_id, source, page, population, sample_count, readable_count, cover_count, duplicate_count, readable_rate, cover_rate, status, measured_at FROM shelf_audits ORDER BY measured_at DESC LIMIT 200').all()).results || [];
           } catch (error) {
             console.error(JSON.stringify({ message: 'diagnostics_read_failed', requestId, error: error instanceof Error ? error.message : String(error) }));
           }
         }
-        return json(request, env, { ok: true, service: 'magazine-rack-api', environment: env.ENVIRONMENT || 'development', sources: health, snapshotCount: snapshots, collectionMembershipCount: collections, checkedAt: now(), requestId: id }, { requestId: id, cacheControl: 'no-store' });
+        return json(request, env, { ok: true, service: 'magazine-rack-api', environment: env.ENVIRONMENT || 'development', sources: health, snapshotCount: snapshots, collectionMembershipCount: collections, shelfAuditCount: shelfAudits.length, shelfAudits, checkedAt: now(), requestId: id }, { requestId: id, cacheControl: 'no-store' });
       }
       if (request.method === 'GET' && catalogSearchPaths.has(url.pathname)) return await handleCatalogSearch(request, env, ctx, id);
       if (request.method === 'GET' && mediaPaths.has(url.pathname)) return await handleMedia(request, env, ctx, id);

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ADULT_SHELF_IDS, SHELVES } from '../apps/web/src/shelf-catalog.js';
 import { configuredSourceIds } from '../apps/api/src/sources/registry.js';
+import { measureShelf, passesPrimaryShelfAudit } from '../apps/api/src/audit.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const required = [
@@ -33,6 +34,8 @@ const required = [
   'apps/api/migrations/0002_catalog_access.sql',
   'apps/api/migrations/0003_taxonomy_snapshots.sql',
   'apps/api/migrations/0004_issue_date_index.sql',
+  'apps/api/migrations/0005_shelf_audits.sql',
+  'apps/api/src/audit.js',
   '.github/workflows/ci.yml',
   '.github/workflows/pages.yml',
   '.github/workflows/worker-deploy.yml',
@@ -52,6 +55,14 @@ console.log(`Magazine Rack checks passed (${required.length} required files pres
 if (SHELVES.length !== 52 || !['manga', 'trains', 'batman', 'spiderman', 'superman', 'xmen', 'archie'].every((id) => SHELVES.some((shelf) => shelf.id === id))) throw new Error(`Shelf parity check failed: expected 52 shelves with Manga, Trains, and character racks, found ${SHELVES.length}`);
 if (SHELVES.some((shelf) => ['gcd-series', 'ol-subjects', 'gbooks-comics', 'gbooks-mags', 'dpla-periodicals', 'loc-search-comics', 'loc-photos'].includes(shelf.id))) throw new Error('Shelf parity check failed: catalog-only or image-only racks are still exposed');
 if (!configuredSourceIds().includes('comicbookplus') || configuredSourceIds().includes('dpla')) throw new Error('Source registry check failed: Comic Book Plus must be active and DPLA must be removed');
+const qualityFixtures = [
+  { id: 'ok-1', title: 'Railway Age Magazine', readable: true, access: 'full', coverUrl: 'https://example.test/cover.jpg' },
+  { id: 'ok-2', title: 'Railway Age Magazine 2', readable: true, access: 'borrow', coverUrl: 'https://example.test/cover-2.jpg' },
+];
+const qualityAudit = measureShelf(qualityFixtures, 120, 'ok');
+if (!passesPrimaryShelfAudit(qualityAudit) || qualityAudit.population !== 120 || qualityAudit.readableRate !== 1 || qualityAudit.coverRate !== 1) throw new Error('Shelf audit regression check failed: healthy fixture did not pass');
+const weakAudit = measureShelf([{ id: 'weak', title: 'Catalog only', access: 'catalog' }], 1, 'unavailable');
+if (passesPrimaryShelfAudit(weakAudit)) throw new Error('Shelf audit regression check failed: weak fixture passed');
 if (ADULT_SHELF_IDS.length !== 2 || SHELVES.at(-2)?.id !== 'adult-mags' || SHELVES.at(-1)?.id !== 'adult-comics') {
   throw new Error('Shelf parity check failed: restricted shelves are not last');
 }
@@ -77,6 +88,9 @@ if (!standalone.includes('coverCandidateScore') || !standalone.includes('natural
 }
 if (!standalone.includes('state._backgroundAttempts') || !standalone.includes('Waiting…')) {
   throw new Error('Standalone checks failed: resilient background shelf queue is missing');
+}
+for (const marker of ['"peace news"', '"identity theft"', 'jointly administered', 'subject:"graphic novels"']) {
+  if (!standalone.includes(marker)) throw new Error(`Shelf quality check failed: missing noise guard ${marker}`);
 }
 if (/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(standalone) || !standalone.includes('<script src="config.js"></script>') || !/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(standalone)) {
   throw new Error('Standalone checks failed: the Pages release entrypoint or hosted shell worker is not canonical');

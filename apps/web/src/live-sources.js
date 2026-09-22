@@ -666,7 +666,13 @@ async function fetchOpenLibraryPage(shelf, page, options) {
     page: String(page)
   });
   const data = await fetchJson(`https://openlibrary.org/search.json?${params}`, options);
-  const docs = (data?.docs || []).map((item) => {
+  const broadMagazineQuery = !/\b(?:comic|graphic\s+novel)\b/i.test(query);
+  const docs = (data?.docs || []).filter((item) => {
+    if (!broadMagazineQuery) return true;
+    const title = String(item.title || '').toLowerCase();
+    const subjects = list(item.subject, 40).join(' ').toLowerCase();
+    return !/(^|\b)(the periodic table|how to start a magazine|magazine writer|cookbook|textbook|encyclopedia|fiction|novel|handbook)(\b|$)/i.test(`${title} ${subjects}`);
+  }).map((item) => {
     const iaId = list(item.ia, 1)[0] || null;
     const editionKey = item.edition_key?.find((value) => /^OL\d+M$/i.test(String(value))) || null;
     const availability = item.availability || {};
