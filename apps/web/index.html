@@ -1255,7 +1255,7 @@
     .adult-shelf .shelf-title::before { content: "18+ RACK"; color: var(--hot); }
     .shelf-header-actions { gap: 7px; }
     .shelf-count { padding: 6px 9px; color: var(--accent3); border: 1px solid rgba(255,209,102,.25); border-radius: 4px; background: rgba(255,209,102,.08); font: 9px "SFMono-Regular", Consolas, monospace; }
-    .shelf-pin, .shelf-refresh { width: 32px; height: 32px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; background: rgba(255,255,255,.04); }
+    .shelf-pin, .shelf-refresh { width: 36px; height: 36px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; background: rgba(255,255,255,.04); touch-action: manipulation; }
     .shelf-pin:hover, .shelf-refresh:hover, .shelf-pin.pinned { color: var(--accent3); border-color: var(--accent3); background: rgba(255,209,102,.1); }
     .shelf-refresh:active { color: var(--accent); }
     .shelf-track { gap: 14px; padding: 6px 22px 12px; align-items: flex-end; }
@@ -3603,7 +3603,9 @@
         if (entry.status === 'ok') ok++;
         var statusText = entry.status === 'ok' ? 'live' : entry.status === 'loading' ? 'checking' : entry.status === 'degraded' ? 'fallback' : entry.status === 'error' ? 'offline' : 'idle';
         var countText = entry.count ? ' · ' + entry.count.toLocaleString() : '';
-        return '<span class="health-pill ' + escapeHtml(entry.status) + '" title="' + escapeHtml(entry.detail || statusText) + '"><i></i>' + escapeHtml(SOURCE_LABELS[source]) + ' · ' + statusText + escapeHtml(countText) + '</span>';
+        var checkedText = entry.checkedAt ? new Date(entry.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+        var healthTitle = (entry.detail || statusText) + (checkedText ? ' · checked ' + checkedText : '');
+        return '<span class="health-pill ' + escapeHtml(entry.status) + '" title="' + escapeHtml(healthTitle) + '"><i></i>' + escapeHtml(SOURCE_LABELS[source]) + ' · ' + statusText + escapeHtml(countText) + (checkedText ? ' · ' + checkedText : '') + '</span>';
       }).join('');
       if (summary) summary.textContent = checked ? ok + '/' + checked + ' feeds responding' : 'Waiting for live feeds';
       document.querySelectorAll('[data-health-source]').forEach(function(el) {
@@ -3611,7 +3613,7 @@
         var entry = sourceHealthState[source] || { status: 'idle' };
         el.className = 'shelf-health ' + entry.status;
         el.innerHTML = '<i></i><span>' + escapeHtml(entry.status === 'ok' ? 'live' : entry.status === 'degraded' ? 'fallback' : entry.status === 'error' ? 'offline' : entry.status === 'loading' ? 'checking' : 'idle') + '</span>';
-        el.title = entry.detail || SOURCE_LABELS[source] || source;
+        el.title = (entry.detail || SOURCE_LABELS[source] || source) + (entry.checkedAt ? ' · checked ' + new Date(entry.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');
       });
     }
 
