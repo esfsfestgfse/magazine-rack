@@ -113,6 +113,9 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   // catalog response for the Pages app during an upstream outage.
   const cacheKeyUrl = new URL(request.url);
   cacheKeyUrl.searchParams.delete('_');
+  // Bump this when the cache response contract or shelf taxonomy changes so
+  // an older degraded edge response cannot survive a deployment.
+  cacheKeyUrl.searchParams.set('__cache_version', 'taxonomy-v1');
   const cache = globalThis.caches?.default;
   const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' });
   const cached = cache ? await cache.match(cacheKey) : null;
@@ -130,7 +133,6 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
       sourceDetails: sourceDetailsFor(source, firstStored.items, firstStored.total, 'degraded', 'serving_cached_snapshot'),
       stale: true, partial: true, refresh: 'background'
     }, { requestId, cacheControl: 'public, max-age=20, stale-while-revalidate=300' });
-    if (cache) ctx.waitUntil(cache.put(cacheKey, staleResponse.clone()).catch(() => {}));
     ctx.waitUntil(refreshLiveSnapshot(env, query, genre, page, source, newspaperMonthDay).catch((error) => {
       console.error(JSON.stringify({ message: 'catalog_background_refresh_failed', requestId, error: error instanceof Error ? error.message : String(error) }));
     }));
