@@ -22,7 +22,9 @@ export const MANGA_QUERY =
   `mediatype:texts AND (title:(manga OR manhwa OR manhua OR doujinshi OR tankobon OR tankōbon OR shonen OR shōnen OR shojo OR shoujo OR seinen OR josei OR "japanese comic" OR "japanese comics")` +
   ` OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels")` +
   ` OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*)` +
-  ` OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))${ADULT_EXCLUDE}`;
+  ` OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))` +
+  ` AND NOT title:("how to draw manga" OR "creating manga" OR "draw manga" OR "manga action figures" OR "manga profiles" OR "manga guide" OR "manga art")` +
+  ` AND NOT title:("a midsummer night's dream" OR "meet the robinsons" OR "romeo and juliet" OR "john barrymore" OR avatar)` + ADULT_EXCLUDE;
 
 /** Strong title/creator signals; deliberately do not match vague words such as "kid". */
 export const SEXUAL_TITLE_WORDS = [
@@ -137,7 +139,7 @@ export const SHELVES = [
   {
     id: 'horror',
     title: 'Horror',
-    query: `mediatype:texts AND (subject:("horror magazine" OR "weird tales" OR "horror fiction") OR (subject:horror AND (subject:magazine OR title:magazine OR collection:magazine_rack))) AND NOT subject:("comic books" OR comics)${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (subject:("horror magazine" OR "weird tales" OR "horror fiction") OR title:("weird tales" OR "amazing stories" OR "tales from the crypt" OR "vault of horror")) AND NOT subject:("comic books" OR comics OR newspapers OR newspaper OR periodicals) AND NOT collection:(newspapers OR newsmagazines OR periodicals) AND NOT title:(newspaper OR "diario oficial" OR "annual report" OR bulletin OR architect)${ADULT_EXCLUDE}`
   },
   {
     id: 'vintage',
@@ -329,7 +331,7 @@ export const SHELVES = [
     id: 'openlib',
     title: 'Open Library',
     source: 'openlibrary',
-    olQuery: 'magazine OR periodical OR "comic book"'
+    olQuery: 'subject:magazines OR subject:periodicals OR subject:"comic books" OR subject:"graphic novels" OR title:magazine OR title:periodical OR title:"comic book"'
   },
   {
     id: 'ol-comics',
