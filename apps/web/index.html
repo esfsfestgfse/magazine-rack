@@ -1410,10 +1410,11 @@
 
     // Strong adult signals only — vague words like "sexual" were wiping Adventure/true crime
     const SEXUAL_TITLE_WORDS = [
-      'playboy','penthouse','hustler','barely legal','swank','nudist','erotic',
+      'playboy','penthouse','hustler','barely legal','gallery','swank','nudist','erotic',
       'erotica','milf','housewives','readers wives','cheri','cherri','breasts',
       'color climax','bondage','high society','knave','mayfair','rustler','razzle',
-      'juggs','voluptuous','gang bang','sex magazine','adult magazine','xxx',
+      'juggs','voluptuous','club international','men only','cavalier','playgirl',
+      'gang bang','sex magazine','adult magazine','xxx',
       'porn','pornography','gay comix','tijuana','adult comic','adult comix',
       'sex comic','smut','hentai','yaoi','yuri','porn comic','erotic comic',
       'fetish','bdsm','jiz comics','topless','striptease','softcore','hardcore',
@@ -1422,7 +1423,8 @@
     ];
     const SEXUAL_SUBJECT_WORDS = [
       'adult magazine','adult magazines','adult comics','adult comix','erotica',
-      'erotic','nudist','pornography','porn','milf','bondage','hentai'
+      'erotic','nudist','pornography','porn','milf','bondage','hentai',
+      "men's magazine", "men's magazines", 'glamour magazine', 'girlie magazine'
     ];
 
     const KIDS_BLOCK = [
@@ -1771,7 +1773,7 @@
         id: 'adult-mags',
         title: 'Adult Mags',
         // Magazines only — not comics
-        query: 'mediatype:texts AND (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR milf OR cheri OR "color climax" OR "adult magazine" OR "high society" OR knave OR mayfair OR gallery OR oui) OR subject:("adult magazine" OR "men\'s magazine" OR nudist OR milf OR erotica)) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana"))'
+        query: 'mediatype:texts AND (collection:(magazine_rack OR mensmagazine OR mens_magazines OR erotica OR adultmagazines) OR title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR milf OR cheri OR "color climax" OR "adult magazine" OR "high society" OR knave OR mayfair OR gallery OR oui OR "club international" OR "men only" OR cavalier OR playgirl) OR subject:("adult magazine" OR "adult magazines" OR "men\'s magazine" OR "men\'s magazines" OR nudist OR milf OR erotica OR erotic OR glamour OR "girlie magazine")) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana" OR "annual report" OR "legal proceedings" OR dissertation OR thesis OR cookbook OR "playboy comes home" OR "playboy gourmet"))'
       },
       {
         id: 'adult-comics',
