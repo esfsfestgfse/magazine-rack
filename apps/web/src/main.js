@@ -79,7 +79,7 @@ function syncRemoteLibrary(operation) {
   operation(key).catch(() => setNotice('Saved on this device; cloud sync is unavailable.'));
 }
 
-function rackState(shelf) { if (!state.racks.has(shelf.id)) state.racks.set(shelf.id, { docs: [], page: 0, total: 0, cursor: null, hasMore: true, loading: false, error: '', loaded: false, fallback: false }); return state.racks.get(shelf.id); }
+function rackState(shelf) { if (!state.racks.has(shelf.id)) state.racks.set(shelf.id, { docs: [], page: 0, total: 0, cursor: null, hasMore: true, loading: false, error: '', loaded: false, fallback: false, metric: store.getShelfMetric(shelf.id) }); return state.racks.get(shelf.id); }
 function fallbackDocsForShelf(shelf) {
   const docs = seedDocs();
   const range = String(state.decade || '').split(/\s+TO\s+/i).map((value) => Number(value.slice(0, 4)) || 0);
@@ -115,8 +115,26 @@ function shelfMarkup(shelf, index) {
   const adult = isAdultShelfId(shelf.id);
   const cards = docs.map((doc, cardIndex) => coverMarkup(doc, cardIndex)).join('');
   const status = current.loading ? 'Loading…' : current.fallback ? `${current.docs.length} preview covers` : current.error ? 'Unavailable' : current.total ? `${Math.min(current.total, 999999).toLocaleString()} found` : current.loaded ? 'No results' : 'Ready to load';
+  const metric = current.metric || store.getShelfMetric(shelf.id);
+  const metricLabel = metric ? `${Math.round(metric.readableRate * 100)}% readable · ${Math.round(metric.coverRate * 100)}% covers` : '';
   const description = shelf.newspaperDateMode === 'month-day' ? `${shelf.description || rackDescription(shelf)} · ${newspaperDateLabel()}` : (shelf.description || rackDescription(shelf));
-  return `<section class="rack ${adult ? 'adult-rack' : ''} ${shelf.secondary ? 'secondary-rack' : ''}" id="rack-${escapeHtml(shelf.id)}" data-rack-id="${escapeHtml(shelf.id)}" data-index="${index}"><div class="rack-header"><div class="rack-kicker"><span>${String(index + 1).padStart(2, '0')}</span><i></i>${adult ? 'RESTRICTED EDITION' : shelf.secondary ? 'SECONDARY SOURCE' : 'LIVE COLLECTION'}</div><div class="rack-title-row"><div><h2>${escapeHtml(shelf.title)}</h2><p>${escapeHtml(description)}</p></div><div class="rack-actions"><a class="rack-see-all" href="#/shelf/${encodeURIComponent(shelf.id)}">See all</a><span class="rack-count">${escapeHtml(status)}</span><button class="rack-icon ${isPinned(shelf) ? 'active' : ''}" data-action="pin" data-id="${escapeHtml(shelf.id)}" aria-label="${isPinned(shelf) ? 'Unpin' : 'Pin'} ${escapeHtml(shelf.title)}">${isPinned(shelf) ? '★' : '☆'}</button><button class="rack-icon" data-action="refresh-rack" data-id="${escapeHtml(shelf.id)}" aria-label="Refresh ${escapeHtml(shelf.title)}">${icon('refresh')}</button></div></div></div><div class="rack-track" id="track-${escapeHtml(shelf.id)}">${current.loading && !cards ? loadingCards() : cards || (current.error ? `<div class="rack-state error-state"><strong>Rack asleep</strong><span>${escapeHtml(current.error)}</span><button data-action="refresh-rack" data-id="${escapeHtml(shelf.id)}">Try again</button></div>` : current.loaded ? '<div class="rack-state"><strong>Nothing on this shelf yet.</strong><span>Try refreshing this collection.</span></div>' : loadingCards(5))}</div>${railMarkup()}${current.hasMore && current.loaded ? `<button class="rack-more" data-action="load-more" data-id="${escapeHtml(shelf.id)}">Load more issues ${icon('arrow')}</button>` : ''}</section>`;
+  return `<section class="rack ${adult ? 'adult-rack' : ''} ${shelf.secondary ? 'secondary-rack' : ''}" id="rack-${escapeHtml(shelf.id)}" data-rack-id="${escapeHtml(shelf.id)}" data-index="${index}"><div class="rack-header"><div class="rack-kicker"><span>${String(index + 1).padStart(2, '0')}</span><i></i>${adult ? 'RESTRICTED EDITION' : shelf.secondary ? 'SECONDARY SOURCE' : 'LIVE COLLECTION'}</div><div class="rack-title-row"><div><h2>${escapeHtml(shelf.title)}</h2><p>${escapeHtml(description)}</p>${metricLabel ? `<small class="rack-metric">${escapeHtml(metricLabel)}</small>` : ''}</div><div class="rack-actions"><a class="rack-see-all" href="#/shelf/${encodeURIComponent(shelf.id)}">See all</a><span class="rack-count">${escapeHtml(status)}</span><button class="rack-icon ${isPinned(shelf) ? 'active' : ''}" data-action="pin" data-id="${escapeHtml(shelf.id)}" aria-label="${isPinned(shelf) ? 'Unpin' : 'Pin'} ${escapeHtml(shelf.title)}">${isPinned(shelf) ? '★' : '☆'}</button><button class="rack-icon" data-action="refresh-rack" data-id="${escapeHtml(shelf.id)}" aria-label="Refresh ${escapeHtml(shelf.title)}">${icon('refresh')}</button></div></div></div><div class="rack-track" id="track-${escapeHtml(shelf.id)}">${current.loading && !cards ? loadingCards() : cards || (current.error ? `<div class="rack-state error-state"><strong>Rack asleep</strong><span>${escapeHtml(current.error)}</span><button data-action="refresh-rack" data-id="${escapeHtml(shelf.id)}">Try again</button></div>` : current.loaded ? '<div class="rack-state"><strong>Nothing on this shelf yet.</strong><span>Try refreshing this collection.</span></div>' : loadingCards(5))}</div>${railMarkup()}${current.hasMore && current.loaded ? `<button class="rack-more" data-action="load-more" data-id="${escapeHtml(shelf.id)}">Load more issues ${icon('arrow')}</button>` : ''}</section>`;
+}
+
+function shelfMetric(docs, health = 'live') {
+  const ids = new Set();
+  const titles = new Set();
+  let duplicateCount = 0;
+  const hasCover = (doc) => Boolean(doc.cover || doc.fullImage || (doc.source === 'ia' && idOf(doc)));
+  docs.forEach((doc) => {
+    const id = idOf(doc);
+    const title = titleOf(doc).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    if (id && ids.has(id)) duplicateCount += 1;
+    if (title && titles.has(title)) duplicateCount += 1;
+    if (id) ids.add(id);
+    if (title) titles.add(title);
+  });
+  return { sampleCount: docs.length, readableRate: docs.length ? docs.filter(isReadable).length / docs.length : 0, coverRate: docs.length ? docs.filter(hasCover).length / docs.length : 0, duplicateCount, health, updatedAt: new Date().toISOString() };
 }
 function newspaperDateLabel() { const [month, day] = monthDayKey().split('-'); return month && day ? `newspapers dated ${month}/${day} across years` : 'newspapers matched by calendar day'; }
 function rackDescription(shelf) { return shelf.source ? `${sourceLabel(shelf.source)} · live feed` : 'Deep search across the Internet Archive'; }
@@ -149,9 +167,18 @@ function continueSection() {
 }
 
 function eraChips() { return `<div class="era-chips" aria-label="Filter by era">${ERA_FILTERS.map(([label, value]) => `<button class="era-chip ${state.decade === value ? 'active' : ''}" data-action="set-decade" data-decade="${escapeHtml(value)}">${escapeHtml(label)}</button>`).join('')}</div>`; }
+function curatedHome() {
+  const lanes = [
+    ['Characters & Series', 'Follow a run from the first issue.', ['batman', 'spiderman', 'superman', 'xmen', 'archie']],
+    ['Comics & Manga', 'Panels, volumes, and sequential art.', ['comics', 'manga', 'superhero', 'comicbookplus']],
+    ['The Periodical Press', 'Magazines and papers across centuries.', ['magazine-rack', 'trains', 'hotrod', 'newspapers']],
+    ['Specialty Stacks', 'Zines, games, pulp, science, and more.', ['zines', 'gaming', 'pulp', 'scifi']]
+  ];
+  return `<section class="curated-home"><div class="curated-intro"><div><span class="eyebrow">CURATED FRONT PAGE</span><h2>Choose a door<br><i>into the stacks.</i></h2></div><p>Start with a world, a format, or a strange little corner. Every lane leads to a dedicated issue index.</p></div>${lanes.map(([title, description, ids]) => `<section class="curated-lane"><div class="curated-lane-heading"><div><span class="eyebrow">${escapeHtml(title)}</span><p>${escapeHtml(description)}</p></div><span>${ids.length} shelves</span></div><div class="curated-cards">${ids.map((id) => { const shelf = SHELVES.find((entry) => entry.id === id); if (!shelf) return ''; const current = rackState(shelf); const preview = current.docs[0]; return `<a class="curated-card ${shelf.secondary ? 'secondary-rack' : ''}" href="#/shelf/${encodeURIComponent(id)}"><span class="curated-number">${String(SHELVES.indexOf(shelf) + 1).padStart(2, '0')}</span><strong>${escapeHtml(shelf.title)}</strong><small>${escapeHtml(shelf.secondary ? 'Secondary / image-led source' : preview ? titleOf(preview) : shelf.description || 'Open issue index')}</small><em>Browse ${icon('arrow')}</em></a>`; }).join('')}</div></section>`).join('')}</section>`;
+}
 function racksView() {
   const shelves = orderedShelves();
-  return `<div class="view racks-view">${masthead()}${continueSection()}<div class="rack-intro"><div><span class="eyebrow">THE NEWSSTAND</span><h2>Browse the whole rack</h2><p>Every row is live. Scroll sideways, then keep going down.</p></div><div class="rack-intro-tools"><span class="data-note"><i></i> Public source feeds</span><button data-action="toggle-wall">${icon('grid')} Cover wall</button></div></div>${eraChips()}<div class="jump-chips">${visibleShelves().slice(0, 18).map((shelf) => `<a href="#rack-${escapeHtml(shelf.id)}">${escapeHtml(shelf.title)}</a>`).join('')}</div><div class="racks-list">${shelves.map((shelf, index) => shelfMarkup(shelf, index)).join('')}</div></div>`;
+  return `<div class="view racks-view">${masthead()}${continueSection()}${curatedHome()}<div class="rack-intro"><div><span class="eyebrow">THE NEWSSTAND</span><h2>Browse the whole rack</h2><p>Every row is live. Scroll sideways, then keep going down.</p></div><div class="rack-intro-tools"><span class="data-note"><i></i> Public source feeds</span><button data-action="toggle-wall">${icon('grid')} Cover wall</button></div></div>${eraChips()}<div class="jump-chips">${visibleShelves().slice(0, 18).map((shelf) => `<a href="#rack-${escapeHtml(shelf.id)}">${escapeHtml(shelf.title)}</a>`).join('')}</div><div class="racks-list">${shelves.map((shelf, index) => shelfMarkup(shelf, index)).join('')}</div></div>`;
 }
 
 function wallView() {
@@ -250,7 +277,7 @@ async function loadShelf(id, reset = false) {
     if (!current.docs.length && shelf.newspaperDateMode !== 'month-day') { current.docs = fallbackDocsForShelf(shelf); current.total = current.docs.length; current.fallback = current.docs.length > 0; current.error = ''; }
     else if (!current.docs.length) current.error = `No readable ${newspaperDateLabel()} were returned.`;
     else current.error = error?.message || 'This source did not respond';
-  } finally { current.loading = false; state.activeLoads -= 1; render(); pumpLoads(); }
+  } finally { current.metric = shelfMetric(current.docs, current.fallback ? 'fallback' : current.error ? 'degraded' : 'live'); store.setShelfMetric(shelf.id, current.metric); current.loading = false; state.activeLoads -= 1; render(); pumpLoads(); }
 }
 
 function bindObserver() {

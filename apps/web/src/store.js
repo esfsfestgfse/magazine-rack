@@ -4,6 +4,7 @@ const LIBRARY_KEY = 'margin-library-key-v1';
 const blankState = () => ({
   library: [],
   history: [],
+  shelfMetrics: {},
   prefs: { wall: false, hidden: {}, pinned: {}, europeanaKey: '' },
 });
 
@@ -63,6 +64,7 @@ export const store = {
   getPrefs: () => state.prefs,
   getLibrary: () => state.library,
   getHistory: () => state.history,
+  getShelfMetric: (id) => state.shelfMetrics?.[id] || null,
   isSaved: (id) => state.library.some((item) => item.id === identity(id)),
   getSaved: (id) => state.library.find((item) => item.id === identity(id)) || null,
   getLibraryKey() {
@@ -109,6 +111,11 @@ export const store = {
     const item = libraryRecord(doc);
     if (!item.id) return;
     state = { ...state, history: [{ ...item, at: new Date().toISOString() }, ...state.history.filter((old) => old.id !== item.id)].slice(0, 40) };
+    persist();
+  },
+  setShelfMetric(id, metric) {
+    if (!id) return;
+    state = { ...state, shelfMetrics: { ...state.shelfMetrics, [id]: { ...metric, shelfId: id, updatedAt: metric.updatedAt || new Date().toISOString() } } };
     persist();
   },
   setWall(wall) { state = { ...state, prefs: { ...state.prefs, wall: Boolean(wall) } }; persist(); },
