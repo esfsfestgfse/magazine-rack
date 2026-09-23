@@ -89,7 +89,7 @@ if (!standalone.includes('coverCandidateScore') || !standalone.includes('natural
 if (!standalone.includes('state._backgroundAttempts') || !standalone.includes('Waiting…')) {
   throw new Error('Standalone checks failed: resilient background shelf queue is missing');
 }
-for (const marker of ['"peace news"', '"identity theft"', 'jointly administered', 'subject:"graphic novels"']) {
+for (const marker of ['"peace news"', '"identity theft"', 'jointly administered', 'subject:"graphic novels"', 'world trade center', 'porkovich', 'rawDocs', 'BACKGROUND_SHELF_CONCURRENCY = 3']) {
   if (!standalone.includes(marker)) throw new Error(`Shelf quality check failed: missing noise guard ${marker}`);
 }
 if (/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(standalone) || !standalone.includes('<script src="config.js"></script>') || !/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(standalone)) {

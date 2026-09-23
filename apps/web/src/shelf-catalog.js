@@ -146,7 +146,7 @@ export const SHELVES = [
   {
     id: 'horror',
     title: 'Horror',
-    query: `mediatype:texts AND (subject:("horror magazine" OR "weird tales" OR "horror fiction") OR title:("weird tales" OR "amazing stories" OR "tales from the crypt" OR "vault of horror")) AND NOT subject:("comic books" OR comics OR newspapers OR newspaper OR periodicals) AND NOT collection:(newspapers OR newsmagazines OR periodicals) AND NOT title:(newspaper OR "diario oficial" OR "annual report" OR bulletin OR architect)${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (subject:("horror magazine" OR "weird tales" OR "horror fiction") OR title:("weird tales" OR "amazing stories" OR "tales from the crypt" OR "vault of horror")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:("weird tales" OR "amazing stories")) AND NOT subject:("comic books" OR comics OR newspapers OR newspaper OR periodicals) AND NOT collection:(newspapers OR newsmagazines OR periodicals) AND NOT title:(newspaper OR "diario oficial" OR "annual report" OR bulletin OR architect OR novel OR novels OR "world trade center" OR "divine intervention" OR "around the globe" OR "strange case" OR "bad death" OR "traitor to the blood" OR "never the bride" OR "what a world")${ADULT_EXCLUDE}`
   },
   {
     id: 'vintage',
@@ -161,7 +161,7 @@ export const SHELVES = [
   {
     id: 'mens',
     title: 'Adventure',
-    query: `mediatype:texts AND (title:("true detective" OR argosy OR "saga magazine" OR "man's life" OR "true adventures") OR subject:("true detective" OR "true crime" OR "men's adventure")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:argosy) AND NOT collection:(internetarchivebooks OR printdisabled OR inlibrary) AND NOT title:(book OR handbook OR guide OR cookbook OR directory OR dissertation OR thesis OR report OR law OR legal OR corruption OR "identity theft" OR "case closed" OR "rolling stone" OR "israel argosy" OR "conrad argosy" OR novel)${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:("true detective" OR argosy OR "saga magazine" OR "man's life" OR "true adventures" OR "startling detective" OR "wild west weekly" OR "top-notch") OR subject:("true detective" OR "true crime" OR "men's adventure")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:(argosy OR "true detective" OR "true adventures")) AND NOT collection:(internetarchivebooks OR printdisabled OR inlibrary) AND NOT title:(book OR handbook OR guide OR cookbook OR directory OR dissertation OR thesis OR report OR law OR legal OR corruption OR "identity theft" OR "case closed" OR "rolling stone" OR "israel argosy" OR "conrad argosy" OR novel OR "porkovich" OR "education group" OR "legal proceedings")${ADULT_EXCLUDE}`
   },
   {
     id: 'superhero',
@@ -344,7 +344,7 @@ export const SHELVES = [
     id: 'openlib',
     title: 'Open Library',
     source: 'openlibrary',
-    olQuery: '(subject:magazines OR subject:periodicals OR title:magazine OR title:periodical) AND NOT (subject:"comic books" OR subject:"graphic novels" OR subject:novels OR subject:fiction OR title:"how to start a magazine" OR title:"magazine writer")'
+    olQuery: '(subject:magazines OR subject:periodicals OR title:magazine OR title:periodical) AND NOT (subject:"comic books" OR subject:"graphic novels" OR subject:novels OR subject:fiction OR title:"how to start a magazine" OR title:"magazine writer" OR title:"periodic table" OR title:"periodic tales" OR title:"periodization")'
   },
   {
     id: 'ol-comics',
@@ -391,7 +391,7 @@ export const SHELVES = [
   {
     id: 'adult-mags',
     title: 'Adult Mags',
-    query: `mediatype:texts AND (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR "color climax" OR "adult magazine" OR "high society" OR knave OR mayfair OR gallery OR oui OR "club international" OR "men only" OR cavalier OR playgirl) OR subject:("adult magazine" OR "men's magazine" OR nudist OR erotica)) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana" OR cheri OR "jointly administered" OR "legal proceedings" OR "annual report"))`
+    query: `mediatype:texts AND (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR "color climax" OR "adult magazine" OR "high society" OR oui OR "club international" OR "men only" OR cavalier OR playgirl) OR subject:("adult magazine" OR "men's magazine" OR nudist OR erotica)) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana" OR cheri OR gallery OR knave OR mayfair OR "jointly administered" OR "legal proceedings" OR "annual report" OR art OR plays OR theatre OR theater OR book OR dissertation))`
   },
   {
     id: 'adult-comics',

@@ -671,7 +671,9 @@ async function fetchOpenLibraryPage(shelf, page, options) {
     if (!broadMagazineQuery) return true;
     const title = String(item.title || '').toLowerCase();
     const subjects = list(item.subject, 40).join(' ').toLowerCase();
-    return !/(^|\b)(the periodic table|how to start a magazine|magazine writer|cookbook|textbook|encyclopedia|fiction|novel|handbook)(\b|$)/i.test(`${title} ${subjects}`);
+    const haystack = `${title} ${subjects}`;
+    if (!/\b(?:magazine|periodical|zine|periodicals|magazines)\b/i.test(haystack)) return false;
+    return !/(^|\b)(the periodic table|periodic tales|periodization|disappearing spoon|indian architecture|true crime|dirty,? dirty|the rambler|geological magazine|how to start a magazine|magazine writer|cookbook|textbook|encyclopedia|fiction|novel|handbook)(\b|$)/i.test(haystack);
   }).map((item) => {
     const iaId = list(item.ia, 1)[0] || null;
     const editionKey = item.edition_key?.find((value) => /^OL\d+M$/i.test(String(value))) || null;
