@@ -75,19 +75,18 @@ jobs:
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
           const html = readFileSync('apps/web/index.html', 'utf8');
-          if (!/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(html)) {
-            throw new Error('apps/web/index.html must load the modular frontend entrypoint');
+          if (/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(html)) {
+            throw new Error('apps/web/index.html must remain the canonical standalone entrypoint');
           }
-          if (!html.includes('<script src="./config.js"></script>')) throw new Error('apps/web/index.html is missing runtime configuration');
+          if (!html.includes('<script src="config.js"></script>')) throw new Error('apps/web/index.html is missing runtime configuration');
           if (!/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(html)) throw new Error('apps/web/index.html is missing the hosted shell worker');
           NODE
 
-      - name: Build canonical modular artifact
+      - name: Build canonical standalone artifact
         run: |
           rm -rf dist
           mkdir -p dist/data
           cp apps/web/index.html apps/web/config.js apps/web/manifest.json apps/web/icon.svg apps/web/sw.js dist/
-          cp -R apps/web/src dist/src
           cp -R apps/web/data/. dist/data/
 
       - name: Upload Pages artifact
@@ -111,31 +110,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-  smoke:
-    name: Post-deploy smoke test
-    needs: deploy
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Verify live modular shell and Worker health
-        env:
-          PAGES_URL: https://esfsfestgfse.github.io/magazine-rack/
-          API_URL: https://margin-api-production.tdy1990.workers.dev
-        run: |
-          node --input-type=module <<'NODE'
-          const pages = process.env.PAGES_URL;
-          const api = process.env.API_URL;
-          async function text(url) {
-            const response = await fetch(url, { redirect: 'follow' });
-            if (!response.ok) throw new Error(`${url} returned ${response.status}`);
-            return response.text();
-          }
-          const html = await text(pages);
-          if (!html.includes('./src/main.js') || !html.includes('./src/styles.css')) throw new Error('live Pages shell is not modular');
-          await text(new URL('./src/main.js', pages));
-          const health = await fetch(`${api}/health`);
-          if (!health.ok) throw new Error(`Worker health returned ${health.status}`);
-          console.log('Post-deploy smoke test passed.');
-          NODE

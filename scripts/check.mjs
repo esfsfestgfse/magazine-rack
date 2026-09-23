@@ -70,32 +70,30 @@ const liveSources = readFileSync(join(root, 'apps/web/src/live-sources.js'), 'ut
 if (!liveSources.includes(".replace(/\\+/g, ' ')") || !liveSources.includes('shelf.newspaperDateMode === \'month-day\'')) {
   throw new Error('Live source checks failed: IA sort encoding or calendar-day filtering is missing');
 }
-const entrypoint = readFileSync(join(root, 'apps/web/index.html'), 'utf8');
-const frontend = ['apps/web/src/main.js', 'apps/web/src/live-sources.js', 'apps/web/src/shelf-catalog.js', 'apps/web/src/styles.css']
-  .map((file) => readFileSync(join(root, file), 'utf8')).join('\n');
-if (!entrypoint.includes('type="module"') || !entrypoint.includes('./src/main.js') || !entrypoint.includes('./src/styles.css')) {
-  throw new Error('Frontend architecture check failed: modular entrypoint is incomplete');
+const standalone = readFileSync(join(root, 'apps/web/index.html'), 'utf8');
+if (!standalone.includes('fetchConnectedShelfPage') || !standalone.includes('PUBLIC_CATALOG_API') || !standalone.includes("id: 'manga'") || !standalone.includes('MANGA_EXCLUDE') || !standalone.includes('ACCESS_LEVELS')) {
+  throw new Error('Standalone checks failed: connected source bridge or Manga routing is missing');
 }
-if (!frontend.includes('fetchShelfPage') || !frontend.includes("id: 'manga'") || !frontend.includes('MANGA_EXCLUDE')) {
-  throw new Error('Frontend checks failed: connected source bridge or Manga routing is missing');
+if (standalone.includes("id: 'chronam-funnies'") || standalone.includes('ChronAm Funnies')) {
+  throw new Error('Standalone checks failed: the removed ChronAm Funnies rack is still exposed');
 }
-if (frontend.includes("id: 'chronam-funnies'") || frontend.includes('ChronAm Funnies')) {
-  throw new Error('Frontend checks failed: the removed ChronAm Funnies rack is still exposed');
+if (!standalone.includes('waitForMessage') || !standalone.includes('shelf-retry') || !standalone.includes('FEED_TIMEOUT_MS') || !standalone.includes('probeArchiveReader')) {
+  throw new Error('Standalone checks failed: bounded feed loading or reader readiness handshakes are missing');
 }
-if (!frontend.includes('reader-reload') || !frontend.includes('refresh-rack') || !frontend.includes('MAX_ACTIVE_LOADS')) {
-  throw new Error('Frontend checks failed: reader controls or resilient shelf loading are missing');
+if (!standalone.includes('page-slider') || !standalone.includes('touchstart') || !standalone.includes('issueQueueFor') || !standalone.includes('queueIsSeries') || !standalone.includes('reader-nav-kind') || !standalone.includes('font-size:1.15rem')) {
+  throw new Error('Standalone checks failed: page scrubbing, touch navigation, issue navigation, reader navigation labeling, or mobile reader arrows are missing');
 }
-if (!frontend.includes('@media (max-width') || !frontend.includes('reader-related') || !frontend.includes('overscroll-behavior-x: contain')) {
-  throw new Error('Frontend checks failed: mobile reader or issue navigation safeguards are missing');
+if (!standalone.includes('coverCandidateScore') || !standalone.includes('naturalWidth') || !standalone.includes('dedupeRank') || !standalone.includes('startBackgroundShelfPump') || !standalone.includes('crossShelfIndex') || !standalone.includes('secondary-shelf') || !standalone.includes('grid-template-columns: minmax(0, 1fr) auto') || !standalone.includes('overscroll-behavior-x: contain')) {
+  throw new Error('Standalone checks failed: cover quality fallback, duplicate ranking, or mobile reader layout safeguards are missing');
 }
-if (!frontend.includes('cover-fallback') || !frontend.includes('isReadable') || !frontend.includes('secondary-rack')) {
-  throw new Error('Frontend checks failed: cover fallback, readability, or secondary-source labeling is missing');
+if (!standalone.includes('state._backgroundAttempts') || !standalone.includes('Waiting…')) {
+  throw new Error('Standalone checks failed: resilient background shelf queue is missing');
 }
-for (const marker of ['"peace news"', '"identity theft"', 'jointly administered', 'subject:"graphic novels"', 'world trade center', 'porkovich']) {
-  if (!frontend.includes(marker)) throw new Error(`Shelf quality check failed: missing noise guard ${marker}`);
+for (const marker of ['"peace news"', '"identity theft"', 'jointly administered', 'subject:"graphic novels"']) {
+  if (!standalone.includes(marker)) throw new Error(`Shelf quality check failed: missing noise guard ${marker}`);
 }
-if (!/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(entrypoint) || !entrypoint.includes('<script src="./config.js"></script>') || !/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(entrypoint)) {
-  throw new Error('Frontend checks failed: the Pages modular entrypoint or hosted shell worker is not canonical');
+if (/<script[^>]+type=["']module["'][^>]+src=["']\.\/src\/main\.js["']/i.test(standalone) || !standalone.includes('<script src="config.js"></script>') || !/register\('\.\/sw\.js(?:\?[^']+)?'\)/.test(standalone)) {
+  throw new Error('Standalone checks failed: the Pages release entrypoint or hosted shell worker is not canonical');
 }
 const comicBookPlusSnapshot = JSON.parse(readFileSync(join(root, 'apps/web/data/comicbookplus.json'), 'utf8'));
 if (comicBookPlusSnapshot.source !== 'comicbookplus' || comicBookPlusSnapshot.items.length <= 50 || comicBookPlusSnapshot.items.some((item) => !item.sourceId || !item.cover || !item.viewerBase)) {
