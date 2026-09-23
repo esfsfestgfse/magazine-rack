@@ -156,7 +156,7 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   cacheKeyUrl.searchParams.delete('_');
   // Bump this when the cache response contract or shelf taxonomy changes so
   // an older degraded edge response cannot survive a deployment.
-  cacheKeyUrl.searchParams.set('__cache_version', 'taxonomy-v1');
+  cacheKeyUrl.searchParams.set('__cache_version', 'taxonomy-v2');
   const cache = globalThis.caches?.default;
   const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' });
   const cached = cache ? await cache.match(cacheKey) : null;
