@@ -1810,7 +1810,7 @@
       {
         id: 'horror',
         title: 'Horror',
-        query: 'mediatype:texts AND (subject:("horror magazine" OR "weird tales" OR "horror fiction") OR title:("weird tales" OR "amazing stories" OR "tales from the crypt" OR "vault of horror")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:("weird tales" OR "amazing stories")) AND NOT subject:("comic books" OR comics OR newspapers OR newspaper OR periodicals) AND NOT collection:(newspapers OR newsmagazines OR periodicals) AND NOT title:(newspaper OR "diario oficial" OR "annual report" OR bulletin OR architect OR novel OR novels OR "world trade center" OR "divine intervention" OR "around the globe" OR "strange case" OR "bad death" OR "traitor to the blood" OR "never the bride" OR "what a world")' + ADULT_EXCLUDE
+        query: 'mediatype:texts AND (subject:("horror magazine" OR "weird tales" OR "horror fiction") OR title:("weird tales" OR "amazing stories" OR "tales from the crypt" OR "vault of horror")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:("weird tales" OR "amazing stories")) AND NOT subject:("comic books" OR comics OR newspapers OR newspaper OR periodicals) AND NOT collection:(newspapers OR newsmagazines OR periodicals) AND NOT title:(newspaper OR "diario oficial" OR "annual report" OR bulletin OR architect OR novel OR novels OR "world trade center" OR "divine intervention" OR "around the globe" OR "strange case" OR "bad death" OR "traitor to the blood" OR "never the bride" OR "what a world" OR "space age" OR spaceflight OR "space flight")' + ADULT_EXCLUDE
       },
       {
         id: 'vintage',
@@ -1827,7 +1827,7 @@
         id: 'mens',
         title: 'Adventure',
         // Adventure periodicals, excluding general books and legal records.
-        query: 'mediatype:texts AND (title:("true detective" OR argosy OR "saga magazine" OR "man\'s life" OR "true adventures" OR "startling detective" OR "wild west weekly" OR "top-notch") OR subject:("true detective" OR "true crime" OR "men\'s adventure")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:(argosy OR "true detective" OR "true adventures")) AND NOT collection:(internetarchivebooks OR printdisabled OR inlibrary) AND NOT title:(book OR handbook OR guide OR cookbook OR directory OR dissertation OR thesis OR report OR law OR legal OR corruption OR "identity theft" OR "case closed" OR "rolling stone" OR "israel argosy" OR "conrad argosy" OR novel OR "porkovich" OR "education group" OR "legal proceedings")' + ADULT_EXCLUDE
+        query: 'mediatype:texts AND (title:("true detective" OR argosy OR "saga magazine" OR "man\'s life" OR "true adventures" OR "startling detective" OR "wild west weekly" OR "top-notch") OR subject:("true detective" OR "true crime" OR "men\'s adventure")) AND (title:magazine OR subject:magazine OR collection:magazine_rack OR title:(argosy OR "true detective" OR "true adventures")) AND NOT collection:(internetarchivebooks OR printdisabled OR inlibrary) AND NOT title:(book OR handbook OR guide OR cookbook OR directory OR dissertation OR thesis OR report OR law OR legal OR corruption OR "identity theft" OR "case closed" OR "rolling stone" OR "israel argosy" OR "conrad argosy" OR novel OR "porkovich" OR "education group" OR "legal proceedings" OR "true crime" OR "ford v" OR "entertainment weekly" OR "stuff magazine")' + ADULT_EXCLUDE
       },
       {
         id: 'superhero',
@@ -2062,7 +2062,7 @@
         id: 'adult-mags',
         title: 'Adult Mags',
         // Magazines only — not comics
-        query: 'mediatype:texts AND (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR "color climax" OR "adult magazine" OR "high society" OR oui OR "club international" OR "men only" OR cavalier OR playgirl) OR subject:("adult magazine" OR "men\'s magazine" OR nudist OR erotica)) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana" OR cheri OR gallery OR knave OR mayfair OR "jointly administered" OR "legal proceedings" OR "annual report" OR art OR plays OR theatre OR theater OR book OR dissertation))'
+        query: 'mediatype:texts AND (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR "color climax" OR "adult magazine" OR "high society" OR oui OR "club international" OR "men only" OR cavalier OR playgirl) OR subject:("adult magazine" OR "men\'s magazine" OR nudist OR erotica)) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana" OR cheri OR gallery OR knave OR mayfair OR "jointly administered" OR "legal proceedings" OR "annual report" OR art OR plays OR theatre OR theater OR book OR dissertation OR "playboy comes home" OR "playboy gourmet" OR "hen house" OR "playboy and prophet" OR "playboy and the widow" OR "cia reading room"))'
       },
       {
         id: 'adult-comics',
