@@ -385,4 +385,4 @@ window.addEventListener('magazine-rack:state', () => render());
 
 const initialRoute = routeFromHash(); state.view = initialRoute.view; state.shelfId = initialRoute.shelfId; state.query = initialRoute.query; render(); loadRoute(initialRoute);
 hydrateRemoteLibrary().catch(() => {});
-if ('serviceWorker' in navigator && window.location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js?v=11').catch(() => {});
+if ('serviceWorker' in navigator && window.location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js?v=12').catch(() => {});

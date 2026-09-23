@@ -1,6 +1,6 @@
 // Bump this whenever the shipped standalone HTML changes. The document and
 // config are network-first so a stale shell cannot keep retired racks alive.
-const CACHE_NAME = 'magazine-rack-shell-v5';
+const CACHE_NAME = 'magazine-rack-shell-v6';
 const SHELL = ['./', './index.html', './manifest.json', './icon.svg', './config.js'];
 
 self.addEventListener('install', (event) => {
@@ -23,7 +23,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
-  const isDocument = url.pathname.endsWith('/') || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/config.js');
+  const isDocument = url.pathname.endsWith('/') || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/config.js') || url.pathname.endsWith('/sw.js');
   if (isDocument) {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' })
