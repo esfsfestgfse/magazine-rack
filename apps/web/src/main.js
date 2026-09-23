@@ -239,6 +239,11 @@ async function loadShelf(id, reset = false) {
   const shelf = SHELVES.find((entry) => entry.id === id); if (!shelf) return;
   const current = rackState(shelf); if (current.loading) return;
   if (reset) { current.docs = []; current.page = 0; current.total = 0; current.cursor = null; current.hasMore = true; current.mode = null; current.fallback = false; }
+  if (!current.docs.length && !current.loaded && shelf.newspaperDateMode !== 'month-day') {
+    current.docs = fallbackDocsForShelf(shelf);
+    current.total = current.docs.length;
+    current.fallback = current.docs.length > 0;
+  }
   current.loading = true; current.error = ''; state.activeLoads += 1; render();
   const nextPage = reset ? 1 : current.page + 1;
   try {
@@ -383,4 +388,4 @@ window.addEventListener('magazine-rack:state', () => render());
 
 const initialRoute = routeFromHash(); state.view = initialRoute.view; state.shelfId = initialRoute.shelfId; state.query = initialRoute.query; render(); loadRoute(initialRoute);
 hydrateRemoteLibrary().catch(() => {});
-if ('serviceWorker' in navigator && window.location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js?v=12').catch(() => {});
+if ('serviceWorker' in navigator && window.location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js?v=13').catch(() => {});
