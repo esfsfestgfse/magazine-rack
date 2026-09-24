@@ -4333,7 +4333,10 @@
       state.status = reset ? 'refreshing' : 'loading';
       var nextQuery = (extraQuery == null ? buildExtraQuery() : extraQuery) || '';
       var queryKey = shelf.id + '|' + nextQuery;
-      var preserveCachedRack = Boolean(reset && state.docs.length && state.queryKey === queryKey);
+      // Adult Mags has had a deliberately tightened title gate. Do not keep
+      // stale pre-filter cards visible while that shelf refreshes; otherwise
+      // old legal/person records can survive a successful filter update.
+      var preserveCachedRack = Boolean(reset && shelf.id !== 'adult-mags' && state.docs.length && state.queryKey === queryKey);
 
       if (reset) {
         // Variety: different sort + start a few pages in so the front of the

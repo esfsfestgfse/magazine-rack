@@ -57,5 +57,5 @@ if (!standalone.includes('isAdultMagazineFalsePositive')) {
   throw new Error('Standalone checks failed: adult shelf quality filtering is missing');
 }
 const serviceWorker = readFileSync(join(root, 'apps/web/sw.js'), 'utf8');
-if (!serviceWorker.includes('magazine-rack-shell-v11')) throw new Error('Service worker cache version was not bumped');
+if (!serviceWorker.includes('magazine-rack-shell-v12')) throw new Error('Service worker cache version was not bumped');
 console.log('Release gate checks passed (canonical root, serialized loading, and source quality guards).');
