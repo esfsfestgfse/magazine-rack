@@ -569,8 +569,10 @@
     .shelf-empty.shelf-error { display: flex; flex-direction: column; align-items: center; gap: 10px; }
     .shelf-retry { padding: 7px 11px; color: var(--accent2); border: 1px solid rgba(94,234,212,.4); border-radius: 4px; background: rgba(94,234,212,.08); font: 10px "SFMono-Regular", Consolas, monospace; text-transform: uppercase; }
 
+    /* Empty shelves stay visible so a provider/query failure is diagnosable
+       instead of silently making a lower rack disappear from the page. */
     .shelf.is-empty {
-      display: none;
+      display: block;
     }
 
     .spinner {
@@ -4399,6 +4401,8 @@
       var controller = new AbortController();
       state.controller = controller;
       state.status = reset ? 'refreshing' : 'loading';
+      state.emptyReason = '';
+      state.emptyDetail = '';
       var nextQuery = (extraQuery == null ? buildExtraQuery() : extraQuery) || '';
       var queryKey = shelf.id + '|' + nextQuery;
       // Adult Mags has had a deliberately tightened title gate. Do not keep
@@ -4522,9 +4526,21 @@
             return;
           }
           state.hasMore = false;
+          state.emptyReason = result && result.degraded
+            ? 'provider-degraded'
+            : (Array.isArray(result.docs) && result.docs.length ? 'filtered-empty' : (numFound ? 'no-readable-records' : 'no-results'));
+          state.emptyDetail = result && result.degraded
+            ? 'The provider is degraded; no usable issues were returned.'
+            : (Array.isArray(result.docs) && result.docs.length
+              ? 'Records were returned, but the readability and relevance filters rejected them.'
+              : (numFound ? 'The provider reports records, but none are readable in the rack.' : 'The provider returned no records for this shelf.'));
           if ((reset && !preserveCachedRack) || track.querySelectorAll('.cover-card').length === 0) {
-            track.innerHTML = '<div class="shelf-empty">No items found</div>';
+            track.innerHTML = '<div class="shelf-empty shelf-error"><strong>' + escapeHtml(state.emptyReason === 'provider-degraded' ? 'Source degraded' : 'No usable issues') + '</strong><span>' + escapeHtml(state.emptyDetail) + '</span><button type="button" class="shelf-retry">Retry shelf</button></div>';
             setShelfEmpty(shelf.id, true);
+            track.querySelector('.shelf-retry').addEventListener('click', function(event) {
+              event.stopPropagation();
+              loadShelf(shelf, state.extraQuery || buildExtraQuery(), true);
+            });
           }
           finishEarly('empty');
           return;
@@ -4573,8 +4589,16 @@
         }
 
         if (added === 0 && !state.hasMore && track.querySelectorAll('.cover-card').length === 0) {
-          track.innerHTML = '<div class="shelf-empty">No items found</div>';
+          state.emptyReason = result && result.degraded ? 'provider-degraded' : 'filtered-empty';
+          state.emptyDetail = result && result.degraded
+            ? 'The provider is degraded; no usable issues were returned.'
+            : 'Records were returned, but the readability and relevance filters rejected them.';
+          track.innerHTML = '<div class="shelf-empty shelf-error"><strong>' + escapeHtml(state.emptyReason === 'provider-degraded' ? 'Source degraded' : 'No usable issues') + '</strong><span>' + escapeHtml(state.emptyDetail) + '</span><button type="button" class="shelf-retry">Retry shelf</button></div>';
           setShelfEmpty(shelf.id, true);
+          track.querySelector('.shelf-retry').addEventListener('click', function(event) {
+            event.stopPropagation();
+            loadShelf(shelf, state.extraQuery || buildExtraQuery(), true);
+          });
           finishEarly('empty');
           return;
         }
@@ -4700,7 +4724,7 @@
             state._backgroundAttempts = (state._backgroundAttempts || 0) + 1;
             await loadShelf(shelf, extra, true);
             attachInfiniteScroll(shelf.id);
-            if (!state.docs.length && state.error && state._backgroundAttempts < 3 && token === backgroundShelfToken) {
+            if (!state.docs.length && (state.error || state.emptyReason === 'provider-degraded' || state.emptyReason === 'filtered-empty') && state._backgroundAttempts < 3 && token === backgroundShelfToken) {
               queue.push(shelf);
               await new Promise(function(resolve) { setTimeout(resolve, 1200); });
             }
