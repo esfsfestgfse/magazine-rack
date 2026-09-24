@@ -3658,10 +3658,12 @@
 
     function noteSourceHealth(source, status, detail, count) {
       source = source || 'ia';
+      var previous = sourceHealthState[source] || {};
       sourceHealthState[source] = Object.assign({}, sourceHealthState[source] || {}, {
         status: status,
         detail: detail || '',
         count: Number(count) || 0,
+        hasContent: Boolean(previous.hasContent || Number(count) > 0),
         checkedAt: new Date().toISOString()
       });
       renderSourceHealth();
@@ -3677,8 +3679,9 @@
       wrap.innerHTML = sources.map(function(source) {
         var entry = sourceHealthState[source] || { status: 'idle', detail: 'Not checked yet', count: 0 };
         if (entry.status !== 'idle') checked++;
-        if (entry.status === 'ok') ok++;
-        var statusText = entry.status === 'ok' ? 'live' : entry.status === 'loading' ? 'checking' : entry.status === 'degraded' ? 'fallback' : entry.status === 'error' ? 'offline' : 'idle';
+        var displayStatus = entry.status === 'loading' && entry.hasContent ? 'ok' : entry.status;
+        if (displayStatus === 'ok') ok++;
+        var statusText = displayStatus === 'ok' ? 'live' : displayStatus === 'loading' ? 'checking' : displayStatus === 'degraded' ? 'fallback' : displayStatus === 'error' ? 'offline' : 'idle';
         var countText = entry.count ? ' · ' + entry.count.toLocaleString() : '';
         var checkedText = entry.checkedAt ? new Date(entry.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
         var healthTitle = (entry.detail || statusText) + (checkedText ? ' · checked ' + checkedText : '');
@@ -3688,8 +3691,9 @@
       document.querySelectorAll('[data-health-source]').forEach(function(el) {
         var source = el.getAttribute('data-health-source') || 'ia';
         var entry = sourceHealthState[source] || { status: 'idle' };
-        el.className = 'shelf-health ' + entry.status;
-        el.innerHTML = '<i></i><span>' + escapeHtml(entry.status === 'ok' ? 'live' : entry.status === 'degraded' ? 'fallback' : entry.status === 'error' ? 'offline' : entry.status === 'loading' ? 'checking' : 'idle') + '</span>';
+        var displayStatus = entry.status === 'loading' && entry.hasContent ? 'ok' : entry.status;
+        el.className = 'shelf-health ' + displayStatus;
+        el.innerHTML = '<i></i><span>' + escapeHtml(displayStatus === 'ok' ? 'live' : displayStatus === 'degraded' ? 'fallback' : displayStatus === 'error' ? 'offline' : displayStatus === 'loading' ? 'checking' : 'idle') + '</span>';
         el.title = (entry.detail || SOURCE_LABELS[source] || source) + (entry.checkedAt ? ' · checked ' + new Date(entry.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');
       });
     }
