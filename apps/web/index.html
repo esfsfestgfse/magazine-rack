@@ -1816,6 +1816,8 @@
     function isAdultMagazineDoc(doc) {
       const title = String(doc && doc.title || '').toLowerCase();
       if (!title || isAdultMagazineFalsePositive(title)) return false;
+      if (/^\s*cheri\s+[a-z]+(?:\s+[a-z]+){0,4}\s*$/.test(title)) return false;
+      if (!/\b(19|20)\d{2}\b|\b(issue|vol(?:ume)?|no\.?|original|anniversary|magazine|usa|uk)\b/.test(title)) return false;
       return /\b(playboy|penthouse|hustler|barely legal|playgirl|club international|men only|color climax|high society|knave|mayfair|swank|oui|cheri|cherri|fiesta|escort magazine|nude magazine|adult magazine)\b/.test(title);
     }
 
