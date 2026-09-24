@@ -1,0 +1,29 @@
+name: Live Pages smoke test
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Deploy web to GitHub Pages]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser test runner
+        run: npm install --no-save playwright@1.56.1
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Audit the deployed Pages app
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: node scripts/smoke-deployed-v4.mjs
