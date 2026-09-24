@@ -4731,10 +4731,11 @@
             await new Promise(function(resolve) { setTimeout(resolve, 250); });
           }
         }
-        // Keep shelf refreshes strictly one-at-a-time. The catalog queue also
-        // serializes requests, but a single drain prevents multiple shelf
-        // state machines from entering provider fallback simultaneously.
-        await drain();
+        // Keep the background pool bounded. The catalog and IA queues already
+        // rate-limit provider traffic; three shelf workers prevent the old
+        // one-at-a-time pump from leaving lower racks queued for minutes.
+        var workers = Math.min(3, queue.length);
+        await Promise.all(Array.from({ length: workers }, function() { return drain(); }));
       })();
     }
 
