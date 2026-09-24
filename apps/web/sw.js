@@ -1,6 +1,6 @@
 // Bump this whenever the shipped standalone HTML changes. The document and
 // config are network-first so a stale shell cannot keep retired racks alive.
-const CACHE_NAME = 'magazine-rack-shell-v8';
+const CACHE_NAME = 'magazine-rack-shell-v9';
 const SHELL = ['./', './index.html', './manifest.json', './icon.svg', './config.js'];
 
 self.addEventListener('install', (event) => {
