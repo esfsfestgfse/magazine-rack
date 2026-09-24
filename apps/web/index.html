@@ -1802,6 +1802,10 @@
       return /\b(lost plays|art gallery|gallery art|theatre|theater|plays\.|play scripts?)\b/.test(t) ||
         /\bsherman\s+s?\.??\s*swank\b/.test(t) ||
         /\bbarakat gallery\b/.test(t) ||
+        /\b(cheri shakur|justin d\.\s*swank|cheri a\.\s*grabbe|lavett cheri wright|richard eugene harris)\b/.test(t) ||
+        /\bmayfair\s+v\.?\b|\bmayfair packing\b|\b(v\.?|vs\.?)\s+mayfair\b/.test(t) ||
+        /\b(legal|court|trust|company|llc|corporation|jointly administered|lawrenceburg)\b/.test(t) &&
+          /\b(playboy|penthouse|hustler|mayfair|swank|cheri|gallery|cavalier|knave|oui)\b/.test(t) ||
         /\b(playboy|penthouse|hustler)\b.*\b(surgeon|surgeon|millionaire|philosophy|morality|western world|program|merchandising|jointly administered|legal proceedings|court|thesis|dissertation)\b/.test(t) ||
         /\b(mayfair|knave)\b.*\b(comedy|play|plays|one act|theatre|theater|program)\b/.test(t) ||
         /\b(cavalier|gallery|swank)\b.*\b(estate|court|llc|sculpture|art|legal|report|catalog|catalogue)\b/.test(t) ||
