@@ -3248,13 +3248,16 @@
         if (n < 1) break;
         ids.push(n);
       }
-      // fetch a batch (limit concurrency lightly)
-      for (var j = 0; j < ids.length; j++) {
-        try {
-          var r = await fetchWithTimeout('https://xkcd.now.sh/?comic=' + ids[j], null, FEED_TIMEOUT_MS);
-          if (!r.ok) continue;
-          var c = await r.json();
-          docs.push({
+      // Fetch in small parallel batches. The old sequential loop could hold
+      // one shelf worker for 30 * 12 seconds when the proxy was slow.
+      var xkcdTimeout = Math.min(FEED_TIMEOUT_MS, 4000);
+      for (var j = 0; j < ids.length; j += 6) {
+        var batch = await Promise.all(ids.slice(j, j + 6).map(async function(id) {
+          try {
+            var r = await fetchWithTimeout('https://xkcd.now.sh/?comic=' + id, null, xkcdTimeout);
+            if (!r.ok) return null;
+            var c = await r.json();
+            return {
             source: 'xkcd',
             identifier: 'xkcd-' + c.num,
             title: (c.safe_title || c.title || ('XKCD ' + c.num)),
@@ -3269,8 +3272,10 @@
             coverQuality: 5,
             alt: c.alt || '',
             locUrl: 'https://xkcd.com/' + c.num
-          });
-        } catch (e) {}
+            };
+          } catch (e) { return null; }
+        }));
+        batch.filter(Boolean).forEach(function(item) { docs.push(item); });
       }
       return { docs: docs, numFound: max };
     }
