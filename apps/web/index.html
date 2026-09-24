@@ -1801,7 +1801,17 @@
       const t = String(title || '').toLowerCase();
       return /\b(lost plays|art gallery|gallery art|theatre|theater|plays\.|play scripts?)\b/.test(t) ||
         /\bsherman\s+s?\.??\s*swank\b/.test(t) ||
-        /\bbarakat gallery\b/.test(t);
+        /\bbarakat gallery\b/.test(t) ||
+        /\b(playboy|penthouse|hustler)\b.*\b(surgeon|surgeon|millionaire|philosophy|morality|western world|program|merchandising|jointly administered|legal proceedings|court|thesis|dissertation)\b/.test(t) ||
+        /\b(mayfair|knave)\b.*\b(comedy|play|plays|one act|theatre|theater|program)\b/.test(t) ||
+        /\b(cavalier|gallery|swank)\b.*\b(estate|court|llc|sculpture|art|legal|report|catalog|catalogue)\b/.test(t) ||
+        /\b(annual report|legal proceedings|dissertation|thesis|cookbook|catalog|catalogue|program|jointly administered)\b/.test(t);
+    }
+
+    function isAdultMagazineDoc(doc) {
+      const title = String(doc && doc.title || '').toLowerCase();
+      if (!title || isAdultMagazineFalsePositive(title)) return false;
+      return /\b(playboy|penthouse|hustler|barely legal|playgirl|club international|men only|color climax|high society|knave|mayfair|swank|oui|cheri|cherri|fiesta|escort magazine|nude magazine|adult magazine)\b/.test(title);
     }
 
     function isMangaDoc(doc) {
@@ -4455,6 +4465,7 @@
           if (!isAdultShelf && sexual) return;
           if (isAdultShelf && isKidsTitle(title)) return;
           if (isAdultShelf && isAdultMagazineFalsePositive(title)) return;
+          if (shelf.id === 'adult-mags' && !isAdultMagazineDoc(doc)) return;
           if (isAdultShelf && !sexual) return;
           kept.push(doc);
         });
