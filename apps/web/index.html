@@ -2586,7 +2586,10 @@
       div.id = 'shelf-' + shelf.id;
       div.setAttribute('data-format', shelfFormat(shelf));
       if (prefs.hidden[shelf.id]) div.classList.add('is-hidden-rack');
-      var pinned = !!prefs.pinned[shelf.id];
+      // Restricted racks must never be pinnable: they belong at the end of
+      // the rack and an old saved pin must not be allowed to move Adult Mags
+      // back to the homepage position.
+      var pinned = !isAdultShelfId(shelf.id) && !!prefs.pinned[shelf.id];
       div.innerHTML =
           '<div class="shelf-header">' +
             '<div class="shelf-title">' + shelf.title + '</div>' +
@@ -2612,6 +2615,10 @@
       });
       div.querySelector('.shelf-pin').addEventListener('click', function(e) {
         e.stopPropagation();
+        if (isAdultShelfId(shelf.id)) {
+          showToast('Restricted racks stay at the bottom');
+          return;
+        }
         prefs.pinned[shelf.id] = !prefs.pinned[shelf.id];
         savePrefs();
         e.currentTarget.classList.toggle('pinned', !!prefs.pinned[shelf.id]);
@@ -2623,15 +2630,27 @@
     }
 
     function reorderShelvesByPin() {
-      var pinned = [];
-      var rest = [];
-      SHELVES.forEach(function(s) {
+      // Use the same canonical ordering used by the loader.  In particular,
+      // restricted shelves are always last, regardless of stale localStorage
+      // from an older build that allowed them to be pinned.
+      var order = shelfPriorityList();
+      var seen = {};
+      order.concat(SHELVES).forEach(function(s) {
+        if (seen[s.id]) return;
         var el = document.getElementById('shelf-' + s.id);
         if (!el) return;
-        if (prefs.pinned[s.id]) pinned.push(el);
-        else rest.push(el);
+        seen[s.id] = true;
+        if (isAdultShelfId(s.id) && prefs.pinned[s.id]) {
+          delete prefs.pinned[s.id];
+        }
+        var pin = el.querySelector('.shelf-pin');
+        if (pin && isAdultShelfId(s.id)) {
+          pin.classList.remove('pinned');
+          pin.textContent = '☆';
+        }
+        shelvesEl.appendChild(el);
       });
-      pinned.concat(rest).forEach(function(el) { shelvesEl.appendChild(el); });
+      savePrefs();
     }
 
     SHELVES.forEach(s => {
