@@ -10,13 +10,12 @@ const required = [
   'apps/web/config.js',
   'apps/web/manifest.json',
   'apps/web/sw.js',
-  'apps/web/src/main.js',
   'apps/web/src/api.js',
   'apps/web/src/data.js',
   'apps/web/src/store.js',
   'apps/web/src/shelf-catalog.js',
   'apps/web/src/live-sources.js',
-  'apps/web/src/styles.css',
+  'apps/web/src/README.md',
   'apps/api/src/index.js',
   'apps/api/src/http.js',
   'apps/api/src/library.js',
@@ -35,7 +34,7 @@ if (missing.length) {
   process.exit(1);
 }
 
-for (const file of ['apps/web/index.html', 'apps/web/src/main.js', 'apps/api/src/index.js']) {
+for (const file of ['apps/web/index.html', 'apps/web/src/shelf-catalog.js', 'apps/api/src/index.js']) {
   const content = readFileSync(join(root, file), 'utf8');
   if (!content.trim()) throw new Error(`${file} is empty`);
 }
