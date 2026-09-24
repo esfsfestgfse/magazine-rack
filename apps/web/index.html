@@ -1800,6 +1800,7 @@
     function isAdultMagazineFalsePositive(title) {
       const t = String(title || '').toLowerCase();
       return /\b(lost plays|art gallery|gallery art|theatre|theater|plays\.|play scripts?)\b/.test(t) ||
+        /\b(bernard shaw|playboy and prophet)\b/.test(t) ||
         /\bsherman\s+s?\.??\s*swank\b/.test(t) ||
         /\bbarakat gallery\b/.test(t) ||
         /\b(cheri shakur|justin d\.\s*swank|cheri a\.\s*grabbe|lavett cheri wright|richard eugene harris)\b/.test(t) ||
