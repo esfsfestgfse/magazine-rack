@@ -46,3 +46,16 @@ if (ADULT_SHELF_IDS.length !== 2 || SHELVES.at(-2)?.id !== 'adult-mags' || SHELV
   throw new Error('Shelf parity check failed: restricted shelves are not last');
 }
 console.log('Shelf parity check passed (52 live shelves; restricted shelves last).');
+const standalone = readFileSync(join(root, 'apps/web/index.html'), 'utf8');
+if (!standalone.includes('<script src="config.js"></script>') || !standalone.includes("id: 'manga'")) {
+  throw new Error('Standalone checks failed: canonical runtime configuration or Manga routing is missing');
+}
+if (!standalone.includes('startBackgroundShelfPump') || !standalone.includes('backgroundShelfToken') || !standalone.includes('preserveCachedRack')) {
+  throw new Error('Standalone checks failed: serialized stale-safe shelf loading is missing');
+}
+if (!standalone.includes('isAdultMagazineFalsePositive')) {
+  throw new Error('Standalone checks failed: adult shelf quality filtering is missing');
+}
+const serviceWorker = readFileSync(join(root, 'apps/web/sw.js'), 'utf8');
+if (!serviceWorker.includes('magazine-rack-shell-v8')) throw new Error('Service worker cache version was not bumped');
+console.log('Release gate checks passed (canonical root, serialized loading, and source quality guards).');
