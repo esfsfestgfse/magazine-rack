@@ -2079,7 +2079,7 @@
         id: 'adult-mags',
         title: 'Adult Mags',
         // Magazines only — not comics
-        query: 'mediatype:texts AND (collection:(magazine_rack OR mensmagazine OR mens_magazines OR erotica OR adultmagazines) OR title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR milf OR cheri OR "color climax" OR "adult magazine" OR "high society" OR knave OR mayfair OR gallery OR oui OR "club international" OR "men only" OR cavalier OR playgirl) OR subject:("adult magazine" OR "adult magazines" OR "men\'s magazine" OR "men\'s magazines" OR nudist OR milf OR erotica OR erotic OR glamour OR "girlie magazine")) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana" OR "annual report" OR "legal proceedings" OR dissertation OR thesis OR cookbook OR "playboy comes home" OR "playboy gourmet"))'
+        query: 'mediatype:texts AND (title:(playboy OR penthouse OR hustler OR "barely legal" OR swank OR nudist OR milf OR cheri OR "color climax" OR "adult magazine" OR "high society" OR knave OR mayfair OR gallery OR oui OR "club international" OR "men only" OR cavalier OR playgirl) OR subject:("adult magazine" OR "adult magazines" OR "men\'s magazine" OR "men\'s magazines" OR nudist OR milf OR erotica OR erotic OR glamour OR "girlie magazine")) AND NOT (subject:("comic books" OR comics OR "adult comics" OR "adult comix") OR title:(comic OR comix OR "gay comix" OR hentai OR "tijuana" OR "annual report" OR "legal proceedings" OR dissertation OR thesis OR cookbook OR "playboy comes home" OR "playboy gourmet"))'
       },
       {
         id: 'adult-comics',
@@ -4566,6 +4566,9 @@
             // blocking a worker and starving every lower shelf.
             if (state.loading) { queue.push(shelf); await new Promise(function(resolve) { setTimeout(resolve, 180); }); continue; }
             if (state.docs.length) continue;
+            var queuedTrack = document.getElementById('track-' + shelf.id);
+            var queuedNotice = queuedTrack && queuedTrack.querySelector('.shelf-loading');
+            if (queuedNotice) queuedNotice.innerHTML = '<div class="spinner"></div>Loading shelf ' + (cursor) + ' of ' + queue.length + '…';
             state._kicked = true;
             state._backgroundAttempts = (state._backgroundAttempts || 0) + 1;
             await loadShelf(shelf, extra, true);
@@ -4631,7 +4634,7 @@
         if (!el) return;
         var track = document.getElementById('track-' + s.id);
         if (track && !track.querySelector('.cover-card')) {
-          track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Waiting…</div>';
+          track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Queued for serialized loading…</div>';
         }
       });
 
