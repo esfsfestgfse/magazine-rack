@@ -4622,8 +4622,9 @@
       // strictly one shelf at a time instead of bursting six requests at once.
       var eager = [];
 
-      // Defer the rest until they scroll near the viewport
-      var obs = ensureShelfObserver();
+      // The serialized background pump owns every initial load. Do not attach
+      // the intersection observer here: it could start a second provider
+      // request while the pump is already working on another shelf.
       order.forEach(function(s) {
         if (eager.indexOf(s) !== -1) return;
         var el = document.getElementById('shelf-' + s.id);
@@ -4631,15 +4632,6 @@
         var track = document.getElementById('track-' + s.id);
         if (track && !track.querySelector('.cover-card')) {
           track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Waiting…</div>';
-        }
-        if (obs) obs.observe(el);
-        else {
-          setTimeout(function() {
-            if (shelfState[s.id]) shelfState[s.id]._kicked = true;
-            loadShelf(s, extra, true);
-            attachInfiniteScroll(s.id);
-          }, delay);
-          delay += 220;
         }
       });
 
