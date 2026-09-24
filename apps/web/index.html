@@ -4589,7 +4589,8 @@
     function shelfPriorityList() {
       var pinned = [];
       var rest = [];
-      var priority = ['manga', 'comics', 'newspapers', 'comicbookplus', 'adult-mags', 'adult-comics', 'batman', 'spiderman', 'superman', 'xmen', 'archie'];
+      var restricted = [];
+      var priority = ['manga', 'comics', 'newspapers', 'comicbookplus', 'batman', 'spiderman', 'superman', 'xmen', 'archie'];
       var rank = function (shelf) {
         var index = priority.indexOf(shelf.id);
         return index < 0 ? 999 : index;
@@ -4597,11 +4598,13 @@
       SHELVES.forEach(function(s) {
         if (prefs.hidden && prefs.hidden[s.id]) return;
         if (!shelfMatchesFormat(s)) return;
-        if (prefs.pinned && prefs.pinned[s.id]) pinned.push(s);
+        if (isAdultShelfId(s.id)) restricted.push(s);
+        else if (prefs.pinned && prefs.pinned[s.id]) pinned.push(s);
         else rest.push(s);
       });
       rest.sort(function (a, b) { return rank(a) - rank(b); });
-      return pinned.concat(rest);
+      restricted.sort(function (a, b) { return a.id === 'adult-mags' ? -1 : b.id === 'adult-mags' ? 1 : 0; });
+      return pinned.concat(rest, restricted);
     }
 
     var shelfObserver = null;
