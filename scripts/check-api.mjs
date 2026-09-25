@@ -38,15 +38,18 @@ assert.equal(last.limited, true);
 assert.ok(last.retryAfter >= 1);
 
 const safe = sourceItem('archive', 'demo-id', {
-  title: 'Demo',
+  title: 'Demo Magazine #12 Vol. 3',
   sourceUrl: 'https://archive.org/details/demo-id',
   readerUrl: 'javascript:alert(1)',
-  coverUrl: 'https://evil.example/cover.jpg',
+  coverUrl: 'https://archive.org/services/img/demo-id',
   metadata: { description: 'bounded metadata' },
 });
+assert.equal(safe.issue, '12');
+assert.equal(safe.volume, '3');
+assert.ok(safe.coverScore >= 1);
 assert.equal(safe.sourceUrl, 'https://archive.org/details/demo-id');
 assert.equal(safe.readerUrl, safe.sourceUrl);
-assert.equal(safe.coverUrl, '');
+assert.equal(safe.coverUrl, 'https://archive.org/services/img/demo-id');
 assert.equal(safe.metadata.description, 'bounded metadata');
 assert.ok(safe.observedAt);
 
@@ -88,8 +91,8 @@ const mockDb = {
   },
   async batch(statements) {
     for (const statement of statements) {
-      const [id, source, source_id, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights] = statement.args;
-      catalogRows.set(id, { id, source, source_id, title, creator, year, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at, access, readable, reader_kind, cover_quality, availability_json, rights });
+      const [id, source, source_id, title, series_title, issue_number, volume_number, creator, year, issue_month_day, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at, access, readable, reader_kind, cover_quality, cover_score, availability_json, rights, access_checked_at] = statement.args;
+      catalogRows.set(id, { id, source, source_id, title, series_title, issue_number, volume_number, creator, year, issue_month_day, genre, description, cover_url, source_url, reader_url, page_count, metadata_json, first_seen_at, last_seen_at, access, readable, reader_kind, cover_quality, cover_score, availability_json, rights, access_checked_at });
     }
     return statements.map(() => ({ success: true }));
   },
