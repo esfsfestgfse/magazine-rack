@@ -7,6 +7,7 @@
   "scripts": {
     "check": "node scripts/check.mjs && node scripts/check-api.mjs",
     "audit:shelves": "node scripts/audit-live-shelves.mjs",
+    "rehydrate:catalog": "node scripts/rehydrate-catalog.mjs",
     "serve:web": "node scripts/serve-web.mjs",
     "api:dev": "wrangler dev --config apps/api/wrangler.jsonc",
     "api:deploy": "wrangler deploy --config apps/api/wrangler.jsonc"
