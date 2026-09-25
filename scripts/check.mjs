@@ -24,6 +24,7 @@ const required = [
   'apps/api/src/sources/registry.js',
   'apps/api/wrangler.jsonc',
   'apps/api/migrations/0001_initial.sql',
+  'apps/api/migrations/0006_normalized_catalog.sql',
   '.github/workflows/ci.yml',
   '.github/workflows/pages.yml',
   '.github/workflows/worker-deploy.yml',
