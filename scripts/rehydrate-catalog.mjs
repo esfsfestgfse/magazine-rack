@@ -1,6 +1,24 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { normalizedIssueFields, coverScore } from '../apps/api/src/sources/common.js';
+
+function normalizedIssueFields(fields) {
+  const metadata = fields.metadata && typeof fields.metadata === 'object' ? fields.metadata : {};
+  const title = String(fields.title || '').replace(/\s+/g, ' ').trim();
+  const series = String(fields.series || metadata.series || metadata.seriesTitle || '').replace(/\s+/g, ' ').trim();
+  const issue = String(fields.issue || metadata.issue || title.match(/(?:issue|no\.?|#)\s*([0-9]+[A-Za-z-]*)/i)?.[1] || '').trim();
+  const volume = String(fields.volume || metadata.volume || title.match(/(?:volume|vol\.?)\s*([0-9]+[A-Za-z-]*)/i)?.[1] || '').trim();
+  return { series, issue, volume };
+}
+
+function coverScore(fields = {}) {
+  if (!fields.coverUrl && !fields.cover) return 0;
+  const explicit = Number(fields.coverScore);
+  if (Number.isFinite(explicit) && explicit > 0) return Math.max(0, Math.min(100, Math.trunc(explicit)));
+  const quality = Number(fields.coverQuality);
+  let score = Number.isFinite(quality) && quality > 0 ? Math.min(70, Math.max(0, quality * 14)) : 35;
+  if (fields.coverUrl && /(?:placeholder|default|blank|spacer)/i.test(String(fields.coverUrl))) score -= 35;
+  return Math.max(1, Math.min(100, Math.trunc(score)));
+}
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const config = 'apps/api/wrangler.jsonc';
