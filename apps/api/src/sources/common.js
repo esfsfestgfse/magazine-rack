@@ -99,6 +99,34 @@ function safeExternalUrl(value, source, kind) {
   return policies.some(([host, prefix]) => parsed.hostname === host && pathname.startsWith(prefix)) ? parsed.toString() : '';
 }
 
+function normalizedText(value) {
+  return asText(value, 180).replace(/\s+/g, ' ').trim();
+}
+
+function issueFields(fields) {
+  const metadata = fields.metadata && typeof fields.metadata === 'object' ? fields.metadata : {};
+  const title = normalizedText(fields.title);
+  const series = normalizedText(fields.series || metadata.series || metadata.seriesTitle);
+  const issue = normalizedText(fields.issue || metadata.issue || title.match(/(?:issue|no\.?|#)\s*([0-9]+[A-Za-z-]*)/i)?.[1]);
+  const volume = normalizedText(fields.volume || metadata.volume || title.match(/(?:volume|vol\.?)\s*([0-9]+[A-Za-z-]*)/i)?.[1]);
+  return { series, issue, volume };
+}
+
+export function coverScore(fields = {}) {
+  if (!fields.coverUrl && !fields.cover) return 0;
+  const explicit = Number(fields.coverScore);
+  if (Number.isFinite(explicit) && explicit > 0) return Math.max(0, Math.min(100, Math.trunc(explicit)));
+  const quality = Number(fields.coverQuality);
+  const dimensions = fields.coverDimensions && typeof fields.coverDimensions === 'object' ? fields.coverDimensions : {};
+  const width = Number(dimensions.width) || 0;
+  const height = Number(dimensions.height) || 0;
+  let score = Number.isFinite(quality) && quality > 0 ? Math.min(70, Math.max(0, quality * 14)) : 35;
+  if (width >= 600 && height >= 800) score += 25;
+  else if (width >= 300 && height >= 400) score += 12;
+  if (fields.coverUrl && /(?:placeholder|default|blank|spacer)/i.test(String(fields.coverUrl))) score -= 35;
+  return Math.max(1, Math.min(100, Math.trunc(score)));
+}
+
 function metadataProjection(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return Object.fromEntries(Object.entries(value).slice(0, 24).map(([key, entry]) => [clean(key, 80), asText(entry, 240)]).filter(([key, entry]) => key && entry));
@@ -106,6 +134,8 @@ function metadataProjection(value) {
 
 export function sourceItem(source, sourceId, fields) {
   const stableSourceId = clean(sourceId, 180);
+  const observedAt = new Date().toISOString();
+  const normalized = issueFields(fields);
   const sourceUrl = safeExternalUrl(fields.sourceUrl, source, 'source');
   return {
     id: `${source}:${encodeId(stableSourceId)}`,
@@ -113,6 +143,9 @@ export function sourceItem(source, sourceId, fields) {
     sourceName: SOURCE_LABELS[source],
     sourceId: stableSourceId,
     title: clean(fields.title, 240),
+    series: clean(normalized.series, 180),
+    issue: clean(normalized.issue, 60),
+    volume: clean(normalized.volume, 60),
     creator: clean(fields.creator, 180),
     year: yearText(fields.year),
     genre: clean(fields.genre || 'Periodicals', 80),
@@ -125,9 +158,11 @@ export function sourceItem(source, sourceId, fields) {
     readable: fields.readable === true,
     readerKind: clean(fields.readerKind || 'none', 40),
     coverQuality: numberOrZero(fields.coverQuality),
+    coverScore: coverScore(fields),
     availability: fields.availability && typeof fields.availability === 'object' ? metadataProjection(fields.availability) : {},
     rights: clean(fields.rights, 240),
-    observedAt: new Date().toISOString(),
+    accessCheckedAt: clean(fields.accessCheckedAt || observedAt, 40),
+    observedAt,
     metadata: metadataProjection(fields.metadata),
   };
 }
