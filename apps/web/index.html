@@ -3008,7 +3008,7 @@
       });
     }
 
-    function createCoverCard(doc, contextDocs) {
+    function createCoverCard(doc, contextDocs, eagerCover) {
       const card = document.createElement('div');
       card.className = 'cover-card';
 
@@ -3030,7 +3030,7 @@
       card.innerHTML =
         '<div class="cover-img-wrap">' +
           (coverUrl
-            ? '<img src="' + escapeHtml(coverUrl) + '" data-cover-fallbacks="' + escapeHtml(covers.slice(1).join('|')) + '" alt="" loading="lazy">'
+            ? '<img src="' + escapeHtml(coverUrl) + '" data-cover-fallbacks="' + escapeHtml(covers.slice(1).join('|')) + '" alt="" loading="' + (eagerCover ? 'eager' : 'lazy') + '" fetchpriority="' + (eagerCover ? 'high' : 'low') + '" decoding="async">'
             : titleCoverMarkup(doc)) +
           (coverUrl ? '<div class="cover-placeholder" style="display:none">' + titleCoverMarkup(doc) + '</div>' : '') +
           '<button type="button" class="cover-favorite ' + (isFavorite(id) ? 'active' : '') + '" aria-label="' + (isFavorite(id) ? 'Remove favorite' : 'Add favorite') + '">' + (isFavorite(id) ? '★' : '☆') + '</button>' +
@@ -4699,8 +4699,9 @@
         Array.prototype.push.apply(state.docs, kept);
 
         let added = 0;
-        kept.forEach(function(doc) {
-          track.appendChild(createCoverCard(doc, state.docs));
+        kept.forEach(function(doc, index) {
+          var eagerCover = state.page === 1 && ['manga', 'comics', 'newspapers', 'comicbookplus'].indexOf(shelf.id) !== -1 && index < 6;
+          track.appendChild(createCoverCard(doc, state.docs, eagerCover));
           added++;
         });
 
@@ -4824,14 +4825,16 @@
 
     function startBackgroundShelfPump(order, eager, extra) {
       var token = ++backgroundShelfToken;
-      var queue = order.filter(function(s) { return !(prefs.hidden && prefs.hidden[s.id]); });
+      var eagerIds = eager.map(function(s) { return s.id; });
+      var queue = order.filter(function(s) {
+        return eagerIds.indexOf(s.id) === -1 && !(prefs.hidden && prefs.hidden[s.id]);
+      });
       // Let the viewport-prioritized loads win first, then drain the remaining
       // visible racks with a small bounded pool. This prevents a lower shelf
       // from staying on "Waiting…" forever when IntersectionObserver misses a
       // mobile layout transition or the user jumps directly to a shelf, while
       // avoiding the burst of requests that can trip provider rate limits.
       (async function() {
-        await new Promise(function(resolve) { setTimeout(resolve, 1400); });
         var cursor = 0;
         async function drain() {
           while (token === backgroundShelfToken) {
@@ -4900,13 +4903,11 @@
         if (el) el.setAttribute('data-shelf-id', s.id);
       });
 
-      // The background pump owns all initial loads so providers are queried
-      // strictly one shelf at a time instead of bursting six requests at once.
-      var eager = [];
+      // Start the first visible content lanes immediately. Everything else
+      // remains bounded by the background pump so the page becomes useful
+      // quickly without creating a provider request burst.
+      var eager = order.slice(0, 4);
 
-      // The serialized background pump owns every initial load. Do not attach
-      // the intersection observer here: it could start a second provider
-      // request while the pump is already working on another shelf.
       order.forEach(function(s) {
         if (eager.indexOf(s) !== -1) return;
         var el = document.getElementById('shelf-' + s.id);
@@ -4915,6 +4916,20 @@
         if (track && !track.querySelector('.cover-card')) {
           track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Queued for serialized loading…</div>';
         }
+      });
+
+      eager.forEach(function(s) {
+        var el = document.getElementById('shelf-' + s.id);
+        if (!el) return;
+        var track = document.getElementById('track-' + s.id);
+        if (track && !track.querySelector('.cover-card')) {
+          track.innerHTML = '<div class="shelf-loading"><div class="spinner"></div>Loading shelf…</div>';
+        }
+        var state = shelfState[s.id];
+        if (!state || state.loading) return;
+        state._kicked = true;
+        loadShelf(s, extra, true);
+        attachInfiniteScroll(s.id);
       });
 
       startBackgroundShelfPump(order, eager, extra);
