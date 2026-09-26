@@ -2467,6 +2467,57 @@
       return parts.join(' AND ');
     }
 
+    var SHELF_SNAPSHOT_TTL = 7 * 24 * 60 * 60 * 1000;
+    var SHELF_SNAPSHOT_PREFIX = 'mr:shelf-snapshot:v2:';
+
+    function shelfSnapshotKey(shelf, extraQuery) {
+      var raw = String(shelf.id) + '|' + String(extraQuery || '');
+      var hash = 2166136261;
+      for (var i = 0; i < raw.length; i += 1) {
+        hash ^= raw.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return SHELF_SNAPSHOT_PREFIX + shelf.id + ':' + (hash >>> 0).toString(36);
+    }
+
+    function shelfSnapshotDoc(doc) {
+      var keep = ['source', 'identifier', 'id', 'iaId', 'title', 'creator', 'date', 'year', 'subject', 'format', 'cover', 'coverUrl', 'fullImage', 'thumbnail', 'image_url', 'thumbnail_url', 'readerUrl', 'locUrl', 'iiifManifest', 'pages', 'imagecount', 'access', 'accessType', 'setup', 'series', 'issueLabel', 'issueNumber', 'volume', 'issueDate'];
+      var out = {};
+      keep.forEach(function(key) { if (doc && doc[key] != null) out[key] = doc[key]; });
+      return out;
+    }
+
+    function saveShelfSnapshot(shelf, extraQuery, state) {
+      if (!state || !state.docs || !state.docs.length) return;
+      try {
+        localStorage.setItem(shelfSnapshotKey(shelf, extraQuery), JSON.stringify({
+          savedAt: Date.now(),
+          total: state.total || state.docs.length,
+          docs: state.docs.slice(0, 30).map(shelfSnapshotDoc)
+        }));
+      } catch (e) {}
+    }
+
+    function hydrateShelfSnapshot(shelf, extraQuery) {
+      var state = shelfState[shelf.id];
+      var track = document.getElementById('track-' + shelf.id);
+      if (!state || !track) return false;
+      try {
+        var raw = localStorage.getItem(shelfSnapshotKey(shelf, extraQuery));
+        if (!raw) return false;
+        var snapshot = JSON.parse(raw);
+        if (!snapshot || !Array.isArray(snapshot.docs) || !snapshot.docs.length || Date.now() - Number(snapshot.savedAt || 0) > SHELF_SNAPSHOT_TTL) return false;
+        state.docs = snapshot.docs;
+        state.total = Number(snapshot.total) || state.docs.length;
+        state.extraQuery = extraQuery || '';
+        state.queryKey = shelf.id + '|' + (extraQuery || '');
+        state._hydrated = true;
+        track.innerHTML = '';
+        state.docs.forEach(function(doc) { track.appendChild(createCoverCard(doc, state.docs, false)); });
+        return true;
+      } catch (e) { return false; }
+    }
+
     function updateStats() {
       const n = library.length;
       const fav = favorites.length;
@@ -2757,7 +2808,7 @@
 
     SHELVES.forEach(s => {
       shelvesEl.appendChild(buildShelfSkeleton(s));
-      shelfState[s.id] = { page: 0, extraQuery: '', queryKey: '', total: 0, loading: false, requestToken: 0, controller: null, status: 'idle', hasMore: true, scrapeCursor: null, useScrape: false, mode: 'search', seenKeys: {}, docs: [] };
+      shelfState[s.id] = { page: 0, extraQuery: '', queryKey: '', total: 0, loading: false, requestToken: 0, controller: null, status: 'idle', hasMore: true, scrapeCursor: null, useScrape: false, mode: 'search', seenKeys: {}, docs: [], _hydrated: false };
     });
     reorderShelvesByPin();
 
@@ -4711,6 +4762,7 @@
           else if (!priorShelf) crossShelfIndex[crossKey] = shelf.id;
         });
         Array.prototype.push.apply(state.docs, kept);
+        saveShelfSnapshot(shelf, state.extraQuery, state);
 
         let added = 0;
         kept.forEach(function(doc, index) {
@@ -4860,7 +4912,8 @@
             // background pump reaches it. Requeue the busy shelf instead of
             // blocking a worker and starving every lower shelf.
             if (state.loading) { queue.push(shelf); await new Promise(function(resolve) { setTimeout(resolve, 180); }); continue; }
-            if (state.docs.length) continue;
+            if (state.docs.length && !state._hydrated) continue;
+            if (state._hydrated) state._hydrated = false;
             var queuedTrack = document.getElementById('track-' + shelf.id);
             var queuedNotice = queuedTrack && queuedTrack.querySelector('.shelf-loading');
             if (queuedNotice) queuedNotice.innerHTML = '<div class="spinner"></div>Loading shelf ' + (cursor) + ' of ' + queue.length + '…';
@@ -4917,6 +4970,11 @@
         if (el) el.setAttribute('data-shelf-id', s.id);
       });
 
+      // Rehydrate the last successful page before any live request. The live
+      // request still runs, but a slow or rate-limited provider cannot turn a
+      // previously useful shelf into a blank one.
+      order.forEach(function(s) { hydrateShelfSnapshot(s, extra); });
+
       // Start the first visible content lanes immediately. Everything else
       // remains bounded by the background pump so the page becomes useful
       // quickly without creating a provider request burst.
@@ -4941,6 +4999,7 @@
         }
         var state = shelfState[s.id];
         if (!state || state.loading) return;
+        state._hydrated = false;
         state._kicked = true;
         loadShelf(s, extra, true);
         attachInfiniteScroll(s.id);
