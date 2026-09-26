@@ -1806,7 +1806,7 @@
       ' OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))';
     const MANGA_QUALITY_EXCLUDE =
       ' AND NOT title:("how to draw manga" OR "creating manga" OR "draw manga" OR "manga action figures" OR "manga profiles" OR "manga guide" OR "manga art")' +
-      ' AND NOT title:("a midsummer night\'s dream" OR "meet the robinsons" OR "romeo and juliet" OR "john barrymore" OR avatar OR cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR "how to" OR figurine OR "action figure" OR cosplay OR coloring OR colouring OR artbook OR "art book")' +
+      ' AND NOT title:("a midsummer night\'s dream" OR "meet the robinsons" OR "romeo and juliet" OR "john barrymore" OR avatar OR "draw your own manga" OR cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR "how to" OR figurine OR "action figure" OR cosplay OR coloring OR colouring OR artbook OR "art book")' +
       ' AND NOT subject:(cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR education OR "how to draw")';
 
     const MANGA_TITLE_WORDS = [
@@ -1817,7 +1817,7 @@
       'manga','manhwa','manhua','doujinshi','japanese comics','japanese graphic novels'
     ];
     const MANGA_FALSE_POSITIVE_WORDS = [
-      'how to draw manga','creating manga','draw manga','manga action figures','manga profiles',
+      'how to draw manga','creating manga','draw manga','draw your own manga','manga action figures','manga profiles',
       'manga guide','manga art',"a midsummer night's dream",'meet the robinsons',
       'romeo and juliet','john barrymore','avatar'
     ];
@@ -1921,13 +1921,14 @@
         ? doc.collection.join(' ').toLowerCase()
         : String((doc && (doc.collection || doc.collections)) || '').toLowerCase();
       var metadata = title + ' ' + subjects + ' ' + collections;
-      var comicSignal = /\b(comic|comics|comic book|comic books|issue|vol(?:ume)?|no\.?\s*\d|#\s*\d)\b/.test(metadata);
+      var format = String((doc && (doc.format || doc.mediaType || doc.type)) || '').toLowerCase();
+      var comicSignal = format === 'comic' || /\b(comic|comics|comic book|comic books|issue|vol(?:ume)?|no\.?\s*\d|#\s*\d)\b/.test(metadata);
 
       // Character shelves need a relevance gate in addition to the provider
       // query. IA's full-text index commonly matches a character name in a
       // person's biography, a catalog, a game, or an unrelated essay.
       if (id === 'batman') {
-        if (/\b(john batman|batman arkham|arkham origins|lego|wallpaper|catalog(?:ue)?|auction|gdc|game|video game|toy|figurine|statue|costume|fan fiction|thesis|dissertation)\b/.test(metadata)) return false;
+        if (/\b(john batman|batman arkham|arkham origins|lego|wallpaper|catalog(?:ue)?|auction|gdc|game|video game|toy|figurine|statue|costume|fan fiction|thesis|dissertation|science|novelization|promo|investments?|puzzle|sticker|film|movie)\b/.test(metadata)) return false;
         return /\b(batman|detective comics|dark knight|brave and the bold)\b/.test(metadata) && comicSignal;
       }
       if (id === 'spiderman') {
@@ -1935,7 +1936,7 @@
         return /\b(spider[ -]?man|amazing spider|spectacular spider|web of spider)\b/.test(metadata) && comicSignal;
       }
       if (id === 'superman') {
-        if (/\b(from superman to man|superman in being|building instructions|how to|essay|philosophy|education|teaching|auction|catalog(?:ue)?|game|video game|toy|figurine|statue|costume|thesis|dissertation|novel|film|movie)\b/.test(metadata)) return false;
+        if (/\b(from superman to man|superman in being|building instructions|how to|essay|philosophy|education|teaching|auction|catalog(?:ue)?|game|video game|toy|figurine|statue|costume|thesis|dissertation|novel|film|movie|coloring|sticker|puzzle|encyclopedia|search|iphone|poems|man and superman|would end the war)\b/.test(metadata)) return false;
         return /\b(superman|action comics|man of steel)\b/.test(metadata) && comicSignal;
       }
       if (id === 'archie') {
@@ -3881,7 +3882,7 @@
       document.querySelectorAll('[data-health-source]').forEach(function(el) {
         var source = el.getAttribute('data-health-source') || 'ia';
         var entry = sourceHealthState[source] || { status: 'idle' };
-        var displayStatus = entry.status === 'loading' && entry.hasContent ? 'ok' : entry.status;
+        var displayStatus = entry.hasContent && ['loading', 'error'].indexOf(entry.status) !== -1 ? 'degraded' : entry.status;
         el.className = 'shelf-health ' + displayStatus;
         el.innerHTML = '<i></i><span>' + escapeHtml(displayStatus === 'ok' ? 'live' : displayStatus === 'degraded' ? 'fallback' : displayStatus === 'error' ? 'offline' : displayStatus === 'loading' ? 'checking' : 'idle') + '</span>';
         el.title = (entry.detail || SOURCE_LABELS[source] || source) + (entry.checkedAt ? ' · checked ' + new Date(entry.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');

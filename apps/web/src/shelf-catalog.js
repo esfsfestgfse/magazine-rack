@@ -23,7 +23,7 @@ export const MANGA_QUERY =
   ` OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels")` +
   ` OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*)` +
   ` OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))` +
-  ` AND NOT title:("how to draw manga" OR "creating manga" OR "draw manga" OR "manga action figures" OR "manga profiles" OR "manga guide" OR "manga art" OR cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR "how to" OR figurine OR "action figure" OR cosplay OR coloring OR colouring OR artbook OR "art book")` +
+  ` AND NOT title:("how to draw manga" OR "creating manga" OR "draw manga" OR "draw your own manga" OR "manga action figures" OR "manga profiles" OR "manga guide" OR "manga art" OR cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR "how to" OR figurine OR "action figure" OR cosplay OR coloring OR colouring OR artbook OR "art book")` +
   ` AND NOT subject:(cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR education OR "how to draw")` +
   ` AND NOT title:("a midsummer night's dream" OR "meet the robinsons" OR "romeo and juliet" OR "john barrymore" OR avatar)` + ADULT_EXCLUDE;
 
@@ -62,7 +62,7 @@ export const MANGA_SUBJECT_WORDS = [
 ];
 
 export const MANGA_FALSE_POSITIVE_WORDS = [
-  'how to draw manga', 'creating manga', 'draw manga', 'manga action figures', 'manga profiles',
+  'how to draw manga', 'creating manga', 'draw manga', 'draw your own manga', 'manga action figures', 'manga profiles',
   'manga guide', 'manga art', "a midsummer night's dream", 'meet the robinsons',
   'romeo and juliet', 'john barrymore', 'avatar'
 ];
