@@ -23,7 +23,8 @@ export const MANGA_QUERY =
   ` OR subject:(manga OR manhwa OR manhua OR doujinshi OR "japanese comics" OR "japanese graphic novels")` +
   ` OR identifier:(manga* OR manhwa* OR manhua* OR doujinshi*)` +
   ` OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))` +
-  ` AND NOT title:("how to draw manga" OR "creating manga" OR "draw manga" OR "manga action figures" OR "manga profiles" OR "manga guide" OR "manga art")` +
+  ` AND NOT title:("how to draw manga" OR "creating manga" OR "draw manga" OR "manga action figures" OR "manga profiles" OR "manga guide" OR "manga art" OR cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR "how to" OR figurine OR "action figure" OR cosplay OR coloring OR colouring OR artbook OR "art book")` +
+  ` AND NOT subject:(cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR education OR "how to draw")` +
   ` AND NOT title:("a midsummer night's dream" OR "meet the robinsons" OR "romeo and juliet" OR "john barrymore" OR avatar)` + ADULT_EXCLUDE;
 
 /** Strong title/creator signals; deliberately do not match vague words such as "kid". */
@@ -172,21 +173,21 @@ export const SHELVES = [
     id: 'batman',
     title: 'Batman',
     format: 'comic',
-    query: `mediatype:texts AND (title:(batman OR "detective comics" OR "dark knight" OR "brave and the bold") OR subject:(batman OR "batman comics" OR "detective comics" OR "dark knight")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR batman))${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:(batman OR "detective comics" OR "dark knight" OR "brave and the bold") OR subject:(batman OR "batman comics" OR "detective comics" OR "dark knight")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR batman)) AND NOT (title:("john batman" OR "arkham origins" OR lego OR wallpaper OR catalog OR catalogue OR auction OR gdc OR game OR "video game" OR toy OR figurine OR statue OR costume OR "fan fiction" OR thesis OR dissertation))${ADULT_EXCLUDE}`
   },
   {
     id: 'spiderman',
     title: 'Spider-Man',
     format: 'comic',
     series: true,
-    query: `mediatype:texts AND (title:("spider-man" OR spiderman OR "amazing spider-man" OR "spectacular spider-man" OR "web of spider-man" OR "spider man") OR subject:("spider-man" OR spiderman OR "spider-man comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR spider)) AND NOT title:(manual OR "user manual" OR "user's manual" OR "fighting crime")${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:("spider-man" OR spiderman OR "amazing spider-man" OR "spectacular spider-man" OR "web of spider-man" OR "spider man") OR subject:("spider-man" OR spiderman OR "spider-man comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR spider)) AND NOT title:(manual OR "user manual" OR "user's manual" OR "fighting crime" OR online OR watch OR stream OR advertisement OR advertising OR gif OR wallpaper OR game OR "video game" OR toy OR figurine OR statue OR costume OR "fan fiction" OR essay OR thesis OR dissertation OR unauthorized)${ADULT_EXCLUDE}`
   },
   {
     id: 'superman',
     title: 'Superman',
     format: 'comic',
     series: true,
-    query: `mediatype:texts AND (title:(superman OR "action comics" OR "man of steel" OR "superman comics") OR subject:(superman OR "superman comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR superman)) AND NOT title:("building instructions" OR "from superman to man" OR "superman in being" OR auction OR dissertation OR philosophy)${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:(superman OR "action comics" OR "man of steel" OR "superman comics") OR subject:(superman OR "superman comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR superman)) AND NOT title:("building instructions" OR "from superman to man" OR "superman in being" OR auction OR dissertation OR philosophy OR essay OR education OR teaching OR catalog OR catalogue OR game OR "video game" OR toy OR figurine OR statue OR costume OR novel OR film OR movie)${ADULT_EXCLUDE}`
   },
   {
     id: 'xmen',
@@ -200,7 +201,7 @@ export const SHELVES = [
     title: 'Archie',
     format: 'comic',
     series: true,
-    query: `mediatype:texts AND (title:(archie OR "archie comics" OR "archie digest" OR veronica OR betty) OR subject:(archie OR "archie comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR archie)) AND NOT title:("comic dump" OR illustration OR vampirella OR "spire christian" OR "punisher meets" OR "yogi bear" OR knuckles OR "tmnt adventures" OR yearbook OR biography OR military OR defense OR operational)${ADULT_EXCLUDE}`
+    query: `mediatype:texts AND (title:(archie OR "archie comics" OR "archie digest" OR veronica OR betty OR jughead OR reggie OR sabrina OR riverdale) OR subject:(archie OR "archie comics")) AND (subject:(comics OR "comic books") OR title:(comic OR comics OR archie)) AND NOT title:("comic dump" OR illustration OR vampirella OR "spire christian" OR "punisher meets" OR "yogi bear" OR knuckles OR "tmnt adventures" OR yearbook OR biography OR military OR defense OR operational OR baldwin OR whitney OR jones OR hubbard OR lee)${ADULT_EXCLUDE}`
   },
   {
     id: 'underground',

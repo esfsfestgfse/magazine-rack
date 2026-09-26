@@ -1806,7 +1806,8 @@
       ' OR collection:(manga OR mangas OR manhwa OR manhua OR doujinshi OR manga_comics OR manga_collection))';
     const MANGA_QUALITY_EXCLUDE =
       ' AND NOT title:("how to draw manga" OR "creating manga" OR "draw manga" OR "manga action figures" OR "manga profiles" OR "manga guide" OR "manga art")' +
-      ' AND NOT title:("a midsummer night\'s dream" OR "meet the robinsons" OR "romeo and juliet" OR "john barrymore" OR avatar)';
+      ' AND NOT title:("a midsummer night\'s dream" OR "meet the robinsons" OR "romeo and juliet" OR "john barrymore" OR avatar OR cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR "how to" OR figurine OR "action figure" OR cosplay OR coloring OR colouring OR artbook OR "art book")' +
+      ' AND NOT subject:(cookbook OR cookery OR bible OR textbook OR handbook OR encyclopedia OR tutorial OR education OR "how to draw")';
 
     const MANGA_TITLE_WORDS = [
       'manga','manhwa','manhua','doujinshi','tankobon','tankōbon','shonen','shōnen',
@@ -1912,6 +1913,40 @@
       var id = String((shelf && shelf.id) || '').toLowerCase();
       var title = shelfDocumentTitle(doc);
       if (!title) return false;
+
+      var subjects = Array.isArray(doc && doc.subject)
+        ? doc.subject.join(' ').toLowerCase()
+        : String((doc && (doc.subject || doc.subjects)) || '').toLowerCase();
+      var collections = Array.isArray(doc && doc.collection)
+        ? doc.collection.join(' ').toLowerCase()
+        : String((doc && (doc.collection || doc.collections)) || '').toLowerCase();
+      var metadata = title + ' ' + subjects + ' ' + collections;
+      var comicSignal = /\b(comic|comics|comic book|comic books|issue|vol(?:ume)?|no\.?\s*\d|#\s*\d)\b/.test(metadata);
+
+      // Character shelves need a relevance gate in addition to the provider
+      // query. IA's full-text index commonly matches a character name in a
+      // person's biography, a catalog, a game, or an unrelated essay.
+      if (id === 'batman') {
+        if (/\b(john batman|batman arkham|arkham origins|lego|wallpaper|catalog(?:ue)?|auction|gdc|game|video game|toy|figurine|statue|costume|fan fiction|thesis|dissertation)\b/.test(metadata)) return false;
+        return /\b(batman|detective comics|dark knight|brave and the bold)\b/.test(metadata) && comicSignal;
+      }
+      if (id === 'spiderman') {
+        if (/\b(online|watch|stream|advertisement|advertising|manual|user guide|gif|wallpaper|game|video game|toy|figurine|statue|costume|fan fiction|essay|thesis|dissertation|unauthorized)\b/.test(metadata)) return false;
+        return /\b(spider[ -]?man|amazing spider|spectacular spider|web of spider)\b/.test(metadata) && comicSignal;
+      }
+      if (id === 'superman') {
+        if (/\b(from superman to man|superman in being|building instructions|how to|essay|philosophy|education|teaching|auction|catalog(?:ue)?|game|video game|toy|figurine|statue|costume|thesis|dissertation|novel|film|movie)\b/.test(metadata)) return false;
+        return /\b(superman|action comics|man of steel)\b/.test(metadata) && comicSignal;
+      }
+      if (id === 'archie') {
+        if (/\b(baldwin|whitney|jones|hubbard|lee|biography|military|defense|operational|yearbook|catalog(?:ue)?|auction|essay|thesis|dissertation)\b/.test(title)) return false;
+        var archieSeriesSignal = /\b(archie comics?|archie digest|little archie|archie andrews|betty|veronica|jughead|reggie|sabrina|riverdale)\b/.test(metadata);
+        return archieSeriesSignal && comicSignal;
+      }
+      if (id === 'manga') {
+        if (/\b(cookbook|cookery|bible|textbook|handbook|encyclopedia|tutorial|how to draw|action figure|figurine|cosplay|coloring|colouring|artbook|art book|design manual|recipe)\b/.test(metadata)) return false;
+        return isMangaDoc(doc);
+      }
 
       if (id === 'magazine-rack') {
         if (doc && String(doc.format || '').toLowerCase() === 'comic') return false;
@@ -3831,7 +3866,10 @@
       wrap.innerHTML = sources.map(function(source) {
         var entry = sourceHealthState[source] || { status: 'idle', detail: 'Not checked yet', count: 0 };
         if (entry.status !== 'idle') checked++;
-        var displayStatus = entry.status === 'loading' && entry.hasContent ? 'ok' : entry.status;
+        // A failed refresh with retained cards is degraded/stale, not offline.
+        // The distinction matters: the shelf is still usable and should not
+        // look empty or broken just because the provider is temporarily down.
+        var displayStatus = entry.hasContent && ['loading', 'error'].indexOf(entry.status) !== -1 ? 'degraded' : entry.status;
         if (displayStatus === 'ok') ok++;
         var statusText = displayStatus === 'ok' ? 'live' : displayStatus === 'loading' ? 'checking' : displayStatus === 'degraded' ? 'fallback' : displayStatus === 'error' ? 'offline' : 'idle';
         var countText = entry.count ? ' · ' + entry.count.toLocaleString() : '';
