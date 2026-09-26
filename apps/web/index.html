@@ -3044,11 +3044,10 @@
       return Array.from(winners.values());
     }
 
-    function bindCoverFallbacks(card, eagerCover) {
+    function bindCoverFallbacks(card) {
       var image = card.querySelector('img[data-cover-fallbacks]');
       if (!image) return;
       var fallback = (image.getAttribute('data-cover-fallbacks') || '').split('|').filter(Boolean);
-      var coverTimer = null;
       function showPlaceholder() {
         image.style.display = 'none';
         var placeholder = image.nextElementSibling;
@@ -3061,16 +3060,10 @@
       }
       image.addEventListener('error', tryNextCover);
       image.addEventListener('load', function() {
-        if (coverTimer) clearTimeout(coverTimer);
         // A few providers return a successful 1x1/placeholder response. It
         // is technically a loaded image, but not a useful cover.
         if (image.naturalWidth && image.naturalHeight && (image.naturalWidth < 80 || image.naturalHeight < 100)) tryNextCover();
       });
-      // Some remote image hosts leave a request pending instead of returning
-      // an error. Do not let that strand a visible card without a cover.
-      coverTimer = setTimeout(function() {
-        if (!image.complete || !image.naturalWidth) tryNextCover();
-      }, eagerCover ? 4000 : 8000);
     }
 
     function createCoverCard(doc, contextDocs, eagerCover) {
@@ -3104,7 +3097,7 @@
            '<div class="cover-title">' + escapeHtml(title) + '</div>' +
            (issueLine ? '<div class="cover-issue-meta">' + escapeHtml(issueLine) + '</div>' : '');
 
-      bindCoverFallbacks(card, eagerCover);
+      bindCoverFallbacks(card);
       var favorite = card.querySelector('.cover-favorite');
       if (favorite) favorite.addEventListener('click', function(event) {
         event.stopPropagation();
