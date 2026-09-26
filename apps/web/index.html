@@ -1601,10 +1601,6 @@
         </div>
         <div class="hero-ticket"><span>Magazine Rack</span><strong>Read<br>widely.</strong><span>Free / public / curious</span></div>
       </div>
-      <div class="source-pulse" aria-label="Source health">
-        <div class="source-pulse-head"><strong>Source pulse</strong><span id="source-health-summary">Waiting for live feeds</span><button type="button" id="source-health-refresh">Check feeds</button></div>
-        <div class="source-health" id="source-health"></div>
-      </div>
       <div class="racks-panel" id="racks-panel">
         <h3>Visible racks · tap to show/hide</h3>
         <div class="racks-panel-grid" id="racks-panel-grid"></div>
@@ -2750,7 +2746,6 @@
               '<button type="button" class="shelf-see-all" data-shelf="' + shelf.id + '" title="See all issues">See all</button>' +
             '<button type="button" class="shelf-pin' + (pinned ? ' pinned' : '') + '" data-shelf="' + shelf.id + '" title="Pin rack">' + (pinned ? '★' : '☆') + '</button>' +
             '<button type="button" class="shelf-refresh" data-shelf="' + shelf.id + '" aria-label="Refresh this shelf" title="Refresh this shelf">↻</button>' +
-            '<span class="shelf-health" data-health-source="' + healthSourceFor(shelf) + '"><i></i><span>idle</span></span>' +
             '<div class="shelf-count" id="count-' + shelf.id + '"></div>' +
           '</div>' +
         '</div>' +
@@ -4681,7 +4676,7 @@
             : 'deep browse';
         } else {
           state.mode = 'search';
-          countEl.textContent = numFound ? (numFound.toLocaleString() + ' available' + (result.degraded ? ' · fallback' : '')) : '';
+          countEl.textContent = numFound ? (numFound.toLocaleString() + ' available') : '';
           const loaded = state.page * ROWS_PER_PAGE;
           const sourcePageHadRows = Array.isArray(result.docs) && result.docs.length > 0;
           state.hasMore = loaded < numFound && (docs.length > 0 || sourcePageHadRows);
@@ -5107,11 +5102,8 @@
     buildRacksPanel();
     applyRackVisibility();
     renderSourceHealth();
-    document.getElementById('source-health-refresh').addEventListener('click', function() {
-      renderSourceHealth();
-      loadAllShelves();
-      showToast('Checking source feeds…');
-    });
+    // Provider checks remain internal diagnostics. They must never compete
+    // with the shelf UI or make the homepage flicker between live/fallback.
     document.getElementById('racks-btn').addEventListener('click', function() {
       var panel = document.getElementById('racks-panel');
       panel.classList.toggle('open');
