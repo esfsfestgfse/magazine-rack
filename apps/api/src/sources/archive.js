@@ -56,7 +56,7 @@ export async function fetchArchive({ query, page, genre, newspaperMonthDay }, en
   // Collection membership is the useful taxonomy on IA's Magazine Rack
   // parent collection. Keep it in the cached metadata so child-collection
   // shelves remain precise after the first live refresh.
-  for (const field of ['title', 'creator', 'date', 'publicdate', 'subject', 'description', 'collection', 'imagecount', 'access-restricted-item']) params.append('fl[]', field);
+  for (const field of ['title', 'creator', 'date', 'publicdate', 'subject', 'description', 'collection', 'format', 'language', 'volume', 'issue', 'downloads', 'imagecount', 'access-restricted-item']) params.append('fl[]', field);
   const pages = newspaperMonthDay
     ? Array.from({ length: 6 }, (_, index) => Math.max(1, ((Math.max(1, Number(page) || 1) - 1) * 6) + index + 1))
     : [Math.max(1, Number(page) || 1)];

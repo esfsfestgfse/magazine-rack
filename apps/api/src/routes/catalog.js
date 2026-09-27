@@ -146,6 +146,7 @@ async function refreshLiveSnapshot(env, query, genre, page, source, newspaperMon
 
 export async function handleCatalogSearch(request, env, ctx, requestId) {
   const url = new URL(request.url); const query = clean(url.searchParams.get('q'), 1800); const genre = clean(url.searchParams.get('genre'), 80); const source = clean(url.searchParams.get('source'), 30).toLowerCase(); const shelfId = clean(url.searchParams.get('shelf'), 80); const page = Math.max(1, Math.min(100, Number(url.searchParams.get('page')) || 1)); const newspaperMonthDay = clean(url.searchParams.get('newspaper_month_day'), 5);
+  const forceRefresh = url.searchParams.get('refresh') === '1';
   if (newspaperMonthDay && !/^\d{2}-\d{2}$/.test(newspaperMonthDay)) return errorJson(request, env, 'invalid_newspaper_month_day', 400, requestId);
   if (source && !sourceAdapter(source)) return errorJson(request, env, 'invalid_source', 400, requestId);
   // Ignore the client's minute cache-buster so the Worker cache can absorb
@@ -159,7 +160,7 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   cacheKeyUrl.searchParams.set('__cache_version', 'taxonomy-v2');
   const cache = globalThis.caches?.default;
   const cacheKey = new Request(cacheKeyUrl.toString(), { method: 'GET' });
-  const cached = cache ? await cache.match(cacheKey) : null;
+  const cached = !forceRefresh && cache ? await cache.match(cacheKey) : null;
   if (cached) return cacheResponseForRequest(cached, request, env);
 
   // Return the last known-good shelf immediately. Provider refreshes happen
@@ -172,7 +173,7 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   // hide tens of thousands of matching issues. The live branch below still
   // merges this snapshot if Archive is unavailable.
   const preferLiveArchiveTaxonomy = source === 'archive' && collectionTokens(query).length > 0;
-  if (firstStored.items.length && !preferLiveArchiveTaxonomy) {
+  if (firstStored.items.length && !preferLiveArchiveTaxonomy && !forceRefresh) {
     const staleResponse = json(request, env, {
       items: firstStored.items.map(publicItem), total: firstStored.total, totalIsEstimate: true, page, pageSize: 30,
       sources: { [source || 'archive']: 'stale' },
@@ -244,7 +245,7 @@ export async function handleCatalogSearch(request, env, ctx, requestId) {
   ctx.waitUntil(Promise.all(Object.entries(sourceDetails).map(([id, detail]) => persistSourceHealth(env, id, detail).catch(() => {}))));
   if (shelfId) ctx.waitUntil(persistShelfAudit(env, { shelfId, source, page, items, total, status: stale ? 'degraded' : (items.length ? 'ok' : 'unavailable') }).catch(() => {}));
   if (shelfId && items.length) ctx.waitUntil(persistSnapshot(env, { shelfId, source, query, page, newspaperMonthDay, items, total, status: stale ? 'degraded' : 'ok' }).catch(() => {}));
-  if (cache && !failed && !stale) {
+  if (cache && !forceRefresh && !failed && !stale) {
     ctx.waitUntil(cache.put(cacheKey, response.clone()).catch((error) => {
       console.error(JSON.stringify({ message: 'catalog_cache_put_failed', requestId, error: error instanceof Error ? error.message : String(error) }));
     }));

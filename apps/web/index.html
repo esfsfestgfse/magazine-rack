@@ -418,6 +418,10 @@
       justify-content: center;
     }
     .shelf-refresh:active { transform: rotate(-90deg); }
+    .shelf-refresh:hover { border-color: var(--accent); background: rgba(255,255,255,.08); }
+    .shelf-refresh:disabled { cursor: wait; opacity: .8; }
+    .shelf-refresh.is-refreshing { animation: shelf-spin .8s linear infinite; color: var(--accent2); }
+    @keyframes shelf-spin { to { transform: rotate(360deg); } }
 
     .shelf-count {
       font-size: 0.7rem;
@@ -2757,8 +2761,30 @@
         e.stopPropagation();
         var s = SHELVES.find(function(x) { return x.id === shelf.id; });
         if (s) {
+          var button = e.currentTarget;
+          if (button.disabled) return;
+          button.disabled = true;
+          button.classList.add('is-refreshing');
+          button.textContent = '…';
+          button.setAttribute('aria-label', 'Refreshing ' + s.title);
           showToast('Refreshing · ' + s.title);
-          loadShelf(s, buildExtraQuery(), true);
+          // A manual refresh is an explicit cache bypass. Normal shelf loads
+          // remain cache-first, while this path proves the provider is being
+          // asked for a fresh page instead of replaying the same edge result.
+          iaCache = {};
+          Promise.resolve(loadShelf(s, buildExtraQuery(), true, true)).then(function() {
+            var state = shelfState[s.id] || {};
+            var failed = !!state.error;
+            button.classList.remove('is-refreshing');
+            button.textContent = failed ? '!' : '✓';
+            button.setAttribute('aria-label', failed ? 'Refresh failed for ' + s.title : 'Shelf refreshed: ' + s.title);
+            showToast((failed ? 'Refresh failed · ' : 'Updated · ') + s.title);
+            window.setTimeout(function() {
+              button.disabled = false;
+              button.textContent = '↻';
+              button.setAttribute('aria-label', 'Refresh this shelf');
+            }, 1100);
+          });
         }
       });
       div.querySelector('.shelf-pin').addEventListener('click', function(e) {
@@ -4067,10 +4093,10 @@
       return null;
     }
 
-    async function fetchConnectedShelfPage(shelf, page, extraQuery, signal) {
+    async function fetchConnectedShelfPage(shelf, page, extraQuery, signal, forceRefresh) {
       var source = connectedSource(shelf);
       if (!source) return null;
-      if (source === 'comicbookplus' && !(extraQuery && extraQuery.trim())) {
+      if (source === 'comicbookplus' && !forceRefresh && !(extraQuery && extraQuery.trim())) {
         try {
           return await fetchComicBookPlusSnapshotPage(page);
         } catch (snapshotError) {
@@ -4092,7 +4118,8 @@
       url.searchParams.set('page', String(page));
       // Avoid pinning a previous empty provider response in the browser or
       // an edge cache after a source recovers or a new fallback is published.
-      url.searchParams.set('_', String(Math.floor(Date.now() / 60000)));
+      url.searchParams.set('_', String(Date.now()));
+      if (forceRefresh) url.searchParams.set('refresh', '1');
       if (shelf.newspaperDateMode === 'month-day') url.searchParams.set('newspaper_month_day', currentNewspaperMonthDay());
       var res = await enqueueCatalog(function() {
         return fetchWithTimeout(url.toString(), { cache: 'no-store', headers: { 'Accept': 'application/json' }, signal: signal }, FEED_TIMEOUT_MS);
@@ -4293,19 +4320,19 @@
       return String(sortMode).replace(/\+/g, ' ');
     }
 
-    async function fetchIaAdvanced(q, page, sortMode, newspaperMode) {
+    async function fetchIaAdvanced(q, page, sortMode, newspaperMode, forceRefresh) {
       var key = iaCacheKey('adv', [q, String(page), sortMode || '', newspaperMode ? 'paper' : 'all']);
-      var cached = iaCacheGet(key);
+      var cached = forceRefresh ? null : iaCacheGet(key);
       if (cached) return cached;
       return enqueueIa(async function() {
-        var cached2 = iaCacheGet(key);
+        var cached2 = forceRefresh ? null : iaCacheGet(key);
         if (cached2) return cached2;
         var rawPages = newspaperMode ? 6 : 1;
         var responses = [];
         for (var offset = 0; offset < rawPages; offset++) {
           var rawPage = newspaperMode ? ((page - 1) * rawPages) + offset + 1 : page;
           var url = 'https://archive.org/advancedsearch.php?q=' + encodeURIComponent(q) +
-            '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=date&fl[]=subject&fl[]=imagecount&fl[]=collection&fl[]=publicdate' +
+            '&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=date&fl[]=subject&fl[]=imagecount&fl[]=collection&fl[]=format&fl[]=language&fl[]=volume&fl[]=issue&fl[]=downloads&fl[]=publicdate' +
             '&rows=' + ROWS_PER_PAGE +
             '&page=' + rawPage +
             '&output=json&sort[]=' + (sortMode || 'downloads+desc');
@@ -4320,16 +4347,16 @@
       });
     }
 
-    async function fetchIaScrape(q, cursor, sortMode) {
+    async function fetchIaScrape(q, cursor, sortMode, forceRefresh) {
       var key = iaCacheKey('scrape', [q, cursor || 'START', sortMode || '']);
-      var cached = iaCacheGet(key);
+      var cached = forceRefresh ? null : iaCacheGet(key);
       if (cached) return cached;
       return enqueueIa(async function() {
-        var cached2 = iaCacheGet(key);
+        var cached2 = forceRefresh ? null : iaCacheGet(key);
         if (cached2) return cached2;
         var params = new URLSearchParams();
         params.set('q', q);
-        params.set('fields', 'identifier,title,creator,date,subject,imagecount,collection,publicdate');
+        params.set('fields', 'identifier,title,creator,date,subject,imagecount,collection,format,language,volume,issue,downloads,publicdate');
         params.set('count', String(Math.max(100, ROWS_PER_PAGE)));
         params.set('sorts', sortToScrape(sortMode));
         if (cursor) params.set('cursor', cursor);
@@ -4357,11 +4384,11 @@
       });
     }
 
-    async function fetchShelfPageRaw(shelf, page, extraQuery, sortMode, signal) {
+    async function fetchShelfPageRaw(shelf, page, extraQuery, sortMode, signal, forceRefresh) {
 
       if (connectedSource(shelf)) {
         try {
-          return await fetchConnectedShelfPage(shelf, page, extraQuery, signal);
+          return await fetchConnectedShelfPage(shelf, page, extraQuery, signal, forceRefresh);
         } catch (connectedError) {
           // Keep a source-specific browser fallback for local/offline runs or
           // a temporary Worker outage; hosted Pages normally uses the Worker.
@@ -4430,11 +4457,11 @@
 
       // Phase 2: hybrid — advancedsearch first; switch to scrape cursor for deep browse
       if (state.useScrape || state.mode === 'scrape') {
-        var scraped = await fetchIaScrape(q, state.scrapeCursor, sort);
+        var scraped = await fetchIaScrape(q, state.scrapeCursor, sort, forceRefresh);
         return filterNewspaperResult(shelf, scraped);
       }
 
-      var adv = await fetchIaAdvanced(q, page, sort, shelf.newspaperDateMode === 'month-day');
+      var adv = await fetchIaAdvanced(q, page, sort, shelf.newspaperDateMode === 'month-day', forceRefresh);
       // If we're deep into results or collection is huge, next loads use scrape
       var loadedApprox = page * ROWS_PER_PAGE;
       if (adv.numFound > 8000 && loadedApprox >= 90) {
@@ -4459,10 +4486,10 @@
       return 'mediatype:texts AND (collection:magazine_rack OR subject:magazine OR subject:periodicals)' + MANGA_EXCLUDE + ADULT_EXCLUDE;
     }
 
-    async function fetchProviderFallbackPage(shelf, page, extraQuery, sortMode) {
+    async function fetchProviderFallbackPage(shelf, page, extraQuery, sortMode, forceRefresh) {
       var q = providerFallbackQuery(shelf);
       if (extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1) q = '(' + q + ') AND (' + extraQuery.trim() + ')';
-      var result = await fetchIaAdvanced(q, page, sortMode || 'downloads+desc', shelf && shelf.newspaperDateMode === 'month-day');
+      var result = await fetchIaAdvanced(q, page, sortMode || 'downloads+desc', shelf && shelf.newspaperDateMode === 'month-day', forceRefresh);
       return Object.assign({}, filterNewspaperResult(shelf, result), {
         degraded: true,
         fallbackSource: shelf && shelf.source || 'provider',
@@ -4484,7 +4511,7 @@
       });
     }
 
-    async function fetchMangaAggregatePage(shelf, page, extraQuery) {
+    async function fetchMangaAggregatePage(shelf, page, extraQuery, forceRefresh) {
       var feedQuery = extraQuery && extraQuery.trim() && extraQuery.indexOf('date:') === -1 ? extraQuery.trim() : '';
       var feeds = [
         { source: 'ia', shelf: { id: 'manga', title: 'Manga', query: SHELVES.find(function(item) { return item.id === 'manga'; }).query } },
@@ -4500,9 +4527,9 @@
           if (feed.source === 'ia') {
             var q = feed.shelf.query;
             if (feedQuery) q = '(' + q + ') AND (' + feedQuery + ')';
-            data = await fetchIaAdvanced(q, page, 'downloads+desc', false);
+            data = await fetchIaAdvanced(q, page, 'downloads+desc', false, forceRefresh);
           } else {
-            data = await fetchShelfPageRaw(feed.shelf, page, feedQuery, null);
+            data = await fetchShelfPageRaw(feed.shelf, page, feedQuery, null, null, forceRefresh);
           }
           var docs = (data && data.docs || []).filter(function(doc) { return !doc.setup && doc.identifier !== 'gcd-info' && canReadDocument(doc); });
           noteSourceHealth(feed.source, docs.length ? (data.stale ? 'degraded' : 'ok') : 'degraded', docs.length ? docs.length + ' Manga records' : 'No Manga records', docs.length);
@@ -4519,20 +4546,20 @@
       return { docs: docs, numFound: total || docs.length, mode: 'search', partial: errors.length > 0, errors: errors };
     }
 
-    async function fetchShelfPage(shelf, page, extraQuery, sortMode, signal) {
-      if (shelf && (shelf.id === 'manga' || shelf.source === 'aggregate')) return fetchMangaAggregatePage(shelf, page, extraQuery);
+    async function fetchShelfPage(shelf, page, extraQuery, sortMode, signal, forceRefresh) {
+      if (shelf && (shelf.id === 'manga' || shelf.source === 'aggregate')) return fetchMangaAggregatePage(shelf, page, extraQuery, forceRefresh);
       var source = healthSourceFor(shelf);
       var provider = ['openlibrary', 'europeana', 'comicbookplus'].indexOf(source) !== -1;
       noteSourceHealth(source, 'loading', 'Checking ' + (SOURCE_LABELS[source] || source));
       try {
-        var result = await fetchShelfPageRaw(shelf, page, extraQuery, sortMode, signal);
+        var result = await fetchShelfPageRaw(shelf, page, extraQuery, sortMode, signal, forceRefresh);
         var docs = (result && result.docs || []).filter(function(doc) { return !doc.setup && doc.identifier !== 'gcd-info'; });
         // A provider can return a successful response full of catalog-only
         // records. Those rows cannot populate a usable rack, so treat the
         // response as empty and activate the resilient IA fallback.
         var usableDocs = docs.filter(canReadDocument);
         if (provider && !usableDocs.length) {
-          var fallback = await fetchProviderFallbackPage(shelf, page, extraQuery, sortMode);
+          var fallback = await fetchProviderFallbackPage(shelf, page, extraQuery, sortMode, forceRefresh);
           noteSourceHealth(source, 'degraded', 'Provider returned no usable records; showing Internet Archive fallback', fallback.docs.length);
           return fallback;
         }
@@ -4541,7 +4568,7 @@
       } catch (error) {
         if (provider) {
           try {
-            var fallback = await fetchProviderFallbackPage(shelf, page, extraQuery, sortMode);
+            var fallback = await fetchProviderFallbackPage(shelf, page, extraQuery, sortMode, forceRefresh);
             noteSourceHealth(source, 'degraded', 'Provider unavailable; showing Internet Archive fallback', fallback.docs.length);
             return fallback;
           } catch (fallbackError) { /* surface the original error below */ }
@@ -4564,7 +4591,7 @@
       return card;
     }
 
-    async function loadShelf(shelf, extraQuery, reset) {
+    async function loadShelf(shelf, extraQuery, reset, forceRefresh) {
       const state = shelfState[shelf.id];
       if (!state) return;
       if (state.loading) {
@@ -4642,7 +4669,7 @@
       }
 
       try {
-        const result = await fetchShelfPage(shelf, nextPage, state.extraQuery, state.sort, controller.signal);
+        const result = await fetchShelfPage(shelf, nextPage, state.extraQuery, state.sort, controller.signal, forceRefresh);
         if (requestToken !== state.requestToken || controller.signal.aborted) return;
         state.error = '';
         state.partial = Boolean(result && result.partial);

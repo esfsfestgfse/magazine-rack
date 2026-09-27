@@ -56,6 +56,13 @@ if (!standalone.includes('startBackgroundShelfPump') || !standalone.includes('ba
 if (!standalone.includes('isAdultMagazineFalsePositive')) {
   throw new Error('Standalone checks failed: adult shelf quality filtering is missing');
 }
+if (!standalone.includes("url.searchParams.set('refresh', '1')") || !standalone.includes('forceRefresh')) {
+  throw new Error('Standalone checks failed: manual shelf refresh does not bypass provider caches');
+}
+const catalogRoute = readFileSync(join(root, 'apps/api/src/routes/catalog.js'), 'utf8');
+if (!catalogRoute.includes("searchParams.get('refresh') === '1'") || !catalogRoute.includes('!forceRefresh && cache')) {
+  throw new Error('API release gate failed: forced refresh path is missing');
+}
 const serviceWorker = readFileSync(join(root, 'apps/web/sw.js'), 'utf8');
 if (!serviceWorker.includes('magazine-rack-shell-v18')) throw new Error('Service worker cache version was not bumped');
 console.log('Release gate checks passed (canonical root, serialized loading, and source quality guards).');
